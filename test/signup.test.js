@@ -276,11 +276,11 @@ test('posted text is parsed, and formula-looking names are stored as text', () =
   assert.equal(aba.ABA_RULES.sheetSafe('Ada Volunteer'), 'Ada Volunteer');
 });
 
-test('the published config stays empty and the browser posts text/plain through redirects', () => {
+test('the published config points at the Apps Script web app and posts text/plain through redirects', () => {
   const config = fs.readFileSync(path.join(root, 'js/config.js'), 'utf8');
   const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
   const code = fs.readFileSync(path.join(root, 'apps-script/Code.gs'), 'utf8');
-  assert.match(config, /backendUrl:\s*""/);
+  assert.match(config, /backendUrl:\s*"https:\/\/script\.google\.com\/macros\/s\/AKfycbxr1tnAxRP2Jm5FEbHiKjWDWtdkSrNUoM53CvAqMAUYN2XYKbAzDKgAMxQmOce_4_Cl\/exec"/);
   assert.match(app, /text\/plain;charset=utf-8/);
   assert.match(app, /redirect:\s*'follow'/);
   assert.match(code, /LockService\.getScriptLock\(\)/);

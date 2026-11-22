@@ -1,5 +1,5 @@
-// Paste the Apps Script web app URL (the one ending in /exec) between the quotes.
-// Leave the quotes empty to keep this page in read-only preview mode.
+// Apps Script web app URL (the deployment that ends in /exec).
+// Leave the quotes empty to fall back to read-only preview mode.
 window.ABA_CONFIG = {
-  backendUrl: ""
+  backendUrl: "https://script.google.com/macros/s/AKfycbxr1tnAxRP2Jm5FEbHiKjWDWtdkSrNUoM53CvAqMAUYN2XYKbAzDKgAMxQmOce_4_Cl/exec"
 };
