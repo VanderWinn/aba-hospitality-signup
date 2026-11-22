@@ -14,7 +14,7 @@ var SLOT_HEADERS = ['slotId', 'date', 'time', 'event', 'location', 'task', 'capa
 var SIGNUP_HEADERS = [
   'name', 'email', 'event', 'date', 'time', 'task', 'location', 'capacity', 'createdAt',
   'signupId', 'slotId', 'source',
-  'token', 'status', 'reminderSent', 'updatedAt', 'previousSlotId', 'sequence'
+  'token', 'status', 'reminderSent', 'updatedAt', 'previousSlotId', 'sequence', 'oldTask'
 ];
 
 var ABA_RULES = (function () {
@@ -82,7 +82,8 @@ var ABA_RULES = (function () {
   }
 
   function isActive(row) {
-    return String(row && row.status || '').trim().toLowerCase() !== 'cancelled';
+    var status = String(row && row.status || '').trim().toLowerCase();
+    return status !== 'cancelled' && status !== 'needs-review';
   }
 
   function stamp(date) {
@@ -247,7 +248,10 @@ var ABA_RULES = (function () {
       index[key].tasks.push({
         task: slot.task,
         capacity: Number(slot.capacity),
-        names: names
+        names: names,
+        timeLabel: slot.timeLabel || '',
+        description: slot.description || '',
+        roleDate: slot.roleDate || slot.date || ''
       });
     }
     return {
@@ -473,22 +477,7 @@ function readState_() {
 }
 
 function abaCatalogSlots_() {
-  var seed = abaSeedData();
-  var slots = [];
-  seed.events.forEach(function (event) {
-    event.tasks.forEach(function (task) {
-      slots.push({
-        slotId: ABA_RULES.slotId(event.date, event.name, task.task),
-        date: event.date,
-        time: event.time,
-        event: event.name,
-        location: event.location,
-        task: task.task,
-        capacity: Math.floor(Number(task.capacity))
-      });
-    });
-  });
-  return slots;
+  return abaExpandEvents_();
 }
 
 function rowsToState_(slotValues, signupValues) {
@@ -623,7 +612,8 @@ function buildSeedRows_(seed) {
           '',
           '',
           '',
-          0
+          0,
+          ''
         ]);
       });
     });
@@ -789,6 +779,12 @@ function slotForRow_(state, row) {
   };
 }
 
+function lookupStatus_(row) {
+  var status = String(row.status || '').trim().toLowerCase();
+  if (status === 'cancelled' || status === 'needs-review') return status;
+  return 'active';
+}
+
 function lookupSignup_(body, deps) {
   var token = cleanToken_(body.token);
   if (!token) return { ok: false, error: 'That link is not valid.' };
@@ -801,10 +797,13 @@ function lookupSignup_(body, deps) {
     signup: {
       name: row.name,
       email: row.email,
-      status: ABA_RULES.isActive(row) ? 'active' : 'cancelled',
+      status: lookupStatus_(row),
       event: slot.event,
       date: slot.date,
       time: slot.time,
+      timeLabel: slot.timeLabel || '',
+      description: slot.description || '',
+      roleDate: slot.roleDate || '',
       task: slot.task,
       location: slot.location
     }
@@ -981,6 +980,42 @@ function migrateV2() {
   var summary = 'Migration complete. Kept ' + result.kept + ' sign-up rows. Filled ' +
     result.capacitiesFilled + ' capacities and ' + result.tokensFilled + ' tokens. ' +
     (removed ? 'Removed the Slots tab.' : 'The Slots tab was already gone.');
+  Logger.log(summary);
+  try { SpreadsheetApp.getUi().alert(summary); } catch (err) {}
+  return summary;
+}
+
+/**
+ * Remaps existing sign-up rows onto the role templates.
+ * Does not delete rows. Safe to run again.
+ */
+function migrateV3() {
+  var ss = openSheet_();
+  var sheet = ss.getSheetByName('Signups');
+  if (!sheet) throw new Error('Signups tab is missing. Run migrateV2 first.');
+  var headers = readHeaders_(sheet);
+  if (headers.indexOf('oldTask') === -1) {
+    var col = headers.length + 1;
+    sheet.getRange(1, col).setValue('oldTask');
+    sheet.getRange(1, col).setFontWeight('bold').setBackground('#407589').setFontColor('#ffffff');
+    sheet.getRange(1, col).setNote('Task name before the v3 role templates.');
+  }
+  var state = readState_();
+  var plan = planRoleMigration_(state.signups, state.slots);
+  plan.changes.forEach(function (change) {
+    if (change.rowNumber) updateSignup_(change.rowNumber, change.fields);
+  });
+  SpreadsheetApp.flush();
+  var review = plan.needsReview.map(function (row) {
+    return row.date + ' ' + row.event + ' — ' + row.name + ' (' + row.task + ')';
+  });
+  var over = plan.overCapacity.map(function (row) {
+    return row.date + ' ' + row.event + ' ' + row.task + ' has ' + row.names.length + ' people and capacity ' + row.capacity + ': ' + row.names.join(', ');
+  });
+  var summary = 'Migration v3 complete. Updated ' + plan.changes.length + ' rows. Needs review: ' +
+    plan.needsReview.length + '. Over capacity: ' + plan.overCapacity.length + '.' +
+    (review.length ? ' Review: ' + review.join('; ') + '.' : '') +
+    (over.length ? ' Over capacity: ' + over.join('; ') + '.' : '');
   Logger.log(summary);
   try { SpreadsheetApp.getUi().alert(summary); } catch (err) {}
   return summary;

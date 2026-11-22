@@ -141,13 +141,18 @@
   function onBoardClick(event) {
     var button = event.target.closest('.claim');
     if (!button || state.mode === 'preview') return;
-    openDialog(button.getAttribute('data-date'), button.getAttribute('data-event'), button.getAttribute('data-task'));
+    openDialog(button.getAttribute('data-date'), button.getAttribute('data-event'), button.getAttribute('data-task'), button.getAttribute('data-when'), button.getAttribute('data-description'));
   }
 
-  function openDialog(date, eventName, task) {
+  function openDialog(date, eventName, task, when, description) {
     active = { date: date, event: eventName, task: task };
     document.getElementById('dialog-title').textContent = 'Sign up for ' + task;
-    document.getElementById('dialog-copy').textContent = eventName + ' · ' + catalog.formatLong(date);
+    document.getElementById('dialog-copy').textContent = eventName + ' · ' + catalog.formatLong(date) + (when ? ' · ' + when : '');
+    var desc = document.getElementById('dialog-desc');
+    if (desc) {
+      desc.textContent = description || '';
+      desc.hidden = !description;
+    }
     document.getElementById('signup-form').reset();
     var error = document.getElementById('form-error');
     error.hidden = true;

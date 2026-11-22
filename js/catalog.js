@@ -73,7 +73,10 @@
           capacity: capacity,
           names: names,
           filled: names.length,
-          remaining: Math.max(0, capacity - names.length)
+          remaining: Math.max(0, capacity - names.length),
+          timeLabel: task.timeLabel || '',
+          description: task.description || '',
+          roleDate: task.roleDate || ''
         };
       });
       return {
@@ -146,12 +149,14 @@
         return '<li>' + escapeHtml(name) + '</li>';
       }).join('') + '</ul>'
       : '<p class="who empty">No one yet</p>';
-    var width = task.capacity > 0 ? Math.round((task.filled / task.capacity) * 100) : 0;
+    var width = task.capacity > 0 ? Math.min(100, Math.round((task.filled / task.capacity) * 100)) : (task.filled ? 100 : 0);
+    var when = task.timeLabel || event.time || '';
     var action;
     if (canClaim) {
-      var label = 'Sign up for ' + task.task + ', ' + event.name + ', ' + formatLong(event.date);
+      var label = 'Sign up for ' + task.task + ', ' + event.name + ', ' + formatLong(event.date) + (when ? ', ' + when : '');
       action = '<button type="button" class="claim" data-date="' + escapeHtml(event.date) +
         '" data-event="' + escapeHtml(event.name) + '" data-task="' + escapeHtml(task.task) +
+        '" data-when="' + escapeHtml(when) + '" data-description="' + escapeHtml(task.description || '') +
         '" aria-label="' + escapeHtml(label) + '">Sign up</button>';
     } else if (event.past) {
       action = '<span class="pill closed">Closed</span>';
@@ -163,6 +168,8 @@
     return '<article class="task" id="' + taskDomId(event, task) + '">' +
       '<div class="task-main">' +
         '<h3>' + escapeHtml(task.task) + '</h3>' +
+        (when ? '<p class="task-when">' + escapeHtml(when) + '</p>' : '') +
+        (task.description ? '<p class="task-desc">' + escapeHtml(task.description) + '</p>' : '') +
         '<p class="spots">' + escapeHtml(spotPhrase(event, task)) + '</p>' +
         '<div class="meter" aria-hidden="true"><span style="width:' + width + '%"></span></div>' +
       '</div>' +
@@ -249,7 +256,9 @@
       '<h2 id="manage-title">Your sign-up</h2>' +
       '<p>' + escapeHtml(record.name) + (record.email ? ' · ' + escapeHtml(record.email) : '') + '</p>' +
       '<p><strong>' + escapeHtml(record.task) + '</strong><br>' + escapeHtml(record.event || '') + ' · ' +
-      escapeHtml(formatLong(record.date)) + (record.time ? ' · ' + escapeHtml(record.time) : '') + '</p>' +
+      escapeHtml(formatLong(record.date)) + ((record.timeLabel || record.time) ? ' · ' + escapeHtml(record.timeLabel || record.time) : '') + '</p>' +
+      (record.description ? '<p class="task-desc">' + escapeHtml(record.description) + '</p>' : '') +
+      (record.status === 'needs-review' ? '<p>This task is not on the current list. You can cancel it or move to an open role.</p>' : '') +
       '<p>' + escapeHtml(record.location || '') + '</p>' +
       '<div class="manage-actions"><button type="button" class="btn danger" id="manage-cancel">Cancel this sign-up</button></div>' +
       '<div class="manage-move">' + move + '</div>' +

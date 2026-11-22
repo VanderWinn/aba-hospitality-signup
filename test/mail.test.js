@@ -170,7 +170,10 @@ test('reminders go out exactly two days ahead and only once', () => {
 });
 
 test('migration keeps every sign-up, backfills capacity and tokens, and is idempotent', () => {
-  const catalog = aba.abaCatalogSlots_();
+  const catalog = [
+    { slotId: '2026-11-17|Ribbon Cutting|Photographer', time: '4:30 PM', location: 'Riverside', capacity: 1 },
+    { slotId: '2026-12-09|Happy Hour|Mixer Host', time: '4:30 PM', location: 'Ada Hotel', capacity: 1 }
+  ];
   const values = [
     ['signupId', 'slotId', 'name', 'email', 'createdAt', 'source'],
     ['seed-01', '2026-11-17|Ribbon Cutting|Photographer', 'Stacey Thurston', '', '2026-11-17T16:04:00-05:00', 'seed'],

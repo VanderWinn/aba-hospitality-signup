@@ -76,4 +76,18 @@ Reminder rule: around 9:00 AM Eastern, the script emails each active sign-up tha
 
 Calendar rule: a time such as 4:30 PM is a 2-hour event in America/New_York, because the list has no end time. A task with no clock time is an all-day event. Every current event has a time.
 
-To change how many spots a task has, edit that task's `capacity` in `Seed.gs`, paste the updated file, and deploy a new version. The Capacity column on a sign-up row is a copy for the sheet; the script enforces the number in `Seed.gs`.
+To change how many spots a task has, edit that role in `apps-script/Templates.gs`, paste the updated file, and deploy a new version. The Capacity column on a sign-up row is a copy for the sheet; the script enforces the number in the template. To add a future event, append one object to `abaEvents()` in that file.
+
+## Upgrading to v3
+
+The website keeps working with the current script until you publish a new version. Open spots can still be claimed. Role times and the new task names appear after the new version is deployed.
+
+Run these once, in this order. Do not run `setup` or `migrateV2` again.
+
+1. In the spreadsheet, choose **Extensions → Apps Script**.
+2. Replace `Code.gs` with `apps-script/Code.gs`. Replace `Mail.gs` with `apps-script/Mail.gs`.
+3. Click **+ → Script**, name the file `Templates`, and paste `apps-script/Templates.gs`. Leave `Seed.gs` as it is. Save.
+4. Choose **migrateV3** and click **Run**. It keeps every sign-up row, stores the old task name in `oldTask`, and points recognized rows at the new roles. `Ambassadors - Full lunch` rows are marked `needs-review` and stay off the public grid. Running it again does not remap a row that already has `oldTask`.
+5. Click **Deploy → Manage deployments → pencil icon**. Set **Version** to **New version**. Click **Deploy**. The `/exec` URL stays the same.
+
+Role times are what the page, the emails, and the calendar file use. A Ribbon Cutting with no end time treats "through end of event" as 60 minutes after the start. Set `end` on that event in `abaEvents()` when you know the real end. Every Happy Hour is 4:30–6:30 PM. Drink Delivery is 3:00–4:00 PM the day before the lunch.

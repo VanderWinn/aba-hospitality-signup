@@ -171,7 +171,44 @@ function calendarPieces_(signup, slot) {
   var googleDates = '';
   var outlookStart = '';
   var outlookEnd = '';
-  if (!when) {
+  var roleStart = slot.roleStart ? parseClock_(slot.roleStart) : null;
+  var roleEnd = slot.roleEnd ? parseClock_(slot.roleEnd) : null;
+  if (roleStart && roleEnd) {
+    var roleDate = slot.roleDate || slot.date;
+    var endDate = roleDate;
+    if (roleEnd.hour * 60 + roleEnd.minute <= roleStart.hour * 60 + roleStart.minute) endDate = addDays_(roleDate, 1);
+    var startUtc = zonedWallToUtc_(roleDate, roleStart.hour, roleStart.minute, ABA_CALENDAR_TZ);
+    var endUtc = zonedWallToUtc_(endDate, roleEnd.hour, roleEnd.minute, ABA_CALENDAR_TZ);
+    googleDates = formatUtcBasic_(startUtc) + '/' + formatUtcBasic_(endUtc);
+    outlookStart = formatUtcIso_(startUtc);
+    outlookEnd = formatUtcIso_(endUtc);
+    lines.push('BEGIN:VTIMEZONE');
+    lines.push('TZID:' + ABA_CALENDAR_TZ);
+    lines.push('X-LIC-LOCATION:' + ABA_CALENDAR_TZ);
+    lines.push('BEGIN:DAYLIGHT');
+    lines.push('TZOFFSETFROM:-0500');
+    lines.push('TZOFFSETTO:-0400');
+    lines.push('TZNAME:EDT');
+    lines.push('DTSTART:19700308T020000');
+    lines.push('RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU');
+    lines.push('END:DAYLIGHT');
+    lines.push('BEGIN:STANDARD');
+    lines.push('TZOFFSETFROM:-0400');
+    lines.push('TZOFFSETTO:-0500');
+    lines.push('TZNAME:EST');
+    lines.push('DTSTART:19701101T020000');
+    lines.push('RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU');
+    lines.push('END:STANDARD');
+    lines.push('END:VTIMEZONE');
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:' + escapeIcs_(uid));
+    lines.push('DTSTAMP:' + stamp);
+    lines.push('SEQUENCE:' + sequence);
+    lines.push('SUMMARY:' + escapeIcs_(summary));
+    lines.push('DTSTART;TZID=' + ABA_CALENDAR_TZ + ':' + roleDate.replace(/-/g, '') + 'T' + pad2_(roleStart.hour) + pad2_(roleStart.minute) + '00');
+    lines.push('DTEND;TZID=' + ABA_CALENDAR_TZ + ':' + endDate.replace(/-/g, '') + 'T' + pad2_(roleEnd.hour) + pad2_(roleEnd.minute) + '00');
+    when = roleStart;
+  } else if (!when) {
     var endDay = addDays_(slot.date, 1);
     googleDates = slot.date.replace(/-/g, '') + '/' + endDay.replace(/-/g, '');
     outlookStart = slot.date;
@@ -242,7 +279,9 @@ function buildMessage_(signup, slot, kind) {
   lines.push('END:VEVENT');
   lines.push('END:VCALENDAR');
   var ics = foldIcs_(lines.join('\r\n')) + '\r\n';
-  var whenText = longDate_(slot.date) + (pieces.timed ? ', ' + String(slot.time).trim() + ' Eastern' : ', all day');
+  var whenText = slot.timeLabel
+    ? ((slot.roleDate && slot.roleDate !== slot.date ? longDate_(slot.roleDate) : longDate_(slot.date)) + ', ' + slot.timeLabel + ' Eastern')
+    : (longDate_(slot.date) + (pieces.timed ? ', ' + String(slot.time).trim() + ' Eastern' : ', all day'));
   var intro = 'You are signed up.';
   var subject = 'You\'re signed up: ' + slot.task + ' — ' + slot.event;
   if (kind === 'reminder') {
@@ -263,8 +302,9 @@ function buildMessage_(signup, slot, kind) {
     '',
     'Event: ' + slot.event,
     'Date: ' + longDate_(slot.date),
-    'Time: ' + (pieces.timed ? String(slot.time).trim() + ' Eastern' : 'All day'),
+    'Time: ' + (slot.timeLabel ? ((slot.roleDate && slot.roleDate !== slot.date ? longDate_(slot.roleDate) + ', ' : '') + slot.timeLabel + ' Eastern') : (pieces.timed ? String(slot.time).trim() + ' Eastern' : 'All day')),
     'Task: ' + slot.task,
+    slot.description ? 'Details: ' + slot.description : '',
     'Where: ' + where,
     '',
     'Add to Google Calendar:',
@@ -296,8 +336,9 @@ function buildMessage_(signup, slot, kind) {
     '<table style="border-collapse:collapse;margin:0 0 16px;">',
     row('Event', slot.event),
     row('Date', longDate_(slot.date)),
-    row('Time', pieces.timed ? String(slot.time).trim() + ' Eastern' : 'All day'),
+    row('Time', slot.timeLabel ? ((slot.roleDate && slot.roleDate !== slot.date ? longDate_(slot.roleDate) + ', ' : '') + slot.timeLabel + ' Eastern') : (pieces.timed ? String(slot.time).trim() + ' Eastern' : 'All day')),
     row('Task', slot.task),
+    slot.description ? row('Details', slot.description) : '',
     row('Where', where),
     '</table>',
     '<p style="margin:0 0 8px;">' + button(pieces.google, 'Add to Google Calendar') + button(pieces.outlook, 'Add to Outlook') + '</p>',
@@ -329,7 +370,7 @@ function remindersDue_(state, today) {
     if (!row.email) return;
     if (String(row.reminderSent || '').trim()) return;
     var slot = byId[row.slotId];
-    if (!slot || slot.date !== target) return;
+    if (!slot || (slot.roleDate || slot.date) !== target) return;
     due.push({ signup: row, slot: slot });
   });
   return due;
