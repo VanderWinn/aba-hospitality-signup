@@ -26,11 +26,12 @@ jobs:
 
       - name: Collect site files
         run: |
-          mkdir -p _site/css _site/js _site/data
+          mkdir -p _site/css _site/js _site/data _site/assets
           cp index.html .nojekyll _site/
           cp css/styles.css _site/css/
           cp js/config.js js/catalog.js js/app.js _site/js/
           cp data/seed.json _site/data/
+          cp assets/aba-logo.png _site/assets/
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

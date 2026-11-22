@@ -54,3 +54,26 @@ GitHub Pages republishes from `main`. After a minute, reload the site. The previ
 If you change `Code.gs` or `Seed.gs`: **Deploy → Manage deployments → pencil icon → Version: New version → Deploy**. The web app URL stays the same, so `js/config.js` does not need another edit.
 
 The page sends `POST` requests as `text/plain` so browsers on GitHub Pages can reach the web app without a CORS preflight, and it follows the redirect Apps Script returns.
+
+## Upgrading to v2
+
+The live sheet already has sign-ups. Do not run `setup` again. The website keeps working with the current web app until you publish a new version: the public grid still loads, and a change/cancel link shows a short notice instead of failing the rest of the page.
+
+Capacities live in `apps-script/Seed.gs`, which the script reads. The spreadsheet only stores people who signed up. Each sign-up row includes a Capacity number for that task. The page counts active rows against the list in the script.
+
+Run these once, in this order:
+
+1. In the spreadsheet, choose **Extensions → Apps Script**.
+2. Replace all of `Code.gs` with `apps-script/Code.gs` from this repo. Save.
+3. Click **+ → Script**, name the file `Mail`, and paste `apps-script/Mail.gs`. Leave `Seed.gs` as it is. Save.
+4. Choose the function **migrateV2** and click **Run**. Approve the spreadsheet permission if Google asks. You should see: `Migration complete. Kept 24 sign-up rows.` plus how many capacities and tokens were filled, and that the Slots tab was removed. Every existing name and email stays. Empty tasks are no longer rows. Running `migrateV2` again only fills blanks.
+5. Choose **installTriggers** and click **Run**. Approve sending email and managing triggers. You should see that the daily reminder is installed. Running it again does not add a second trigger.
+6. Click **Deploy → Manage deployments → pencil icon**. Set **Version** to **New version**. Click **Deploy**. The `/exec` URL stays the same, so `js/config.js` does not change.
+
+After that, a new sign-up emails the participant from the deploying account, with the display name Ada Business Association and reply-to donny@vanderwinn.com. The message includes the event, date, time, task, and location, a plain-text copy, an `.ics` file, and an Add to Google Calendar link. The private change/cancel link is `https://vanderwinn.github.io/aba-hospitality-signup/?manage=` plus that row's token. Seed rows have no email, so they are not emailed.
+
+Reminder rule: around 9:00 AM Eastern, the script emails each active sign-up that has an email when the event date is exactly two Eastern calendar days away, and only if that row has not already been reminded. A move clears the reminder mark so the new date can get its own reminder. Cancelled rows are skipped and no longer fill a spot.
+
+Calendar rule: a time such as 4:30 PM is a 2-hour event in America/New_York, because the list has no end time. A task with no clock time is an all-day event. Every current event has a time.
+
+To change how many spots a task has, edit that task's `capacity` in `Seed.gs`, paste the updated file, and deploy a new version. The Capacity column on a sign-up row is a copy for the sheet; the script enforces the number in `Seed.gs`.

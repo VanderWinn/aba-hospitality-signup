@@ -75,10 +75,11 @@ test('setup rows carry the 24 names and no email addresses', () => {
   const built = aba.buildSeedRows_(aba.abaSeedData());
   assert.equal(built.slotRows.length, 59);
   assert.equal(built.signupRows.length, 24);
-  const emails = built.signupRows.map((row) => row[3]);
+  const col = (row, name) => row[aba.SIGNUP_HEADERS.indexOf(name)];
+  const emails = built.signupRows.map((row) => col(row, 'email'));
   assert.equal(emails.length, 24);
   assert.equal(emails.every((email) => email === ''), true);
-  assert.ok(built.signupRows.some((row) => row[2] === 'Stacey Thurston' && row[5] === 'seed'));
+  assert.ok(built.signupRows.some((row) => col(row, 'name') === 'Stacey Thurston' && col(row, 'source') === 'seed' && col(row, 'capacity') === 1));
   const ids = built.slotRows.map((row) => row[0]);
   assert.equal(new Set(ids).size, 59);
 });
@@ -194,7 +195,7 @@ test('a claim writes one row, repeats are rejected, and the last spot cannot be 
   assert.equal(first.message, 'You are signed up for Mixer Host.');
   assert.equal(deps.readInsideLock, true);
   assert.equal(deps.appendInsideLock, true);
-  assert.equal(state.signups.filter((row) => row.task === undefined && row.slotId.endsWith('|Mixer Host') && row.source === 'web').length, 1);
+  assert.equal(state.signups.filter((row) => row.task === 'Mixer Host' && row.slotId.endsWith('|Mixer Host') && row.source === 'web').length, 1);
 
   const duplicate = aba.processPost_(claim({ email: 'Ada.Volunteer@Example.com', name: 'Ada V.' }), deps);
   assert.equal(duplicate.ok, false);
@@ -272,7 +273,7 @@ test('posted text is parsed, and formula-looking names are stored as text', () =
     createdAt: 't',
     source: 'web'
   });
-  assert.equal(cells[2].startsWith("'"), true);
+  assert.equal(String(cells[aba.SIGNUP_HEADERS.indexOf('name')]).startsWith("'"), true);
   assert.equal(aba.ABA_RULES.sheetSafe('Ada Volunteer'), 'Ada Volunteer');
 });
 

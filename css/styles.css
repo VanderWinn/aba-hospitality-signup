@@ -1,18 +1,19 @@
 :root {
-  --ink: #1a2b24;
-  --ink-soft: #42564d;
-  --paper: #f3efe6;
-  --card: #fffdf8;
-  --line: #ddd4c4;
-  --pine: #1e5c45;
-  --pine-deep: #12382b;
-  --gold: #8d6b2f;
+  --ink: #39393a;
+  --ink-soft: #757575;
+  --paper: #f2f2f2;
+  --card: #ffffff;
+  --line: #e6e6e6;
+  --pine: #407589;
+  --pine-deep: #2d515f;
+  --mint: #83b7b5;
+  --gold: #407589;
   --clay: #8a332c;
-  --open: #0f513c;
-  --shadow: 0 12px 32px rgba(18, 40, 32, 0.06);
-  --serif: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, serif;
-  --sans: "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
-  --focus: #8d6b2f;
+  --open: #2d515f;
+  --shadow: 0 10px 28px rgba(47, 80, 95, 0.08);
+  --serif: "Montserrat", "Segoe UI", sans-serif;
+  --sans: "Raleway", "Segoe UI", sans-serif;
+  --focus: #2d515f;
 }
 
 * { box-sizing: border-box; }
@@ -57,10 +58,11 @@ h1, h2, h3, p { margin-top: 0; }
 .skip:focus { top: 1rem; }
 
 .site-header {
-  background: var(--pine-deep);
-  color: #f6f1e6;
-  padding: 1.75rem 0 1.6rem;
-  border-bottom: 4px solid #c6a15a;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 1.1rem 0 1.2rem;
+  border-top: 6px solid var(--pine);
+  border-bottom: 4px solid var(--mint);
 }
 
 .header-inner {
@@ -69,25 +71,22 @@ h1, h2, h3, p { margin-top: 0; }
   align-items: flex-start;
 }
 
-.mark {
-  flex: 0 0 auto;
-  width: 3.4rem;
-  height: 3.4rem;
-  margin: 0.15rem 0 0;
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(246, 241, 230, 0.4);
-  border-radius: 12px;
-  font-size: 0.95rem;
-  letter-spacing: 0.04em;
+.logo-link { flex: 0 0 auto; line-height: 0; }
+
+.logo {
+  width: min(220px, 46vw);
+  height: auto;
+  display: block;
 }
 
 .org {
   margin: 0 0 0.2rem;
-  font-size: 0.82rem;
+  font-family: var(--serif);
+  font-size: 0.78rem;
+  font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #e4d3a4;
+  color: var(--pine);
 }
 
 h1 {
@@ -100,8 +99,13 @@ h1 {
 .lede {
   margin: 0;
   max-width: 40rem;
-  color: #efe7d8;
+  color: var(--ink-soft);
+  font-family: var(--sans);
 }
+
+.home-link { margin: 0.45rem 0 0; }
+
+.home-link a { color: var(--pine); font-weight: 600; text-decoration-thickness: 1px; }
 
 #banner:empty { display: none; }
 
@@ -196,14 +200,28 @@ main { padding: 1.25rem 0 3rem; }
 .event-head {
   padding: 1.1rem 1.15rem 0.9rem;
   border-bottom: 1px solid var(--line);
-  background:
-    linear-gradient(90deg, rgba(30, 92, 69, 0.09), transparent 2.2rem),
-    #fffdf8;
+  background: #ffffff;
+}
+
+.event-progress {
+  height: 8px;
+  margin-top: 0.7rem;
+  background: #e6e6e6;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.event-progress span {
+  display: block;
+  height: 100%;
+  background: var(--pine);
 }
 
 .kicker {
   margin: 0;
   color: var(--pine);
+  font-family: var(--serif);
+  font-weight: 700;
   font-size: 0.95rem;
 }
 
@@ -245,7 +263,7 @@ h3 { margin: 0; font-size: 1.12rem; line-height: 1.3; }
 .meter span {
   display: block;
   height: 100%;
-  background: var(--pine);
+  background: var(--mint);
 }
 
 .who {
@@ -263,8 +281,8 @@ h3 { margin: 0; font-size: 1.12rem; line-height: 1.3; }
   min-height: 2rem;
   padding: 0.15rem 0.7rem;
   border-radius: 999px;
-  background: #e7f2eb;
-  color: #12382b;
+  background: #e7f1f4;
+  color: var(--pine-deep);
 }
 
 .who.empty { color: #6d675d; font-style: italic; }
@@ -275,7 +293,7 @@ h3 { margin: 0; font-size: 1.12rem; line-height: 1.3; }
   font-weight: 650;
 }
 
-.pill.open { background: #e7f2eb; color: var(--open); }
+.pill.open { background: #e7f1f4; color: var(--open); }
 .pill.full { background: #eeeae2; color: #4e493f; }
 .pill.closed { background: #eeeae2; color: #4e493f; }
 
@@ -287,12 +305,13 @@ h3 { margin: 0; font-size: 1.12rem; line-height: 1.3; }
 
 .claim, .btn {
   min-height: 44px;
-  border: 0;
+  border: 1px solid var(--pine-deep);
   border-radius: 999px;
   padding: 0.45rem 1rem;
   background: var(--pine);
   color: #fff;
   cursor: pointer;
+  font-family: var(--serif);
   font-weight: 700;
 }
 
@@ -304,8 +323,10 @@ h3 { margin: 0; font-size: 1.12rem; line-height: 1.3; }
 
 .icon-close { min-height: 44px; border-radius: 999px; padding: 0.3rem 0.8rem; cursor: pointer; }
 
-.claim:hover, .btn:hover { background: var(--pine-deep); }
-.btn.ghost:hover, .icon-close:hover { background: #f6f1e6; }
+.claim:hover, .btn:hover { background: var(--mint); color: #000; border-color: #5da09d; }
+.btn.danger { background: var(--clay); border-color: #6d221c; }
+.btn.danger:hover { background: #6d221c; color: #fff; border-color: #6d221c; }
+.btn.ghost:hover, .icon-close:hover { background: #f2f2f2; }
 
 .past-block {
   margin-top: 1.5rem;
@@ -332,14 +353,45 @@ h3 { margin: 0; font-size: 1.12rem; line-height: 1.3; }
   font-size: 0.95rem;
 }
 
+.manage {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-top: 6px solid var(--pine);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 1.1rem 1.15rem 1.2rem;
+  margin: 0 0 1rem;
+}
+
+.manage-actions, .manage-move {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: end;
+  margin-top: 0.8rem;
+}
+
+.manage-move { flex-direction: column; align-items: stretch; }
+
+select {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #cfc5b2;
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  color: var(--ink);
+  background: #fff;
+}
+
 .toast {
   position: fixed;
   left: 50%;
   bottom: 1rem;
   transform: translateX(-50%);
   width: min(36rem, calc(100% - 2rem));
-  background: #12382b;
-  color: #f6f1e6;
+  background: var(--pine-deep);
+  color: #ffffff;
   padding: 0.9rem 1rem;
   border-radius: 14px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
@@ -422,7 +474,8 @@ input[type="text"], input[type="email"] {
   .stats { grid-template-columns: 1fr; }
   .task { grid-template-columns: 1fr; }
   .task-action { justify-self: start; }
-  .header-inner { align-items: flex-start; }
+  .header-inner { align-items: flex-start; flex-wrap: wrap; }
+  .logo { width: min(180px, 70vw); }
   .jump ul {
     flex-wrap: nowrap;
     overflow-x: auto;

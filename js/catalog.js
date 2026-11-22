@@ -177,12 +177,20 @@
     var meta = event.past
       ? 'Past event'
       : (open === 0 ? 'All spots filled' : open + (open === 1 ? ' spot open' : ' spots open'));
+    var filled = 0;
+    var cap = 0;
+    event.tasks.forEach(function (task) {
+      filled += task.filled;
+      cap += task.capacity;
+    });
+    var pct = cap > 0 ? Math.round((filled / cap) * 100) : 0;
     return '<section class="event' + (event.past ? ' is-past' : '') + '" id="' + eventDomId(event) + '" aria-labelledby="' + eventDomId(event) + '-title">' +
       '<header class="event-head">' +
         '<p class="kicker">' + escapeHtml(event.name) + '</p>' +
         '<h2 id="' + eventDomId(event) + '-title">' + escapeHtml(formatLong(event.date)) + '</h2>' +
         '<p class="when">' + escapeHtml(event.time) + ' · ' + escapeHtml(venue(event.location, event.name)) + '</p>' +
         '<p class="event-status">' + escapeHtml(meta) + '</p>' +
+        '<div class="event-progress" role="img" aria-label="' + filled + ' of ' + cap + ' spots filled"><span style="width:' + pct + '%"></span></div>' +
       '</header>' +
       '<div class="tasks">' + event.tasks.map(function (task) { return renderTask(event, task, mode); }).join('') + '</div>' +
     '</section>';
@@ -213,6 +221,41 @@
     return stats + jump + upcomingHtml + pastHtml;
   }
 
+  function renderManage(record, view) {
+    if (!record) return '';
+    if (record.status === 'cancelled') {
+      return '<section class="manage" aria-labelledby="manage-title"><h2 id="manage-title">Sign-up cancelled</h2><p>' +
+        escapeHtml(record.name) + ' is no longer signed up for ' + escapeHtml(record.task || 'this task') + '.</p></section>';
+    }
+    var options = '';
+    var count = 0;
+    (view && view.events || []).forEach(function (event) {
+      if (event.past) return;
+      event.tasks.forEach(function (task) {
+        var same = event.date === record.date && event.name === record.event && task.task === record.task;
+        if (same || task.remaining < 1) return;
+        count += 1;
+        options += '<option data-date="' + escapeHtml(event.date) + '" data-event="' + escapeHtml(event.name) +
+          '" data-task="' + escapeHtml(task.task) + '">' +
+          escapeHtml(formatNav(event.date) + ' · ' + event.name + ' · ' + task.task + ' (' + task.remaining + ' open)') +
+          '</option>';
+      });
+    });
+    var move = count
+      ? '<label for="manage-target">Move to another open spot</label><select id="manage-target"><option value="">Choose a spot</option>' +
+        options + '</select><button type="button" class="btn" id="manage-move">Move</button>'
+      : '<p>Every other spot is full or closed.</p>';
+    return '<section class="manage" aria-labelledby="manage-title">' +
+      '<h2 id="manage-title">Your sign-up</h2>' +
+      '<p>' + escapeHtml(record.name) + (record.email ? ' · ' + escapeHtml(record.email) : '') + '</p>' +
+      '<p><strong>' + escapeHtml(record.task) + '</strong><br>' + escapeHtml(record.event || '') + ' · ' +
+      escapeHtml(formatLong(record.date)) + (record.time ? ' · ' + escapeHtml(record.time) : '') + '</p>' +
+      '<p>' + escapeHtml(record.location || '') + '</p>' +
+      '<div class="manage-actions"><button type="button" class="btn danger" id="manage-cancel">Cancel this sign-up</button></div>' +
+      '<div class="manage-move">' + move + '</div>' +
+      '<p id="manage-error" class="form-error" role="alert" hidden></p></section>';
+  }
+
   root.ABACatalog = {
     escapeHtml: escapeHtml,
     todayInDetroit: todayInDetroit,
@@ -223,6 +266,7 @@
     findTask: findTask,
     renderBanner: renderBanner,
     renderBoard: renderBoard,
+    renderManage: renderManage,
     eventDomId: eventDomId
   };
 })(typeof window !== 'undefined' ? window : globalThis);

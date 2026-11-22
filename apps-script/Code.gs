@@ -11,7 +11,11 @@
 var SPREADSHEET_ID = '1wVRyW_PRfB-rgPB716lWkqQraBBnw1lXuPH5o2-4u74';
 
 var SLOT_HEADERS = ['slotId', 'date', 'time', 'event', 'location', 'task', 'capacity'];
-var SIGNUP_HEADERS = ['signupId', 'slotId', 'name', 'email', 'createdAt', 'source'];
+var SIGNUP_HEADERS = [
+  'name', 'email', 'event', 'date', 'time', 'task', 'location', 'capacity', 'createdAt',
+  'signupId', 'slotId', 'source',
+  'token', 'status', 'reminderSent', 'updatedAt', 'previousSlotId', 'sequence'
+];
 
 var ABA_RULES = (function () {
   var ORG = 'Ada Business Association';
@@ -64,13 +68,21 @@ var ABA_RULES = (function () {
     return s;
   }
 
-  function todayKey(date) {
+  function todayKeyIn(date, timeZone) {
     return new Intl.DateTimeFormat('en-CA', {
-      timeZone: TIMEZONE,
+      timeZone: timeZone || TIMEZONE,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'
     }).format(date || new Date());
+  }
+
+  function todayKey(date) {
+    return todayKeyIn(date, TIMEZONE);
+  }
+
+  function isActive(row) {
+    return String(row && row.status || '').trim().toLowerCase() !== 'cancelled';
   }
 
   function stamp(date) {
@@ -189,7 +201,7 @@ var ABA_RULES = (function () {
     var taken = 0;
     for (var i = 0; i < state.signups.length; i++) {
       var row = state.signups[i];
-      if (row.slotId !== slot.slotId) continue;
+      if (row.slotId !== slot.slotId || !isActive(row)) continue;
       taken += 1;
       if (row.email && row.email === value.email) {
         return { ok: false, error: 'You are already signed up for this task.' };
@@ -206,6 +218,7 @@ var ABA_RULES = (function () {
         email: value.email,
         source: 'web'
       },
+      slot: slot,
       message: 'You are signed up for ' + slot.task + '.'
     };
   }
@@ -228,6 +241,7 @@ var ABA_RULES = (function () {
       }
       var names = [];
       for (var s = 0; s < signups.length; s++) {
+        if (!isActive(signups[s])) continue;
         if (signups[s].slotId === slot.slotId && signups[s].name) names.push(signups[s].name);
       }
       index[key].tasks.push({
@@ -257,6 +271,8 @@ var ABA_RULES = (function () {
     sheetSafe: sheetSafe,
     unwrapSheetText: unwrapSheetText,
     todayKey: todayKey,
+    todayKeyIn: todayKeyIn,
+    isActive: isActive,
     stamp: stamp,
     formatSheetDate: formatSheetDate,
     parseSignup: parseSignup,
@@ -303,6 +319,12 @@ function interpretPost_(raw, deps) {
   } catch (err) {
     return { ok: false, error: 'Invalid request.' };
   }
+  if (body && typeof body === 'object' && !Array.isArray(body) && body.action) {
+    if (body.action === 'lookup') return lookupSignup_(body, deps);
+    if (body.action === 'cancel') return cancelSignup_(body, deps);
+    if (body.action === 'move') return moveSignup_(body, deps);
+    return { ok: false, error: 'Invalid request.' };
+  }
   return processPost_(body, deps);
 }
 
@@ -320,6 +342,7 @@ function processPost_(body, deps) {
   }
 
   var result = { ok: false, error: 'Could not submit the form.' };
+  var mail = null;
   var outcome;
   try {
     outcome = deps.withLock(function () {
@@ -329,14 +352,9 @@ function processPost_(body, deps) {
         result = { ok: false, error: decision.error };
         return;
       }
-      deps.appendSignup({
-        signupId: deps.newId(),
-        slotId: decision.signup.slotId,
-        name: decision.signup.name,
-        email: decision.signup.email,
-        createdAt: deps.stamp(deps.now()),
-        source: 'web'
-      });
+      var record = signupRecord_(decision, deps);
+      if (record.email) mail = buildMessage_(record, decision.slot, 'confirm');
+      deps.appendSignup(record);
       result = { ok: true, message: decision.message };
     });
   } catch (err) {
@@ -344,6 +362,41 @@ function processPost_(body, deps) {
   }
   if (outcome === false) {
     return { ok: false, error: 'The sheet is busy. Please try again in a moment.' };
+  }
+  return deliverMail_(result, mail, deps);
+}
+
+function signupRecord_(decision, deps) {
+  var slot = decision.slot;
+  return {
+    name: decision.signup.name,
+    email: decision.signup.email,
+    event: slot.event,
+    date: slot.date,
+    time: slot.time,
+    task: slot.task,
+    location: slot.location,
+    capacity: slot.capacity,
+    createdAt: deps.stamp(deps.now()),
+    signupId: deps.newId(),
+    slotId: slot.slotId,
+    source: 'web',
+    token: deps.newToken ? deps.newToken() : '',
+    status: 'active',
+    reminderSent: '',
+    updatedAt: '',
+    previousSlotId: '',
+    sequence: 0
+  };
+}
+
+function deliverMail_(result, mail, deps) {
+  if (result && result.ok && mail && deps.sendMail) {
+    try {
+      deps.sendMail(mail);
+    } catch (err) {
+      result.message = (result.message || 'Saved.') + ' We could not send the confirmation email.';
+    }
   }
   return result;
 }
@@ -357,7 +410,11 @@ function scriptDeps_() {
     withLock: withScriptLock_,
     readState: readState_,
     appendSignup: appendSignup_,
-    newId: function () { return Utilities.getUuid(); }
+    updateSignup: updateSignup_,
+    newId: function () { return Utilities.getUuid(); },
+    newToken: newToken_,
+    sendMail: sendMailApp_,
+    todayEastern: function () { return ABA_RULES.todayKeyIn(new Date(), ABA_CALENDAR_TZ); }
   };
 }
 
@@ -409,15 +466,29 @@ function openSheet_() {
 
 function readState_() {
   var ss = openSheet_();
-  var slotsSheet = ss.getSheetByName('Slots');
   var signupsSheet = ss.getSheetByName('Signups');
-  if (!slotsSheet || !signupsSheet) {
-    throw new Error('Sheet is not set up.');
-  }
-  return rowsToState_(
-    slotsSheet.getDataRange().getValues(),
-    signupsSheet.getDataRange().getValues()
-  );
+  if (!signupsSheet) throw new Error('Sheet is not set up.');
+  var parsed = rowsToState_([[]], signupsSheet.getDataRange().getValues());
+  return { slots: abaCatalogSlots_(), signups: parsed.signups };
+}
+
+function abaCatalogSlots_() {
+  var seed = abaSeedData();
+  var slots = [];
+  seed.events.forEach(function (event) {
+    event.tasks.forEach(function (task) {
+      slots.push({
+        slotId: ABA_RULES.slotId(event.date, event.name, task.task),
+        date: event.date,
+        time: event.time,
+        event: event.name,
+        location: event.location,
+        task: task.task,
+        capacity: Math.floor(Number(task.capacity))
+      });
+    });
+  });
+  return slots;
 }
 
 function rowsToState_(slotValues, signupValues) {
@@ -441,13 +512,27 @@ function rowsToState_(slotValues, signupValues) {
   for (var j = 0; j < signupObjects.length; j++) {
     var row = signupObjects[j];
     if (!row.slotId) continue;
+    var parsedId = parseSlotId_(row.slotId);
     signups.push({
+      rowNumber: row.__row,
       signupId: String(row.signupId || ''),
       slotId: String(row.slotId),
       name: ABA_RULES.unwrapSheetText(row.name).trim(),
       email: ABA_RULES.normalizeEmail(ABA_RULES.unwrapSheetText(row.email)),
-      createdAt: String(row.createdAt || ''),
-      source: String(row.source || '')
+      createdAt: row.createdAt == null ? '' : String(row.createdAt),
+      source: String(row.source || ''),
+      event: String(row.event || (parsedId && parsedId.event) || ''),
+      date: ABA_RULES.formatSheetDate(row.date || (parsedId && parsedId.date) || ''),
+      time: String(row.time || ''),
+      task: String(row.task || (parsedId && parsedId.task) || ''),
+      location: String(row.location || ''),
+      capacity: row.capacity === '' || row.capacity == null ? '' : Math.floor(Number(row.capacity)),
+      token: String(row.token || '').trim(),
+      status: String(row.status || '').trim(),
+      reminderSent: String(row.reminderSent || '').trim(),
+      updatedAt: row.updatedAt == null ? '' : String(row.updatedAt),
+      previousSlotId: String(row.previousSlotId || ''),
+      sequence: Math.floor(Number(row.sequence || 0)) || 0
     });
   }
   return { slots: slots, signups: signups };
@@ -464,7 +549,7 @@ function tableObjects_(values) {
       if (values[r][c] !== '' && values[r][c] != null) empty = false;
     }
     if (empty) continue;
-    var obj = {};
+    var obj = { __row: r + 1 };
     for (var i = 0; i < header.length; i++) {
       if (header[i]) obj[header[i]] = values[r][i];
     }
@@ -473,21 +558,40 @@ function tableObjects_(values) {
   return out;
 }
 
+function signupValue_(name, row) {
+  if (name === 'name' || name === 'email') return ABA_RULES.sheetSafe(row[name] == null ? '' : row[name]);
+  var value = row[name];
+  return value == null ? '' : value;
+}
+
 function signupCells_(row) {
-  return [
-    row.signupId,
-    row.slotId,
-    ABA_RULES.sheetSafe(row.name),
-    ABA_RULES.sheetSafe(row.email),
-    row.createdAt,
-    row.source
-  ];
+  return SIGNUP_HEADERS.map(function (name) { return signupValue_(name, row); });
+}
+
+function readHeaders_(sheet) {
+  var last = Math.max(sheet.getLastColumn(), 1);
+  return sheet.getRange(1, 1, 1, last).getValues()[0].map(function (cell) {
+    return String(cell || '').trim();
+  });
 }
 
 function appendSignup_(row) {
   var sheet = openSheet_().getSheetByName('Signups');
   if (!sheet) throw new Error('Signups tab is missing.');
-  sheet.appendRow(signupCells_(row));
+  var headers = readHeaders_(sheet);
+  sheet.appendRow(headers.map(function (name) { return signupValue_(name, row); }));
+}
+
+function updateSignup_(rowNumber, fields) {
+  var sheet = openSheet_().getSheetByName('Signups');
+  if (!sheet) throw new Error('Signups tab is missing.');
+  var headers = readHeaders_(sheet);
+  Object.keys(fields).forEach(function (name) {
+    var col = headers.indexOf(name);
+    if (col === -1) return;
+    sheet.getRange(rowNumber, col + 1).setNumberFormat('@');
+    sheet.getRange(rowNumber, col + 1).setValue(signupValue_(name, fields));
+  });
 }
 
 function buildSeedRows_(seed) {
@@ -502,12 +606,24 @@ function buildSeedRows_(seed) {
         count += 1;
         var name = typeof person === 'string' ? person : person.name;
         signupRows.push([
-          'seed-' + String(count).padStart(2, '0'),
-          id,
           name,
           '',
+          event.name,
+          event.date,
+          event.time,
+          task.task,
+          event.location,
+          task.capacity,
           seed.pulledAt || '',
-          'seed'
+          'seed-' + String(count).padStart(2, '0'),
+          id,
+          'seed',
+          '',
+          '',
+          '',
+          '',
+          '',
+          0
         ]);
       });
     });
@@ -550,24 +666,19 @@ function setup() {
     Logger.log('Could not set the spreadsheet timezone. Continuing.');
   }
 
-  var slotsSheet = getOrCreateSheet_(ss, 'Slots');
   var signupsSheet = getOrCreateSheet_(ss, 'Signups');
-  if (slotsSheet.getLastRow() > 1 || signupsSheet.getLastRow() > 1) {
-    throw new Error('Slots or Signups already has rows, so setup stopped to avoid duplicating them. Delete those data rows (or the tabs) and run setup again if you mean to start over.');
+  if (signupsSheet.getLastRow() > 1) {
+    throw new Error('Signups already has rows, so setup stopped to avoid duplicating them. The live sheet should run migrateV2 instead of setup.');
   }
 
-  writeHeaders_(slotsSheet, SLOT_HEADERS);
   writeHeaders_(signupsSheet, SIGNUP_HEADERS);
   // getRange(row, column, numRows, numColumns) — the third argument is a count.
-  slotsSheet.getRange(2, 1, built.slotRows.length, SLOT_HEADERS.length).setNumberFormat('@');
-  slotsSheet.getRange(2, 7, built.slotRows.length, 1).setNumberFormat('0');
-  slotsSheet.getRange(2, 1, built.slotRows.length, SLOT_HEADERS.length).setValues(built.slotRows);
   signupsSheet.getRange(2, 1, built.signupRows.length, SIGNUP_HEADERS.length).setNumberFormat('@');
   signupsSheet.getRange(2, 1, built.signupRows.length, SIGNUP_HEADERS.length).setValues(built.signupRows);
-  signupsSheet.getRange('D1').setNote('Email addresses stay in this sheet. The public page shows names only.');
-
-  sizeColumns_(slotsSheet, [280, 110, 90, 160, 420, 260, 100]);
-  sizeColumns_(signupsSheet, [120, 280, 200, 240, 180, 90]);
+  var emailCol = SIGNUP_HEADERS.indexOf('email') + 1;
+  signupsSheet.getRange(1, emailCol).setNote('Email addresses stay in this sheet. The public page shows names only.');
+  signupsSheet.getRange(1, SIGNUP_HEADERS.indexOf('token') + 1).setNote('Private manage token. Do not share this column.');
+  sizeColumns_(signupsSheet, [180, 220, 160, 120, 100, 220, 360, 90, 180, 120, 280, 80, 220, 100, 130, 160, 220, 90]);
 
   var stray = ss.getSheetByName('Sheet1');
   if (stray && ss.getSheets().length > 1 && stray.getLastRow() === 0) {
@@ -592,10 +703,285 @@ function writeHeaders_(sheet, headers) {
   sheet.setFrozenRows(1);
   sheet.getRange(1, 1, 1, headers.length)
     .setFontWeight('bold')
-    .setBackground('#1e5c45')
+    .setBackground('#407589')
     .setFontColor('#ffffff');
 }
 
 function sizeColumns_(sheet, widths) {
   for (var i = 0; i < widths.length; i++) sheet.setColumnWidth(i + 1, widths[i]);
+}
+
+function newToken_() {
+  return Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+}
+
+function sendMailApp_(message) {
+  var blob = Utilities.newBlob(message.ics, 'text/calendar', message.filename || 'aba-hospitality.ics');
+  MailApp.sendEmail({
+    to: message.to,
+    subject: message.subject,
+    body: message.text,
+    htmlBody: message.html,
+    name: message.name || ABA_MAIL_NAME,
+    replyTo: message.replyTo || ABA_MAIL_REPLY_TO,
+    attachments: [blob]
+  });
+}
+
+function cleanToken_(value) {
+  var token = String(value || '').trim();
+  if (!/^[A-Za-z0-9]{32,80}$/.test(token)) return '';
+  return token;
+}
+
+function findToken_(signups, token) {
+  for (var i = 0; i < signups.length; i++) {
+    if (signups[i].token === token) return signups[i];
+  }
+  return null;
+}
+
+function findSlotLocal_(slots, slotId) {
+  for (var i = 0; i < slots.length; i++) {
+    if (slots[i].slotId === slotId) return slots[i];
+  }
+  return null;
+}
+
+function countActive_(signups, slotId, exceptSignupId) {
+  var n = 0;
+  for (var i = 0; i < signups.length; i++) {
+    var row = signups[i];
+    if (row.slotId !== slotId || !ABA_RULES.isActive(row)) continue;
+    if (exceptSignupId && row.signupId === exceptSignupId) continue;
+    n += 1;
+  }
+  return n;
+}
+
+function emailTaken_(signups, slotId, email, exceptSignupId) {
+  if (!email) return false;
+  for (var i = 0; i < signups.length; i++) {
+    var row = signups[i];
+    if (row.slotId !== slotId || !ABA_RULES.isActive(row)) continue;
+    if (exceptSignupId && row.signupId === exceptSignupId) continue;
+    if (row.email && row.email === email) return true;
+  }
+  return false;
+}
+
+function copyFields_(row, fields) {
+  var out = {};
+  Object.keys(row || {}).forEach(function (key) { out[key] = row[key]; });
+  Object.keys(fields || {}).forEach(function (key) { out[key] = fields[key]; });
+  return out;
+}
+
+function slotForRow_(state, row) {
+  return findSlotLocal_(state.slots, row.slotId) || {
+    slotId: row.slotId,
+    event: row.event,
+    date: row.date,
+    time: row.time,
+    task: row.task,
+    location: row.location,
+    capacity: row.capacity
+  };
+}
+
+function lookupSignup_(body, deps) {
+  var token = cleanToken_(body.token);
+  if (!token) return { ok: false, error: 'That link is not valid.' };
+  var state = deps.readState();
+  var row = findToken_(state.signups, token);
+  if (!row) return { ok: false, error: 'That link is not valid.' };
+  var slot = slotForRow_(state, row);
+  return {
+    ok: true,
+    signup: {
+      name: row.name,
+      email: row.email,
+      status: ABA_RULES.isActive(row) ? 'active' : 'cancelled',
+      event: slot.event,
+      date: slot.date,
+      time: slot.time,
+      task: slot.task,
+      location: slot.location
+    }
+  };
+}
+
+function cancelSignup_(body, deps) {
+  var token = cleanToken_(body.token);
+  if (!token) return { ok: false, error: 'That link is not valid.' };
+  var result = { ok: false, error: 'Could not cancel the sign-up.' };
+  var mail = null;
+  var outcome;
+  try {
+    outcome = deps.withLock(function () {
+      var state = deps.readState();
+      var row = findToken_(state.signups, token);
+      if (!row) { result = { ok: false, error: 'That link is not valid.' }; return; }
+      var slot = slotForRow_(state, row);
+      if (!ABA_RULES.isActive(row)) {
+        result = { ok: true, message: 'This sign-up is already cancelled.' };
+        return;
+      }
+      var fields = {
+        status: 'cancelled',
+        updatedAt: deps.stamp(deps.now()),
+        sequence: (Math.floor(Number(row.sequence)) || 0) + 1
+      };
+      deps.updateSignup(row.rowNumber, fields);
+      if (row.email) mail = buildMessage_(copyFields_(row, fields), slot, 'cancel');
+      result = { ok: true, message: 'Your sign-up is cancelled.' };
+    });
+  } catch (err) {
+    return { ok: false, error: 'Could not cancel the sign-up.' };
+  }
+  if (outcome === false) return { ok: false, error: 'The sheet is busy. Please try again in a moment.' };
+  return deliverMail_(result, mail, deps);
+}
+
+function moveSignup_(body, deps) {
+  var token = cleanToken_(body.token);
+  if (!token) return { ok: false, error: 'That link is not valid.' };
+  var eventName = String(body.event || '').trim();
+  var date = String(body.date || '').trim();
+  var task = String(body.task || '').trim();
+  if (!eventName || !task || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return { ok: false, error: 'Choose an open spot.' };
+  }
+  var slotId = ABA_RULES.slotId(date, eventName, task);
+  var result = { ok: false, error: 'Could not update the sign-up.' };
+  var mail = null;
+  var outcome;
+  try {
+    outcome = deps.withLock(function () {
+      var state = deps.readState();
+      var row = findToken_(state.signups, token);
+      if (!row) { result = { ok: false, error: 'That link is not valid.' }; return; }
+      if (!ABA_RULES.isActive(row)) { result = { ok: false, error: 'This sign-up is already cancelled.' }; return; }
+      var slot = findSlotLocal_(state.slots, slotId);
+      if (!slot) { result = { ok: false, error: 'That event or task is not on the sheet.' }; return; }
+      if (String(slot.date) < String(deps.today())) { result = { ok: false, error: 'This event is closed.' }; return; }
+      if (slot.slotId === row.slotId) { result = { ok: false, error: 'You are already signed up for this task.' }; return; }
+      if (emailTaken_(state.signups, slot.slotId, row.email, row.signupId)) {
+        result = { ok: false, error: 'You are already signed up for this task.' }; return;
+      }
+      var capacity = Math.floor(Number(slot.capacity));
+      if (!isFinite(capacity) || capacity < 1 || countActive_(state.signups, slot.slotId, row.signupId) >= capacity) {
+        result = { ok: false, error: 'That task is full.' }; return;
+      }
+      var fields = {
+        event: slot.event,
+        date: slot.date,
+        time: slot.time,
+        task: slot.task,
+        location: slot.location,
+        capacity: slot.capacity,
+        slotId: slot.slotId,
+        previousSlotId: row.slotId,
+        updatedAt: deps.stamp(deps.now()),
+        reminderSent: '',
+        sequence: (Math.floor(Number(row.sequence)) || 0) + 1,
+        status: 'active'
+      };
+      deps.updateSignup(row.rowNumber, fields);
+      if (row.email) mail = buildMessage_(copyFields_(row, fields), slot, 'move');
+      result = { ok: true, message: 'You are now signed up for ' + slot.task + '.' };
+    });
+  } catch (err) {
+    return { ok: false, error: 'Could not update the sign-up.' };
+  }
+  if (outcome === false) return { ok: false, error: 'The sheet is busy. Please try again in a moment.' };
+  return deliverMail_(result, mail, deps);
+}
+
+function runReminders_(deps) {
+  var today = deps.todayEastern ? deps.todayEastern() : ABA_RULES.todayKeyIn(new Date(deps.now()), ABA_CALENDAR_TZ);
+  var claimed = [];
+  var outcome = deps.withLock(function () {
+    var state = deps.readState();
+    remindersDue_({ slots: state.slots, signups: state.signups }, today).forEach(function (item) {
+      deps.updateSignup(item.signup.rowNumber, { reminderSent: item.slot.date });
+      claimed.push(item);
+    });
+  });
+  if (outcome === false) return { ok: false, error: 'The sheet is busy. Run sendReminders again.', sent: 0 };
+  var sent = 0;
+  claimed.forEach(function (item) {
+    try {
+      deps.sendMail(buildMessage_(item.signup, item.slot, 'reminder'));
+      sent += 1;
+    } catch (err) {
+      try { deps.updateSignup(item.signup.rowNumber, { reminderSent: '' }); } catch (ignore) {}
+    }
+  });
+  return { ok: true, sent: sent };
+}
+
+function sendReminders() {
+  var result = runReminders_(scriptDeps_());
+  if (!result.ok) return result.error;
+  return 'Sent ' + result.sent + ' reminder' + (result.sent === 1 ? '' : 's') + '.';
+}
+
+function installTriggers() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var names = triggers.map(function (trigger) { return trigger.getHandlerFunction(); });
+  var plan = planTriggerHandlers_(names);
+  plan.deleteIndexes.forEach(function (index) { ScriptApp.deleteTrigger(triggers[index]); });
+  if (!plan.create) return 'Reminder trigger already installed. It runs daily around 9:00 AM Eastern.';
+  var builder = ScriptApp.newTrigger('sendReminders').timeBased().everyDays(1).atHour(9).nearMinute(0);
+  try { builder.inTimezone(ABA_CALENDAR_TZ); } catch (err) {}
+  builder.create();
+  return 'Reminder trigger installed. It runs daily around 9:00 AM Eastern and emails a participant when their event is exactly 2 days away.';
+}
+
+/**
+ * Rewrites Signups into the v2 columns, backfills capacity and tokens,
+ * keeps every existing sign-up row, and removes the Slots tab.
+ * Safe to run again.
+ */
+function migrateV2() {
+  var ss = openSheet_();
+  var sheet = ss.getSheetByName('Signups');
+  if (!sheet) throw new Error('Signups tab is missing.');
+  var lastRow = Math.max(sheet.getLastRow(), 1);
+  var lastCol = Math.max(sheet.getLastColumn(), 1);
+  var values = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  var before = 0;
+  for (var r = 1; r < values.length; r++) {
+    var empty = true;
+    for (var c = 0; c < values[r].length; c++) {
+      if (values[r][c] !== '' && values[r][c] != null) empty = false;
+    }
+    if (!empty) before += 1;
+  }
+  var result = migrateSignupTable_(values, abaCatalogSlots_(), SIGNUP_HEADERS, function () { return newToken_(); });
+  if (result.kept !== before) {
+    throw new Error('Migration stopped because it would change the number of sign-up rows.');
+  }
+  sheet.getRange(1, 1, result.values.length, SIGNUP_HEADERS.length).setNumberFormat('@');
+  sheet.getRange(1, 1, result.values.length, SIGNUP_HEADERS.length).setValues(result.values);
+  if (lastRow > result.values.length) {
+    sheet.getRange(result.values.length + 1, 1, lastRow - result.values.length, Math.max(lastCol, SIGNUP_HEADERS.length)).clearContent();
+  }
+  writeHeaders_(sheet, SIGNUP_HEADERS);
+  sheet.getRange(1, SIGNUP_HEADERS.indexOf('email') + 1).setNote('Email addresses stay in this sheet. The public page shows names only.');
+  sheet.getRange(1, SIGNUP_HEADERS.indexOf('token') + 1).setNote('Private manage token. Do not share this column.');
+  var slots = ss.getSheetByName('Slots');
+  var removed = false;
+  if (slots && ss.getSheets().length > 1) {
+    ss.deleteSheet(slots);
+    removed = true;
+  }
+  SpreadsheetApp.flush();
+  var summary = 'Migration complete. Kept ' + result.kept + ' sign-up rows. Filled ' +
+    result.capacitiesFilled + ' capacities and ' + result.tokensFilled + ' tokens. ' +
+    (removed ? 'Removed the Slots tab.' : 'The Slots tab was already gone.');
+  Logger.log(summary);
+  try { SpreadsheetApp.getUi().alert(summary); } catch (err) {}
+  return summary;
 }

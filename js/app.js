@@ -14,6 +14,8 @@
   var submitting = false;
   var scrolledToHash = false;
   var toastTimer = null;
+  var manageToken = '';
+  var manageRecord = null;
 
   document.addEventListener('DOMContentLoaded', init);
 
@@ -99,6 +101,9 @@
       state.mode = 'preview';
       paint();
       bind();
+      if (manageToken) {
+        document.getElementById('manage').innerHTML = '<p class="banner warn" role="alert">Changing or cancelling a sign-up will be available after the sign-up service is connected.</p>';
+      }
       return;
     }
 
@@ -111,9 +116,14 @@
     }
     paint();
     bind();
+    if (manageToken) loadManage();
   }
 
   function bind() {
+    var params = new URLSearchParams(window.location.search);
+    var token = params.get('manage') || '';
+    if (/^[A-Za-z0-9]{32,80}$/.test(token)) manageToken = token;
+    document.getElementById('manage').addEventListener('click', onManageClick);
     board().addEventListener('click', onBoardClick);
     var form = document.getElementById('signup-form');
     form.addEventListener('submit', onSubmit);
@@ -197,7 +207,7 @@
       }
       var signed = { date: active.date, event: active.event, task: active.task, name: name };
       closeDialog();
-      setToast((data.message || 'You are signed up.') + ' Your email is not shown on this page.');
+      setToast((data.message || 'You are signed up.') + ' A confirmation email is on its way. Your email is not shown on this page.');
       var refreshed = false;
       try {
         await loadLive();
@@ -206,7 +216,7 @@
         remember(signed);
       }
       paint();
-      if (!refreshed) setToast((data.message || 'You are signed up.') + ' Your email is not shown on this page.');
+      if (!refreshed) setToast((data.message || 'You are signed up.') + ' A confirmation email is on its way. Your email is not shown on this page.');
     } catch (err) {
       showError('Could not reach the sign-up sheet. Check your connection and try again.');
     } finally {
@@ -223,6 +233,77 @@
     found.task.names.push(clean);
     found.task.filled = found.task.names.length;
     found.task.remaining = Math.max(0, found.task.capacity - found.task.filled);
+  }
+
+  function manageNote(data) {
+    var err = data && data.error ? data.error : '';
+    if (!err || err === 'Enter your name.' || err === 'Choose an event and task.' || err === 'Invalid request.') {
+      return 'Changing or cancelling a sign-up will be available after the sign-up service is updated. The sheet below still works.';
+    }
+    return err;
+  }
+
+  function paintManage() {
+    var node = document.getElementById('manage');
+    if (!manageToken) {
+      node.innerHTML = '';
+      return;
+    }
+    if (!manageRecord) return;
+    node.innerHTML = catalog.renderManage(manageRecord, state.view);
+  }
+
+  async function loadManage() {
+    try {
+      var data = await postSignup({ action: 'lookup', token: manageToken });
+      if (!data || data.ok !== true || !data.signup) {
+        document.getElementById('manage').innerHTML = '<p class="banner warn" role="alert">' + catalog.escapeHtml(manageNote(data)) + '</p>';
+        return;
+      }
+      manageRecord = data.signup;
+      paintManage();
+    } catch (err) {
+      document.getElementById('manage').innerHTML = '<p class="banner warn" role="alert">The sign-up link could not be opened. The sheet below still works.</p>';
+    }
+  }
+
+  function showManageError(text) {
+    var node = document.getElementById('manage-error');
+    if (!node) return;
+    node.textContent = text;
+    node.hidden = false;
+  }
+
+  async function onManageClick(event) {
+    var cancel = event.target.closest('#manage-cancel');
+    var move = event.target.closest('#manage-move');
+    if (!cancel && !move) return;
+    if (cancel && !window.confirm('Cancel this sign-up?')) return;
+    var payload = { action: cancel ? 'cancel' : 'move', token: manageToken };
+    if (move) {
+      var select = document.getElementById('manage-target');
+      var option = select && select.options[select.selectedIndex];
+      if (!option || !option.getAttribute('data-date')) {
+        showManageError('Choose an open spot.');
+        return;
+      }
+      payload.date = option.getAttribute('data-date');
+      payload.event = option.getAttribute('data-event');
+      payload.task = option.getAttribute('data-task');
+    }
+    try {
+      var data = await postSignup(payload);
+      if (!data || data.ok !== true) {
+        showManageError((data && data.error) || 'Could not update the sign-up.');
+        return;
+      }
+      setToast(data.message || 'Updated.');
+      try { await loadLive(); } catch (err) {}
+      paint();
+      await loadManage();
+    } catch (err) {
+      showManageError('Could not reach the sign-up sheet. Check your connection and try again.');
+    }
   }
 
   async function postSignup(payload) {

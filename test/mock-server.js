@@ -17,7 +17,8 @@ const files = {
   '/js/app.js': 'js/app.js',
   '/js/catalog.js': 'js/catalog.js',
   '/js/config.js': 'js/config.js',
-  '/data/seed.json': 'data/seed.json'
+  '/data/seed.json': 'data/seed.json',
+  '/assets/aba-logo.png': 'assets/aba-logo.png'
 };
 
 function start(options) {
@@ -73,7 +74,8 @@ function start(options) {
     const type = rel.endsWith('.css') ? 'text/css; charset=utf-8'
       : rel.endsWith('.js') ? 'text/javascript; charset=utf-8'
         : rel.endsWith('.json') ? 'application/json; charset=utf-8'
-          : 'text/html; charset=utf-8';
+          : rel.endsWith('.png') ? 'image/png'
+            : 'text/html; charset=utf-8';
     res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' });
     res.end(body);
   });

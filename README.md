@@ -8,6 +8,8 @@ Anyone with the link can sign up. There is no account and no Google sign-in. The
 
 The page loads the live sheet from the Apps Script web app. Past dates are marked closed. `data/seed.json` remains the Nov 17, 2026 copy (11 events, 59 tasks, 300 spots, 24 sign-ups) and is what the page shows if that web app cannot be reached.
 
+Version 2 adds confirmation and reminder email, calendar files, and a private change/cancel link. The spreadsheet stores sign-up rows only. Event capacities stay in `apps-script/Seed.gs`. See **Upgrading to v2** in `SETUP.md`. Until that script version is deployed, this page still reads and accepts sign-ups from the current web app.
+
 ## What is in this repo
 
 - `index.html`, `css/`, `js/` — the static site GitHub Pages publishes

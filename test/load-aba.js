@@ -20,12 +20,15 @@ function loadAba() {
     isFinite,
     isNaN,
     parseInt,
-    parseFloat
+    parseFloat,
+    encodeURIComponent,
+    decodeURIComponent
   };
   context.globalThis = context;
   context.window = context;
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(root, 'apps-script/Code.gs'), 'utf8'), context, { filename: 'Code.gs' });
+  vm.runInContext(fs.readFileSync(path.join(root, 'apps-script/Mail.gs'), 'utf8'), context, { filename: 'Mail.gs' });
   vm.runInContext(fs.readFileSync(path.join(root, 'apps-script/Seed.gs'), 'utf8'), context, { filename: 'Seed.gs' });
   vm.runInContext(fs.readFileSync(path.join(root, 'js/catalog.js'), 'utf8'), context, { filename: 'catalog.js' });
   return context;
@@ -33,6 +36,7 @@ function loadAba() {
 
 function stateFromSeed(aba, seed) {
   const built = aba.buildSeedRows_(seed || aba.abaSeedData());
+  const col = (row, name) => row[aba.SIGNUP_HEADERS.indexOf(name)];
   return {
     slots: built.slotRows.map((row) => ({
       slotId: row[0],
@@ -43,13 +47,24 @@ function stateFromSeed(aba, seed) {
       task: row[5],
       capacity: row[6]
     })),
-    signups: built.signupRows.map((row) => ({
-      signupId: row[0],
-      slotId: row[1],
-      name: row[2],
-      email: row[3] ? String(row[3]) : '',
-      createdAt: row[4],
-      source: row[5]
+    signups: built.signupRows.map((row, index) => ({
+      rowNumber: index + 2,
+      signupId: col(row, 'signupId'),
+      slotId: col(row, 'slotId'),
+      name: col(row, 'name'),
+      email: col(row, 'email') ? String(col(row, 'email')) : '',
+      createdAt: col(row, 'createdAt'),
+      source: col(row, 'source'),
+      event: col(row, 'event'),
+      date: col(row, 'date'),
+      time: col(row, 'time'),
+      task: col(row, 'task'),
+      location: col(row, 'location'),
+      capacity: col(row, 'capacity'),
+      token: col(row, 'token') || '',
+      status: col(row, 'status') || '',
+      reminderSent: col(row, 'reminderSent') || '',
+      sequence: col(row, 'sequence') || 0
     }))
   };
 }
@@ -83,9 +98,22 @@ function memoryDeps(aba, state, options) {
     appendSignup(row) {
       deps.appendInsideLock = insideLock;
       if (opts.throwAppend) throw new Error('append failed');
+      row.rowNumber = state.signups.length + 2;
       state.signups.push(row);
     },
-    newId() { return 'id-' + (state.signups.length + 1); }
+    updateSignup(rowNumber, fields) {
+      const found = state.signups.find((item) => item.rowNumber === rowNumber);
+      if (!found) throw new Error('missing row ' + rowNumber);
+      Object.assign(found, fields);
+    },
+    newId() { return 'id-' + (state.signups.length + 1); },
+    newToken() { return ('token' + state.signups.length).padEnd(32, 'a'); },
+    sendMail(message) {
+      if (opts.throwMail) throw new Error('mail failed');
+      deps.mails.push(message);
+    },
+    mails: [],
+    todayEastern() { return opts.todayEastern ? opts.todayEastern() : '2026-11-20'; }
   };
   return deps;
 }
