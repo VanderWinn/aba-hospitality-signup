@@ -90,4 +90,10 @@ Run these once, in this order. Do not run `setup` or `migrateV2` again.
 4. Choose **migrateV3** and click **Run**. It keeps every sign-up row, stores the old task name in `oldTask`, and points recognized rows at the new roles. `Ambassadors - Full lunch` rows are marked `needs-review` and stay off the public grid. Running it again does not remap a row that already has `oldTask`.
 5. Click **Deploy → Manage deployments → pencil icon**. Set **Version** to **New version**. Click **Deploy**. The `/exec` URL stays the same.
 
-Role times are what the page, the emails, and the calendar file use. A Ribbon Cutting with no end time treats "through end of event" as 60 minutes after the start. Set `end` on that event in `abaEvents()` when you know the real end. Every Happy Hour is 4:30–6:30 PM. Drink Delivery is 3:00–4:00 PM the day before the lunch.
+Role times are what the page, the emails, and the calendar file use. A Ribbon Cutting with no end time treats "through end of event" as 60 minutes after the start. Set `end` on that event in `abaEvents()` when you know the real end. Every Happy Hour is 4:30–6:30 PM. Drink Delivery is 2:00–3:00 PM the day before the lunch.
+
+## Resolve the full-lunch rows
+
+After v3 is deployed, paste `apps-script/FixFullLunch.gs` as a new script file named `FixFullLunch`. Also paste the updated `Templates.gs` and `Code.gs` (`Mail.gs` is unchanged). Run **resolveFullLunchV3** once. It does not send email. Then **Deploy → Manage deployments → pencil → New version → Deploy**, because `Templates.gs` and `Code.gs` changed. The `/exec` URL stays the same.
+
+The run before January 21, 2027 should log: `Resolved 5 Ambassadors - Full lunch rows. Created 15 sign-ups. Skipped 0 roles already held. Over capacity: none. Left 4 past rows unchanged. Updated 1 Drink Delivery time to 2:00–3:00 PM the day before.` Running it again logs zeros for created rows and Drink Delivery updates.

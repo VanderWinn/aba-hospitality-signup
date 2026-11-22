@@ -12,7 +12,7 @@ function abaTemplates_() {
       { task: 'Ribbon Holders', capacity: 2, relative: true, startOffset: -15, endOffset: 15 }
     ],
     'Lunch & Learn': [
-      { task: 'Drink Delivery', capacity: 1, dayOffset: -1, start: '3:00 PM', end: '4:00 PM', description: 'Picks up the drinks and delivers them to the venue.' },
+      { task: 'Drink Delivery', capacity: 1, dayOffset: -1, start: '2:00 PM', end: '3:00 PM', description: 'Picks up the drinks and delivers them to the venue.' },
       { task: 'Set-Up', capacity: 3, start: '11:00 AM', end: '11:25 AM', description: 'Arranges tables, chairs, signage, and the room before guests arrive, places items on the tables, and helps the table sponsors get set up.' },
       { task: 'Door Greeter', capacity: 1, start: '11:15 AM', end: '11:35 AM', description: 'Welcomes guests at the entrance and directs them to sign-in.' },
       { task: 'Sign-In Table', capacity: 3, start: '11:00 AM', end: '11:35 AM', description: 'Checks guests in, hands out name tags, and collects contact details.' },
@@ -58,6 +58,21 @@ function shiftClock_(dateKey, clock, minutes) {
   return { date: moved.date, clock: formatClock_(moved.hour, moved.minute) };
 }
 
+function compactRange_(start, end) {
+  var startClock = parseClock_(start);
+  var endClock = parseClock_(end);
+  if (!startClock || !endClock) return start + '–' + end;
+  function hourMin(clock) {
+    var h = clock.hour % 12;
+    if (h === 0) h = 12;
+    return h + ':' + pad2_(clock.minute);
+  }
+  var startAp = startClock.hour >= 12 ? 'PM' : 'AM';
+  var endAp = endClock.hour >= 12 ? 'PM' : 'AM';
+  if (startAp === endAp) return hourMin(startClock) + '–' + hourMin(endClock) + ' ' + endAp;
+  return hourMin(startClock) + ' ' + startAp + '–' + hourMin(endClock) + ' ' + endAp;
+}
+
 function shortMonthDay_(iso) {
   var parts = String(iso).split('-').map(function (n) { return Number(n); });
   return new Intl.DateTimeFormat('en-US', {
@@ -73,7 +88,7 @@ function abaExpandEvents_() {
   abaEvents_().forEach(function (event) {
     var roles = templates[event.type];
     if (!roles) throw new Error('Unknown event type: ' + event.type);
-    var headerTime = event.end ? event.start + '–' + event.end : event.start;
+    var headerTime = event.end ? compactRange_(event.start, event.end) : event.start;
     roles.forEach(function (role) {
       var roleDate = event.date;
       var start = role.start;
@@ -89,7 +104,7 @@ function abaExpandEvents_() {
       } else if (role.dayOffset) {
         roleDate = addDays_(event.date, role.dayOffset);
       }
-      var timeLabel = roleDate === event.date ? start + '–' + end : shortMonthDay_(roleDate) + ', ' + start + '–' + end;
+      var timeLabel = roleDate === event.date ? compactRange_(start, end) : shortMonthDay_(roleDate) + ', ' + compactRange_(start, end);
       slots.push({
         slotId: event.date + '|' + event.type + '|' + role.task,
         date: event.date,

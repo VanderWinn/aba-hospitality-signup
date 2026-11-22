@@ -83,7 +83,7 @@ var ABA_RULES = (function () {
 
   function isActive(row) {
     var status = String(row && row.status || '').trim().toLowerCase();
-    return status !== 'cancelled' && status !== 'needs-review';
+    return status !== 'cancelled' && status !== 'needs-review' && status !== 'superseded';
   }
 
   function stamp(date) {
@@ -781,7 +781,7 @@ function slotForRow_(state, row) {
 
 function lookupStatus_(row) {
   var status = String(row.status || '').trim().toLowerCase();
-  if (status === 'cancelled' || status === 'needs-review') return status;
+  if (status === 'cancelled' || status === 'needs-review' || status === 'superseded') return status;
   return 'active';
 }
 

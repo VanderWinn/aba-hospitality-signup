@@ -57,20 +57,20 @@ test('templates cover the 11 events in role order with absolute and relative tim
   assert.deepEqual(events.map((slot) => slot.date + ' ' + slot.time), [
     '2026-11-17 4:30 PM',
     '2026-11-19 11:30 AM',
-    '2026-12-09 4:30 PM–6:30 PM',
-    '2027-01-13 4:30 PM–6:30 PM',
+    '2026-12-09 4:30–6:30 PM',
+    '2027-01-13 4:30–6:30 PM',
     '2027-01-21 11:30 AM',
-    '2027-02-10 4:30 PM–6:30 PM',
+    '2027-02-10 4:30–6:30 PM',
     '2027-02-18 11:30 AM',
-    '2027-03-10 4:30 PM–6:30 PM',
+    '2027-03-10 4:30–6:30 PM',
     '2027-03-18 11:30 AM',
     '2027-04-15 11:30 AM',
     '2027-05-20 11:30 AM'
   ]);
   const ribbon = slots.filter((slot) => slot.date === '2026-11-17').map((slot) => slot.task + ' ' + slot.timeLabel);
   assert.equal(JSON.stringify(ribbon), JSON.stringify([
-    'Photographer 4:15 PM–5:30 PM',
-    'Ribbon Holders 4:15 PM–4:45 PM'
+    'Photographer 4:15–5:30 PM',
+    'Ribbon Holders 4:15–4:45 PM'
   ]));
   const lunch = slots.filter((slot) => slot.date === '2027-01-21');
   assert.equal(JSON.stringify(lunch.map((slot) => slot.task)), JSON.stringify([
@@ -78,7 +78,7 @@ test('templates cover the 11 events in role order with absolute and relative tim
   ]));
   const drinks = lunch[0];
   assert.equal(drinks.roleDate, '2027-01-20');
-  assert.equal(drinks.timeLabel, 'Jan 20, 3:00 PM–4:00 PM');
+  assert.equal(drinks.timeLabel, 'Jan 20, 2:00–3:00 PM');
   assert.match(drinks.description, /Picks up the drinks/);
   const hour = slots.filter((slot) => slot.date === '2026-12-09').map((slot) => slot.task);
   assert.equal(JSON.stringify(hour), JSON.stringify(['Set-Up', 'Door Greeter', 'Sign-In Table', 'Networking Host', 'Clean-Up']));
@@ -96,7 +96,7 @@ test('role hours are the calendar start and end', () => {
   }, slot, 'confirm');
   assert.match(message.ics, /DTSTART;TZID=America\/New_York:20261209T160000/);
   assert.match(message.ics, /DTEND;TZID=America\/New_York:20261209T163000/);
-  assert.match(message.text, /4:00 PM–4:30 PM Eastern/);
+  assert.match(message.text, /4:00–4:30 PM Eastern/);
   assert.match(message.text, /Arranges the room/);
   const drinks = aba.abaCatalogSlots_().find((item) => item.date === '2026-11-19' && item.task === 'Drink Delivery');
   const delivery = aba.buildMessage_({
@@ -106,8 +106,8 @@ test('role hours are the calendar start and end', () => {
     token: '',
     sequence: 0
   }, drinks, 'confirm');
-  assert.match(delivery.ics, /DTSTART;TZID=America\/New_York:20261118T150000/);
-  assert.match(delivery.ics, /DTEND;TZID=America\/New_York:20261118T160000/);
+  assert.match(delivery.ics, /DTSTART;TZID=America\/New_York:20261118T140000/);
+  assert.match(delivery.ics, /DTEND;TZID=America\/New_York:20261118T150000/);
 });
 
 test('migration remaps the 25 current rows, flags full-lunch rows, and stays idempotent', () => {

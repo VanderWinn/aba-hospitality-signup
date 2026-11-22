@@ -134,12 +134,11 @@
     return '';
   }
 
-  function spotPhrase(event, task) {
-    var filled = task.filled + ' of ' + task.capacity + ' filled';
-    if (event.past) return 'Closed · ' + filled;
-    if (task.remaining === 0) return 'Full · ' + filled;
-    var open = task.remaining === 1 ? '1 spot open' : task.remaining + ' spots open';
-    return open + ' · ' + filled;
+  function countLabel(event, task) {
+    var ratio = task.filled + ' of ' + task.capacity;
+    if (event.past) return ratio + ' · Closed';
+    if (task.remaining === 0) return ratio + ' · Full';
+    return ratio;
   }
 
   function renderTask(event, task, mode) {
@@ -149,7 +148,6 @@
         return '<li>' + escapeHtml(name) + '</li>';
       }).join('') + '</ul>'
       : '<p class="who empty">No one yet</p>';
-    var width = task.capacity > 0 ? Math.min(100, Math.round((task.filled / task.capacity) * 100)) : (task.filled ? 100 : 0);
     var when = task.timeLabel || event.time || '';
     var action;
     if (canClaim) {
@@ -167,11 +165,10 @@
     }
     return '<article class="task" id="' + taskDomId(event, task) + '">' +
       '<div class="task-main">' +
-        '<h3>' + escapeHtml(task.task) + '</h3>' +
-        (when ? '<p class="task-when">' + escapeHtml(when) + '</p>' : '') +
+        '<h3><span class="role-name">' + escapeHtml(task.task) + '</span>' +
+        (when ? '<span class="role-when">· ' + escapeHtml(when) + '</span>' : '') +
+        '<span class="role-count">· ' + escapeHtml(countLabel(event, task)) + '</span></h3>' +
         (task.description ? '<p class="task-desc">' + escapeHtml(task.description) + '</p>' : '') +
-        '<p class="spots">' + escapeHtml(spotPhrase(event, task)) + '</p>' +
-        '<div class="meter" aria-hidden="true"><span style="width:' + width + '%"></span></div>' +
       '</div>' +
       names +
       '<div class="task-action">' + action + '</div>' +
@@ -182,8 +179,8 @@
     var open = 0;
     event.tasks.forEach(function (task) { open += task.remaining; });
     var meta = event.past
-      ? 'Past event'
-      : (open === 0 ? 'All spots filled' : open + (open === 1 ? ' spot open' : ' spots open'));
+      ? 'Past'
+      : (open === 0 ? 'Full' : open + ' open');
     var filled = 0;
     var cap = 0;
     event.tasks.forEach(function (task) {
@@ -193,11 +190,18 @@
     var pct = cap > 0 ? Math.round((filled / cap) * 100) : 0;
     return '<section class="event' + (event.past ? ' is-past' : '') + '" id="' + eventDomId(event) + '" aria-labelledby="' + eventDomId(event) + '-title">' +
       '<header class="event-head">' +
-        '<p class="kicker">' + escapeHtml(event.name) + '</p>' +
-        '<h2 id="' + eventDomId(event) + '-title">' + escapeHtml(formatLong(event.date)) + '</h2>' +
-        '<p class="when">' + escapeHtml(event.time) + ' · ' + escapeHtml(venue(event.location, event.name)) + '</p>' +
-        '<p class="event-status">' + escapeHtml(meta) + '</p>' +
-        '<div class="event-progress" role="img" aria-label="' + filled + ' of ' + cap + ' spots filled"><span style="width:' + pct + '%"></span></div>' +
+        '<h2 class="event-line" id="' + eventDomId(event) + '-title">' +
+          '<span class="kicker">' + escapeHtml(event.name) + '</span>' +
+          '<span class="sep" aria-hidden="true">·</span>' +
+          '<span class="event-date">' + escapeHtml(formatLong(event.date)) + '</span>' +
+          '<span class="sep" aria-hidden="true">·</span>' +
+          '<span class="event-clock">' + escapeHtml(event.time) + '</span>' +
+          '<span class="sep" aria-hidden="true">·</span>' +
+          '<span class="event-address">' + escapeHtml(venue(event.location, event.name)) + '</span>' +
+          '<span class="sep" aria-hidden="true">·</span>' +
+          '<span class="event-status">' + escapeHtml(meta) + '</span>' +
+        '</h2>' +
+        '<div class="event-progress" role="img" aria-label="' + filled + ' of ' + cap + ' spots filled"><span style="width:' + Math.min(100, pct) + '%"></span></div>' +
       '</header>' +
       '<div class="tasks">' + event.tasks.map(function (task) { return renderTask(event, task, mode); }).join('') + '</div>' +
     '</section>';
@@ -230,9 +234,13 @@
 
   function renderManage(record, view) {
     if (!record) return '';
-    if (record.status === 'cancelled') {
-      return '<section class="manage" aria-labelledby="manage-title"><h2 id="manage-title">Sign-up cancelled</h2><p>' +
-        escapeHtml(record.name) + ' is no longer signed up for ' + escapeHtml(record.task || 'this task') + '.</p></section>';
+    if (record.status === 'cancelled' || record.status === 'superseded') {
+      var heading = record.status === 'superseded' ? 'Sign-up replaced' : 'Sign-up cancelled';
+      var detail = record.status === 'superseded'
+        ? ' was replaced by separate roles and is no longer on the grid.'
+        : ' is no longer signed up for ' + (record.task || 'this task') + '.';
+      return '<section class="manage" aria-labelledby="manage-title"><h2 id="manage-title">' + heading + '</h2><p>' +
+        escapeHtml(record.name) + escapeHtml(detail) + '</p></section>';
     }
     var options = '';
     var count = 0;
