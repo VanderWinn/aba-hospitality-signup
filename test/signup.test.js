@@ -99,6 +99,11 @@ test('preview board shows seeded names, closes past events, and has no sign-up b
     'Riverside Links Indoor Golf & Lounge - 396 Pettis Ave SE, Ada, MI 49301-8713');
 
   const html = aba.ABACatalog.renderBoard(view, 'preview');
+  assert.match(html, /<span class="venue-name">Ada Hotel<\/span><span class="venue-street">, 7415 River St SE, Ada<\/span>/);
+  assert.match(html, /<span class="venue-name">Amway WHQ<\/span><span class="venue-street">, 7575 Fulton St E, Ada<\/span>/);
+  assert.match(html, /<span class="venue-name">The Wellness Club<\/span><span class="venue-street">, 7505 River St SE Suite 104 Ada, MI 49301<\/span>/);
+  assert.match(html, /<span class="venue-name">Riverside Links Indoor Golf &amp; Lounge<\/span><span class="venue-street">, 396 Pettis Ave SE, Ada, MI 49301-8713<\/span>/);
+  assert.match(html, /<span class="venue-name">TBD<\/span>/);
   assert.match(html, /Stacey Thurston/);
   assert.match(html, /Claire Larson/);
   assert.match(html, /Closed/);

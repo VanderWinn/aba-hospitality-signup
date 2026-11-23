@@ -47,6 +47,19 @@
     return text.indexOf(prefix) === 0 ? text.slice(prefix.length) : text;
   }
 
+  function placeParts(location, eventName) {
+    var text = venue(location, eventName).trim();
+    var dash = text.match(/^(.*?)\s+-\s*(.+)$/) || text.match(/^(.*?)\s*-\s*(\d.*)$/);
+    if (dash && dash[1] && /\d/.test(dash[2])) {
+      return { name: dash[1].trim(), street: dash[2].trim() };
+    }
+    var comma = text.indexOf(',');
+    if (comma > 0 && /^\d/.test(text.slice(comma + 1).trim())) {
+      return { name: text.slice(0, comma).trim(), street: text.slice(comma + 1).trim() };
+    }
+    return { name: text, street: '' };
+  }
+
   function slug(value) {
     return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   }
@@ -170,8 +183,10 @@
         '<span class="role-count">· ' + escapeHtml(countLabel(event, task)) + '</span></h3>' +
         (task.description ? '<p class="task-desc">' + escapeHtml(task.description) + '</p>' : '') +
       '</div>' +
-      names +
-      '<div class="task-action">' + action + '</div>' +
+      '<div class="task-signup">' +
+        names +
+        '<div class="task-action">' + action + '</div>' +
+      '</div>' +
     '</article>';
   }
 
@@ -188,18 +203,22 @@
       cap += task.capacity;
     });
     var pct = cap > 0 ? Math.round((filled / cap) * 100) : 0;
+    var place = placeParts(event.location, event.name);
+    var where = '<span class="event-where">' +
+      '<span class="sep" aria-hidden="true">·</span>' +
+      '<span class="event-clock">' + escapeHtml(event.time) + '</span>' +
+      (place.name ? '<span class="sep" aria-hidden="true">·</span><span class="event-place"><span class="venue-name">' + escapeHtml(place.name) + '</span>' +
+        (place.street ? '<span class="venue-street">, ' + escapeHtml(place.street) + '</span>' : '') + '</span>' : '') +
+      '<span class="sep" aria-hidden="true">·</span>' +
+      '<span class="event-status">' + escapeHtml(meta) + '</span>' +
+    '</span>';
     return '<section class="event' + (event.past ? ' is-past' : '') + '" id="' + eventDomId(event) + '" aria-labelledby="' + eventDomId(event) + '-title">' +
       '<header class="event-head">' +
         '<h2 class="event-line" id="' + eventDomId(event) + '-title">' +
           '<span class="kicker">' + escapeHtml(event.name) + '</span>' +
           '<span class="sep" aria-hidden="true">·</span>' +
           '<span class="event-date">' + escapeHtml(formatLong(event.date)) + '</span>' +
-          '<span class="sep" aria-hidden="true">·</span>' +
-          '<span class="event-clock">' + escapeHtml(event.time) + '</span>' +
-          '<span class="sep" aria-hidden="true">·</span>' +
-          '<span class="event-address">' + escapeHtml(venue(event.location, event.name)) + '</span>' +
-          '<span class="sep" aria-hidden="true">·</span>' +
-          '<span class="event-status">' + escapeHtml(meta) + '</span>' +
+          where +
         '</h2>' +
         '<div class="event-progress" role="img" aria-label="' + filled + ' of ' + cap + ' spots filled"><span style="width:' + Math.min(100, pct) + '%"></span></div>' +
       '</header>' +
