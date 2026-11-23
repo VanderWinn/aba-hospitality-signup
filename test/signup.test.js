@@ -345,7 +345,9 @@ test('the mock web app follows redirects, hides emails, and refuses a second cla
 
     const page = await fetch(server.url);
     const html = await page.text();
-    assert.match(html, /Hospitality Jobs for ABA Board and Ambassadors/);
+    assert.match(html, /<title>Hospitality Opportunities<\/title>/);
+    assert.match(html, /<h1>Hospitality Opportunities<\/h1>/);
+    assert.match(html, /Thank you for generously giving your time\. Your support helps make every ABA event a welcoming and successful experience for our members and guests\./);
     assert.match(html, /js\/config\.js/);
 
     async function post(body) {
