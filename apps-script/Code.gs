@@ -720,7 +720,7 @@ function rowsToState_(slotValues, signupValues) {
       location: fullPlace_(row.venue, row.address) || String(row.location || ''),
       capacity: row.capacity === '' || row.capacity == null ? '' : Math.floor(Number(row.capacity)),
       token: String(row.token || '').trim(),
-      status: String(row.status || '').trim(),
+      status: String(sheetField_(row, 'status') || '').trim(),
       reminderSent: String(row.reminderSent || '').trim(),
       updatedAt: row.updatedAt == null ? '' : String(row.updatedAt),
       previousSlotId: String(row.previousSlotId || ''),
@@ -817,6 +817,7 @@ function readHeaders_(sheet) {
 function appendSignup_(row) {
   var sheet = openSheet_().getSheetByName('Signups');
   if (!sheet) throw new Error('Signups tab is missing.');
+  if (row && Object.prototype.hasOwnProperty.call(row, 'status')) ensureStatusColumn_(sheet);
   var headers = readHeaders_(sheet);
   var values = headers.map(function (name) { return signupValue_(name, row); });
   var rowNumber = sheet.getLastRow() + 1;
@@ -830,17 +831,22 @@ function appendSignup_(row) {
 function updateSignup_(rowNumber, fields) {
   var sheet = openSheet_().getSheetByName('Signups');
   if (!sheet) throw new Error('Signups tab is missing.');
+  if (fields && Object.prototype.hasOwnProperty.call(fields, 'status')) ensureStatusColumn_(sheet);
   var headers = readHeaders_(sheet);
   plainTextColumns_(sheet, headers);
   if (fields.date != null || fields.time != null) SpreadsheetApp.flush();
   Object.keys(fields).forEach(function (name) {
     var col = headerIndex_(headers, headerKey_(name));
     if (col === -1) col = headers.indexOf(name);
-    if (col === -1) return;
+    if (col === -1) {
+      if (headerKey_(name) === 'status') throw new Error('The status column is missing.');
+      return;
+    }
     var cell = sheet.getRange(rowNumber, col + 1);
     var key = headerKey_(name);
     if (key === 'date') cell.setNumberFormat('M/d/yyyy');
-    if (key === 'time' || key === 'starttime' || key === 'endtime') cell.setNumberFormat('@');
+    if (key === 'time' || key === 'starttime' || key === 'endtime' || key === 'status') cell.setNumberFormat('@');
+    if (key === 'status') SpreadsheetApp.flush();
     cell.setValue(signupValue_(name, fields));
   });
 }
@@ -1533,6 +1539,174 @@ function migrateV5() {
     ' dates to M/d/yyyy and ' + plan.timeValues.length + ' start/end time cells as text. Renamed ' +
     plan.taskEdits.filter(function (change) { return change.value === 'Networking Ambassador'; }).length +
     ' Networking Host rows to Networking Ambassador. Statuses and other formatting were not changed.';
+  Logger.log(summary);
+  return summary;
+}
+
+function hideInternalSignupColumns_(sheet) {
+  var headers = readHeaders_(sheet);
+  SIGNUP_HIDDEN.forEach(function (name) {
+    var index = headerIndex_(headers, headerKey_(name));
+    if (index !== -1) sheet.hideColumns(index + 1);
+  });
+}
+
+/**
+ * Inserts a visible status column immediately after createdAt when it is missing.
+ * Does not backfill values and does not restyle existing columns.
+ */
+function ensureStatusColumn_(sheet) {
+  var headers = readHeaders_(sheet);
+  if (headerIndex_(headers, 'status') !== -1) return headers;
+  var plan = planRestoreStatusV7_([headers]);
+  var statusColumn;
+  if (plan.insertAfter < 1) {
+    sheet.insertColumnBefore(1);
+    statusColumn = 1;
+  } else {
+    sheet.insertColumnAfter(plan.insertAfter);
+    statusColumn = plan.insertAfter + 1;
+  }
+  var height = Math.max(sheet.getLastRow() + 20, 2);
+  var column = sheet.getRange(1, statusColumn, height, 1);
+  column.setNumberFormat('@');
+  sheet.getRange(1, statusColumn).setValue('status');
+  SpreadsheetApp.flush();
+  hideInternalSignupColumns_(sheet);
+  return readHeaders_(sheet);
+}
+
+function isDonnyCancelledRow_(row) {
+  var name = String(row.name || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  var email = String(row.email || '').trim().toLowerCase();
+  var eventName = String(row.event || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  var task = String(row.task || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  var ambassador = task === 'networking ambassador' || task === 'networking host';
+  return name === 'donny nguyen' &&
+    email === 'donny@vanderwinn.com' &&
+    eventName === 'happy hour' &&
+    row.date === '2026-12-09' &&
+    ambassador;
+}
+
+function statusForRestoredRow_(row) {
+  if (isDonnyCancelledRow_(row)) return 'cancelled';
+  if (isFullLunchTask_(row.task)) {
+    if (String(row.date || '').indexOf('2027-') === 0) return 'superseded';
+    if (row.date === '2026-11-19') return 'needs-review';
+  }
+  return 'active';
+}
+
+function planRestoreStatusV7_(values) {
+  var headers = (values[0] || []).map(function (cell) { return String(cell || '').trim(); });
+  if (headerIndex_(headers, 'status') !== -1) {
+    return { already: true, insertAfter: -1, statusColumn: -1, assignments: [] };
+  }
+  var createdCol = headerIndex_(headers, 'createdat');
+  var insertAfter;
+  if (createdCol !== -1) {
+    insertAfter = createdCol + 1;
+  } else {
+    var beforeHidden = -1;
+    for (var h = 0; h < headers.length; h++) {
+      var key = headerKey_(headers[h]);
+      var hidden = false;
+      for (var n = 0; n < SIGNUP_HIDDEN.length; n++) {
+        if (headerKey_(SIGNUP_HIDDEN[n]) === key) hidden = true;
+      }
+      if (hidden) { beforeHidden = h; break; }
+    }
+    insertAfter = beforeHidden === -1 ? headers.length : beforeHidden;
+  }
+  var assignments = [];
+  for (var r = 1; r < values.length; r++) {
+    var src = values[r] || [];
+    var blank = true;
+    for (var c = 0; c < src.length; c++) {
+      if (src[c] !== '' && src[c] != null) blank = false;
+    }
+    if (blank) continue;
+    var record = {};
+    headers.forEach(function (name, index) {
+      if (name) record[headerKey_(name)] = src[index];
+    });
+    var row = {
+      name: ABA_RULES.unwrapSheetText(record.name),
+      email: ABA_RULES.normalizeEmail(ABA_RULES.unwrapSheetText(record.email)),
+      event: String(record.event || '').trim(),
+      task: String(record.task || '').trim(),
+      date: ABA_RULES.formatSheetDate(record.date)
+    };
+    assignments.push({
+      rowNumber: r + 1,
+      name: String(row.name || '').replace(/\s+/g, ' ').trim(),
+      email: row.email,
+      event: row.event,
+      task: row.task,
+      date: row.date,
+      status: statusForRestoredRow_(row)
+    });
+  }
+  return {
+    already: false,
+    insertAfter: insertAfter,
+    statusColumn: insertAfter < 1 ? 1 : insertAfter + 1,
+    assignments: assignments
+  };
+}
+
+/**
+ * Puts the status column back after createdAt and fills it once.
+ * Does not send email. Does not restyle the sheet. Safe to run again:
+ * a second run does nothing when status is already present. Logs only.
+ */
+function restoreStatusV7() {
+  var sheet = openSheet_().getSheetByName('Signups');
+  if (!sheet) throw new Error('Signups tab is missing.');
+  var lastRow = Math.max(sheet.getLastRow(), 1);
+  var width = Math.max(sheet.getLastColumn(), 1);
+  var values = sheet.getRange(1, 1, lastRow, width).getValues();
+  var plan = planRestoreStatusV7_(values);
+  if (plan.already) {
+    var done = 'restoreStatusV7 found the status column. No rows were changed.';
+    Logger.log(done);
+    return done;
+  }
+  var statusColumn;
+  if (plan.insertAfter < 1) {
+    sheet.insertColumnBefore(1);
+    statusColumn = 1;
+  } else {
+    sheet.insertColumnAfter(plan.insertAfter);
+    statusColumn = plan.insertAfter + 1;
+  }
+  var headerCell = sheet.getRange(1, statusColumn);
+  headerCell.setNumberFormat('@');
+  headerCell.setValue('status');
+  var logged = [];
+  if (plan.assignments.length) {
+    var byRow = {};
+    plan.assignments.forEach(function (item) { byRow[item.rowNumber] = item; });
+    var columnValues = [];
+    for (var r = 2; r <= lastRow; r++) {
+      var item = byRow[r];
+      columnValues.push([item ? item.status : '']);
+      if (item && item.status !== 'active') {
+        logged.push('Row ' + item.rowNumber + ' ' + item.name + ' ' + item.date + ' ' + item.event + ' ' + item.task + ' => ' + item.status);
+      }
+    }
+    var range = sheet.getRange(2, statusColumn, columnValues.length, 1);
+    range.setNumberFormat('@');
+    SpreadsheetApp.flush();
+    range.setValues(columnValues);
+  }
+  hideInternalSignupColumns_(sheet);
+  SpreadsheetApp.flush();
+  logged.forEach(function (line) { Logger.log(line); });
+  var summary = 'restoreStatusV7 inserted status after createdAt and set ' + plan.assignments.length +
+    ' rows. Non-active: ' + logged.length + '. No email was sent.' +
+    (logged.length ? ' ' + logged.join('; ') + '.' : '');
   Logger.log(summary);
   return summary;
 }
