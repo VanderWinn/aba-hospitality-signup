@@ -356,12 +356,11 @@ function buildMessage_(signup, slot, kind) {
     slot.description ? 'Details: ' + slot.description : '',
     'Where: ' + where,
     '',
+    'Add to your calendar:',
     'Add to Apple Calendar (iPhone):',
     pieces.apple,
-    '',
     'Add to Google Calendar:',
     pieces.google,
-    '',
     'Add to Outlook:',
     pieces.outlook,
     '',
@@ -376,8 +375,15 @@ function buildMessage_(signup, slot, kind) {
       '</td><td style="padding:6px 0;color:#39393a;">' + escapeHtmlMail_(value) + '</td></tr>';
   };
   var button = function (href, label) {
-    return '<a href="' + escapeHtmlMail_(href) + '" style="display:inline-block;margin:0 8px 8px 0;padding:10px 14px;background:#407589;color:#ffffff;text-decoration:none;border-radius:999px;font-weight:700;">' +
+    return '<a href="' + escapeHtmlMail_(href) + '" style="display:inline-block;padding:10px 14px;background:#407589;color:#ffffff;text-decoration:none;border-radius:999px;font-weight:700;">' +
       escapeHtmlMail_(label) + '</a>';
+  };
+  var calendarButton = function (href, label) {
+    return '<a href="' + escapeHtmlMail_(href) + '" style="display:inline-block;padding:12px 18px;background:#ffffff;color:#407589;border:1px solid #407589;border-radius:8px;text-decoration:none;font-weight:700;">' +
+      escapeHtmlMail_(label) + '</a>';
+  };
+  var calendarRow = function (href, label, gap) {
+    return '<tr><td style="padding:0 0 ' + gap + ' 0;">' + calendarButton(href, label) + '</td></tr>';
   };
   var html = [
     '<div style="font-family:Montserrat,Raleway,Segoe UI,sans-serif;color:#39393a;background:#f2f2f2;padding:24px;">',
@@ -393,11 +399,12 @@ function buildMessage_(signup, slot, kind) {
     slot.description ? row('Details', slot.description) : '',
     row('Where', where),
     '</table>',
-    '<p style="margin:0 0 8px;">' +
-      button(pieces.apple, 'Add to Apple Calendar (iPhone)') +
-      button(pieces.google, 'Add to Google Calendar') +
-      button(pieces.outlook, 'Add to Outlook') +
-    '</p>',
+    '<p style="margin:0 0 8px;color:#5c5c5c;font-size:14px;">Add to your calendar:</p>',
+    '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;margin:0 0 8px;">',
+    calendarRow(pieces.apple, 'Add to Apple Calendar (iPhone)', '12px'),
+    calendarRow(pieces.google, 'Add to Google Calendar', '12px'),
+    calendarRow(pieces.outlook, 'Add to Outlook', '0'),
+    '</table>',
     '<p style="margin:0 0 8px;color:#5c5c5c;">An invite.ics calendar file is also attached. ' + escapeHtmlMail_(whenText) + '.</p>'
   ];
   if (kind !== 'cancel' && pieces.manage) {
