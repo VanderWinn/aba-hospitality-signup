@@ -137,7 +137,7 @@ test('cancelByEmail cancels only when the email matches and hides that address',
     startTime: '4:30 pm'
   }, deps);
   assert.equal(right.ok, true);
-  assert.equal(state.signups[0].status, 'cancelled');
+  assert.equal(state.signups.length, 0);
   assert.equal(deps.mails.length, 1);
   assert.match(deps.mails[0].ics, /METHOD:CANCEL/);
   const catalog = aba.ABA_RULES.publicCatalog(state.slots, state.signups, TODAY);
@@ -200,7 +200,7 @@ test('cancelled rows free the spot and stay out of the public catalog', () => {
   assert.equal(JSON.stringify(aba.handleGet_(deps)).includes('ada.volunteer@example.com'), false);
   const cancelled = aba.cancelSignup_({ token: token }, deps);
   assert.equal(cancelled.ok, true);
-  assert.equal(row.status, 'cancelled');
+  assert.equal(state.signups.includes(row), false);
   assert.match(deps.mails[deps.mails.length - 1].ics, /METHOD:CANCEL/);
   const again = aba.processPost_(claim({ email: 'second.person@example.com', name: 'Second Person' }), deps);
   assert.equal(again.ok, true);

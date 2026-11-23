@@ -169,7 +169,7 @@ test('admin can add past capacity and remove without the volunteer email', () =>
     sendEmail: true
   }, deps);
   assert.equal(removed.ok, true);
-  assert.equal(created.status, 'cancelled');
+  assert.equal(state.signups.some((row) => row.signupId === created.signupId), false);
   assert.equal(deps.calendarChanges[0].action, 'remove');
   assert.equal(deps.mails.length, 1);
   assert.match(deps.mails[0].text, /cancelled/i);

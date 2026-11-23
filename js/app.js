@@ -27,13 +27,15 @@
   });
 
   function quickCancelToken() {
-    var token = new URLSearchParams(window.location.search).get('cancel') || '';
+    var params = new URLSearchParams(window.location.search);
+    if (!params.has('cancel')) return '';
+    var token = params.get('cancel') || '';
     if (!/^[A-Za-z0-9]{32,80}$/.test(token)) return '';
     return token;
   }
 
   function quickCancelSentence(data) {
-    if (data && data.already) return 'This sign-up is already cancelled.';
+    if (data && data.already) return 'This sign-up has already been cancelled or no longer exists.';
     var signup = data && data.signup ? data.signup : {};
     var task = signup.task || 'this role';
     var date = signup.date ? catalog.formatLong(signup.date) : '';
@@ -41,11 +43,16 @@
   }
 
   async function runQuickCancel() {
-    var token = quickCancelToken();
+    var params = new URLSearchParams(window.location.search);
     var host = document.getElementById('quick-cancel');
-    if (!token || !host) return;
+    if (!params.has('cancel') || !host) return;
+    var token = quickCancelToken();
     host.innerHTML = '<div class="wrap"><p class="banner" id="quick-cancel-status">Cancelling your sign-up…</p></div>';
     var status = document.getElementById('quick-cancel-status');
+    if (!token) {
+      status.textContent = 'That cancel link is not valid.';
+      return;
+    }
     if (!backendUrl()) {
       status.textContent = 'Cancel will be available after the sign-up service is connected.';
       return;

@@ -171,8 +171,11 @@ function syncCalendarGuests_(changes, client) {
 function applyPersonCalendar_(api, calendarId, change) {
   var email = String(change && change.email || '').trim().toLowerCase();
   var signupId = String(change && (change.signupId || (change.slot && change.slot.signupId)) || '').trim();
+  if (change && change.action === 'remove') {
+    if (!signupId) return false;
+    return deletePersonEvent_(api, calendarId, signupId);
+  }
   if (!email || !signupId) return false;
-  if (change.action === 'remove') return deletePersonEvent_(api, calendarId, signupId);
   var plan = planCalendarEvent_(change.slot, {
     signupId: signupId,
     token: change.token || ''

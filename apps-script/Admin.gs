@@ -307,22 +307,23 @@ function adminRemove_(body, deps) {
       result = { ok: false, error: 'That sign-up is no longer on the sheet.' };
       return;
     }
+    if (!match.signupId) {
+      result = { ok: false, error: 'Could not remove the person.' };
+      return;
+    }
     var slot = findSlotLocal_(state.slots, match.slotId) || slotForRow_(state, match);
-    var fields = {
-      status: 'cancelled',
-      updatedAt: deps.stamp(deps.now()),
-      sequence: (Math.floor(Number(match.sequence)) || 0) + 1
-    };
-    deps.updateSignup(match.rowNumber, fields);
-    if (sendEmail && match.email) mail = buildMessage_(copyFields_(match, fields), slot, 'cancel');
-    if (match.email) {
-      calendarChanges.push({
-        action: 'remove',
-        email: match.email,
-        signupId: match.signupId,
-        token: match.token,
-        slot: slot
-      });
+    var messageRow = copyFields_(match, { sequence: (Math.floor(Number(match.sequence)) || 0) + 1 });
+    if (sendEmail && match.email) mail = buildMessage_(messageRow, slot, 'cancel');
+    calendarChanges.push({
+      action: 'remove',
+      email: match.email,
+      signupId: match.signupId,
+      token: match.token,
+      slot: slot
+    });
+    if (!deps.deleteSignup(match.signupId)) {
+      result = { ok: false, error: 'Could not remove the person.' };
+      return;
     }
     result = { ok: true, message: 'Removed ' + match.name + '.' };
   });

@@ -116,6 +116,13 @@ function memoryDeps(aba, state, options) {
       if (!found) throw new Error('missing row ' + rowNumber);
       Object.assign(found, fields);
     },
+    deleteSignup(signupId) {
+      deps.deleteInsideLock = insideLock;
+      const index = state.signups.findIndex((item) => item.signupId === signupId);
+      if (index === -1) return false;
+      state.signups.splice(index, 1);
+      return true;
+    },
     newId() { return 'id-' + (state.signups.length + 1); },
     newToken() { return ('token' + state.signups.length).padEnd(32, 'a'); },
     sendMail(message) {

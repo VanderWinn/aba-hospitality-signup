@@ -577,6 +577,7 @@ function scriptDeps_() {
     readState: readState_,
     appendSignup: appendSignup_,
     updateSignup: updateSignup_,
+    deleteSignup: deleteSignupById_,
     newId: function () { return Utilities.getUuid(); },
     newToken: newToken_,
     sendMail: sendMailApp_,
@@ -883,6 +884,30 @@ function appendSignup_(row) {
   sheet.getRange(rowNumber, 1, 1, values.length).setValues([values]);
   writeDateCells_(sheet, headers, rowNumber, [values]);
   writePlainTextCells_(sheet, headers, rowNumber, [values]);
+}
+
+function signupRowNumberById_(sheet, signupId) {
+  var want = String(signupId || '').trim();
+  if (!want) return 0;
+  var headers = readHeaders_(sheet);
+  var idCol = columnIndex_(headers, 'signupId');
+  if (idCol === -1) throw new Error('The signup id column is missing.');
+  var last = sheet.getLastRow();
+  if (last < 2) return 0;
+  var values = sheet.getRange(2, idCol + 1, last - 1, 1).getValues();
+  for (var i = values.length - 1; i >= 0; i--) {
+    if (String(values[i][0] || '').trim() === want) return i + 2;
+  }
+  return 0;
+}
+
+function deleteSignupById_(signupId) {
+  var sheet = openSheet_().getSheetByName('Signups');
+  if (!sheet) throw new Error('Signups tab is missing.');
+  var rowNumber = signupRowNumberById_(sheet, signupId);
+  if (!rowNumber) return false;
+  sheet.deleteRow(rowNumber);
+  return true;
 }
 
 function updateSignup_(rowNumber, fields) {
@@ -1211,16 +1236,17 @@ function cancelByEmail_(body, deps) {
         result = mismatch;
         return;
       }
-      var fields = {
-        status: 'cancelled',
-        updatedAt: deps.stamp(deps.now()),
-        sequence: (Math.floor(Number(match.sequence)) || 0) + 1
-      };
-      deps.updateSignup(match.rowNumber, fields);
+      if (!match.signupId) {
+        result = { ok: false, error: 'Could not cancel the sign-up.' };
+        return;
+      }
       var mailSlot = slot || slotForRow_(state, match);
-      if (match.email) {
-        mail = buildMessage_(copyFields_(match, fields), mailSlot, 'cancel');
-        calendarChanges.push({ action: 'remove', email: match.email, signupId: match.signupId, token: match.token, slot: mailSlot });
+      var messageRow = copyFields_(match, { sequence: (Math.floor(Number(match.sequence)) || 0) + 1 });
+      if (match.email) mail = buildMessage_(messageRow, mailSlot, 'cancel');
+      calendarChanges.push({ action: 'remove', email: match.email, signupId: match.signupId, token: match.token, slot: mailSlot });
+      if (!deps.deleteSignup(match.signupId)) {
+        result = { ok: false, error: 'Could not cancel the sign-up.' };
+        return;
       }
       result = { ok: true, message: 'Your sign-up is cancelled.' };
     });
@@ -1242,26 +1268,30 @@ function cancelSignup_(body, deps) {
     outcome = deps.withLock(function () {
       var state = deps.readState();
       var row = findToken_(state.signups, token);
-      if (!row) { result = { ok: false, error: 'That link is not valid.' }; return; }
+      if (!row) {
+        result = { ok: false, error: 'This sign-up has already been cancelled or no longer exists.' };
+        return;
+      }
       var slot = slotForRow_(state, row);
       if (!ABA_RULES.isActive(row)) {
         result = {
           ok: true,
           already: true,
-          message: 'This sign-up is already cancelled.',
+          message: 'This sign-up has already been cancelled or no longer exists.',
           signup: { task: row.task || '', date: row.date || '', event: row.event || '' }
         };
         return;
       }
-      var fields = {
-        status: 'cancelled',
-        updatedAt: deps.stamp(deps.now()),
-        sequence: (Math.floor(Number(row.sequence)) || 0) + 1
-      };
-      deps.updateSignup(row.rowNumber, fields);
-      if (row.email) {
-        mail = buildMessage_(copyFields_(row, fields), slot, 'cancel');
-        calendarChanges.push({ action: 'remove', email: row.email, signupId: row.signupId, token: row.token, slot: slot });
+      if (!row.signupId) {
+        result = { ok: false, error: 'Could not cancel the sign-up.' };
+        return;
+      }
+      var messageRow = copyFields_(row, { sequence: (Math.floor(Number(row.sequence)) || 0) + 1 });
+      if (row.email) mail = buildMessage_(messageRow, slot, 'cancel');
+      calendarChanges.push({ action: 'remove', email: row.email, signupId: row.signupId, token: row.token, slot: slot });
+      if (!deps.deleteSignup(row.signupId)) {
+        result = { ok: false, error: 'Could not cancel the sign-up.' };
+        return;
       }
       result = {
         ok: true,
@@ -1274,6 +1304,103 @@ function cancelSignup_(body, deps) {
   }
   if (outcome === false) return { ok: false, error: 'The sheet is busy. Please try again in a moment.' };
   return finishWithCalendar_(result, mail, deps, calendarChanges);
+}
+
+function cancelledRecords_() {
+  var sheet = openSheet_().getSheetByName('Signups');
+  if (!sheet) throw new Error('Signups tab is missing.');
+  var values = sheet.getDataRange().getValues();
+  if (!values.length) return [];
+  var headers = values[0];
+  var statusCol = columnIndex_(headers, 'status');
+  var idCol = columnIndex_(headers, 'signupId');
+  var found = [];
+  for (var r = values.length - 1; r >= 1; r--) {
+    var status = statusCol === -1 ? '' : values[r][statusCol];
+    if (String(status || '').trim().toLowerCase() !== 'cancelled') continue;
+    found.push({
+      signupId: idCol === -1 ? '' : String(values[r][idCol] || '').trim()
+    });
+  }
+  return found;
+}
+
+function forgetSignupCalendar_(signupId) {
+  if (!signupId) return;
+  var props = PropertiesService.getScriptProperties();
+  var key = calendarSignupKey_(signupId);
+  var eventId = props.getProperty(key) || '';
+  if (eventId) {
+    try {
+      var api = calendarClient_();
+      var calendarId = api.getCalendarId();
+      if (api.eventExists(calendarId, eventId) && api.deleteEventQuiet) api.deleteEventQuiet(calendarId, eventId);
+    } catch (err) {
+      try { Logger.log('Could not remove the calendar event for ' + signupId + ': ' + err); } catch (ignore) {}
+    }
+  }
+  props.deleteProperty(key);
+}
+
+function cancelCleanupDeps_() {
+  return {
+    withLock: withScriptLock_,
+    listCancelled: cancelledRecords_,
+    deleteSignup: deleteSignupById_,
+    forgetCalendar: forgetSignupCalendar_,
+    log: function (message) { Logger.log(message); }
+  };
+}
+
+/**
+ * Logs how many Signups rows have STATUS Cancelled. Does not delete anything.
+ */
+function countCancelledRows() {
+  var found = cancelCleanupDeps_().listCancelled();
+  var summary = 'countCancelledRows found ' + found.length + ' cancelled ' + (found.length === 1 ? 'row' : 'rows') + '. Nothing was deleted.';
+  Logger.log(summary);
+  return summary;
+}
+
+/**
+ * Deletes Signups rows whose STATUS is Cancelled, from the bottom up.
+ * Run countCancelledRows() first, or deleteCancelledRows(true) for a dry run.
+ * Sends no email. Do not run this until the cancelled rows are approved for deletion.
+ */
+function deleteCancelledRows(dryRun, deps) {
+  deps = deps || cancelCleanupDeps_();
+  if (dryRun === true || String(dryRun).toLowerCase() === 'true') {
+    var preview = deps.listCancelled();
+    var note = 'deleteCancelledRows dry run: ' + preview.length + ' cancelled ' + (preview.length === 1 ? 'row' : 'rows') + ' would be deleted. Nothing was deleted.';
+    deps.log(note);
+    return note;
+  }
+  var planned = 0;
+  var deleted = 0;
+  var skipped = 0;
+  var outcome = deps.withLock(function () {
+    var rows = deps.listCancelled();
+    planned = rows.length;
+    deps.log('deleteCancelledRows will delete ' + planned + ' cancelled ' + (planned === 1 ? 'row' : 'rows') + '.');
+    for (var i = 0; i < rows.length; i++) {
+      var signupId = rows[i].signupId;
+      if (!signupId || !deps.deleteSignup(signupId)) {
+        skipped += 1;
+        continue;
+      }
+      deps.forgetCalendar(signupId);
+      deleted += 1;
+    }
+  });
+  if (outcome === false) {
+    var busy = 'deleteCancelledRows could not lock the sheet. Nothing was deleted.';
+    deps.log(busy);
+    return busy;
+  }
+  var summary = 'deleteCancelledRows deleted ' + deleted + ' cancelled ' + (deleted === 1 ? 'row' : 'rows') + '.';
+  if (skipped) summary += ' ' + skipped + ' cancelled ' + (skipped === 1 ? 'row was' : 'rows were') + ' skipped because the sign-up ID was missing.';
+  deps.log(summary);
+  return summary;
 }
 
 function moveSignup_(body, deps) {
