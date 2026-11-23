@@ -20,8 +20,49 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     showAppleCalendar();
+    runQuickCancel();
     init();
   });
+
+  function quickCancelToken() {
+    var token = new URLSearchParams(window.location.search).get('cancel') || '';
+    if (!/^[A-Za-z0-9]{32,80}$/.test(token)) return '';
+    return token;
+  }
+
+  function quickCancelSentence(data) {
+    if (data && data.already) return 'This sign-up is already cancelled.';
+    var signup = data && data.signup ? data.signup : {};
+    var task = signup.task || 'this role';
+    var date = signup.date ? catalog.formatLong(signup.date) : '';
+    return 'Your sign-up for ' + task + (date ? ' on ' + date : '') + ' has been cancelled.';
+  }
+
+  async function runQuickCancel() {
+    var token = quickCancelToken();
+    var host = document.getElementById('quick-cancel');
+    if (!token || !host) return;
+    host.innerHTML = '<div class="wrap"><p class="banner" id="quick-cancel-status">Cancelling your sign-up…</p></div>';
+    var status = document.getElementById('quick-cancel-status');
+    if (!backendUrl()) {
+      status.textContent = 'Cancel will be available after the sign-up service is connected.';
+      return;
+    }
+    try {
+      var data = await postSignup({ action: 'cancel', token: token });
+      if (!data || data.ok !== true) {
+        status.textContent = data && data.error === 'That link is not valid.'
+          ? 'That cancel link is not valid.'
+          : ((data && data.error) || 'That cancel link is not valid.');
+        return;
+      }
+      status.textContent = quickCancelSentence(data);
+      try { await loadLive(); } catch (err) {}
+      paint();
+    } catch (err) {
+      status.textContent = 'The sign-up could not be cancelled. Open the link again in a moment.';
+    }
+  }
 
   function showAppleCalendar() {
     var event = catalog.eventFromAppleQuery(window.location.search);

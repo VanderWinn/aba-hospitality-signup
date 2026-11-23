@@ -157,14 +157,20 @@ function manageUrl_(token) {
   return ABA_SITE_URL + '?manage=' + encodeURIComponent(token);
 }
 
+function cancelUrl_(token) {
+  if (!token) return '';
+  return ABA_SITE_URL + '?cancel=' + encodeURIComponent(token);
+}
+
 function calendarPieces_(signup, slot) {
   var when = parseClock_(slot.time);
   var summary = slot.event + ': ' + slot.task;
   var where = mailWhere_(slot);
   var manage = manageUrl_(signup.token);
+  var cancel = cancelUrl_(signup.token);
   var details = 'Task: ' + slot.task + '\nEvent: ' + slot.event + '\nWhen: ' + longDate_(slot.date) +
     (when ? ', ' + String(slot.time).trim() + ' Eastern' : ', all day');
-  if (manage) details += '\n\nChange or cancel: ' + manage;
+  if (cancel) details += '\n\nCancel this sign-up: ' + cancel;
   var uid = String(signup.signupId || 'signup') + '@aba-hospitality.ada';
   var sequence = Math.floor(Number(signup.sequence || 0)) || 0;
   var stamp = formatUtcBasic_(signup._now ? new Date(signup._now) : new Date());
@@ -263,7 +269,7 @@ function calendarPieces_(signup, slot) {
   }
   if (where) lines.push('LOCATION:' + escapeIcs_(where));
   lines.push('DESCRIPTION:' + escapeIcs_(details));
-  if (manage) lines.push('URL:' + escapeIcs_(manage));
+  if (cancel) lines.push('URL:' + escapeIcs_(cancel));
   var google = 'https://calendar.google.com/calendar/render?action=TEMPLATE' +
     '&text=' + encodeURIComponent(summary) +
     '&dates=' + encodeURIComponent(googleDates) +
@@ -294,7 +300,7 @@ function calendarPieces_(signup, slot) {
     end: appleEnd,
     where: where
   });
-  return { lines: lines, google: google, outlook: outlook, apple: apple, where: where, summary: summary, manage: manage, timed: !!when };
+  return { lines: lines, google: google, outlook: outlook, apple: apple, where: where, summary: summary, manage: manage, cancel: cancel, timed: !!when };
 }
 
 function clockText_(hour, minute) {
@@ -366,8 +372,11 @@ function buildMessage_(signup, slot, kind) {
     '',
     'An invite.ics calendar file is also attached.'
   ];
+  if (kind !== 'cancel' && pieces.cancel) {
+    text.push('', 'Cancel this sign-up:', pieces.cancel);
+  }
   if (kind !== 'cancel' && pieces.manage) {
-    text.push('', 'Change or cancel:', pieces.manage);
+    text.push('', 'Change your sign-up:', pieces.manage);
   }
   text.push('', 'Ada Business Association', ABA_SITE_URL.replace(/\/$/, ''));
   var row = function (label, value) {
@@ -407,8 +416,11 @@ function buildMessage_(signup, slot, kind) {
     '</table>',
     '<p style="margin:0 0 8px;color:#5c5c5c;">An invite.ics calendar file is also attached. ' + escapeHtmlMail_(whenText) + '.</p>'
   ];
+  if (kind !== 'cancel' && pieces.cancel) {
+    html.push('<p style="margin:16px 0 0;">' + button(pieces.cancel, 'Cancel this sign-up') + '</p>');
+  }
   if (kind !== 'cancel' && pieces.manage) {
-    html.push('<p style="margin:16px 0 0;">' + button(pieces.manage, 'Change or cancel') + '</p>');
+    html.push('<p style="margin:8px 0 0;"><a href="' + escapeHtmlMail_(pieces.manage) + '" style="color:#407589;font-weight:700;">Change your sign-up</a></p>');
   }
   html.push('<p style="margin:24px 0 0;color:#5c5c5c;">Ada Business Association</p>', '</div></div>');
   return {

@@ -60,7 +60,9 @@ test('a slot becomes one calendar event and a signup adds the guest once', () =>
   assert.equal(plan.title, 'ABA Hospitality: Set-Up – Happy Hour');
   assert.equal(plan.location, 'Ada Hotel, 7415 River St SE, Ada');
   assert.match(plan.description, /vanderwinn\.github\.io\/aba-hospitality-signup/);
+  assert.match(plan.description, /cancel link in your confirmation email/);
   assert.equal(plan.description.includes('@'), false);
+  assert.equal(plan.description.includes('cancel='), false);
   assert.equal(plan.start.getHours(), 16);
   assert.equal(plan.end.getHours(), 16);
   assert.equal(plan.end.getMinutes(), 30);

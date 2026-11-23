@@ -109,7 +109,8 @@ h1 {
 
 #banner:empty { display: none; }
 
-#apple-cal .banner {
+#apple-cal .banner,
+#quick-cancel .banner {
   background: #fff;
   border-color: var(--line);
   color: var(--ink);

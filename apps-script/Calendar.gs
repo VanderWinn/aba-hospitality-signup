@@ -19,7 +19,8 @@ function planCalendarEvent_(slot) {
   var eventName = slot && slot.event ? String(slot.event) : 'Event';
   var place = signupPlace_(slot || {});
   var location = fullPlace_(place.venue, place.address) || (slot && slot.location) || '';
-  var description = task + ' for ' + eventName + '.\n\nSign-up sheet: ' + ABA_SITE_URL;
+  var description = task + ' for ' + eventName + '.\n\nSign-up sheet: ' + ABA_SITE_URL +
+    '\n\nTo cancel, open the cancel link in your confirmation email. That link cancels only your sign-up.';
   var plan = {
     slotId: slot && slot.slotId ? String(slot.slotId) : '',
     title: 'ABA Hospitality: ' + task + ' – ' + eventName,
@@ -107,6 +108,9 @@ function calendarClient_() {
     },
     setGuests: function (calendarId, eventId, attendees) {
       Calendar.Events.patch({ attendees: attendees }, calendarId, eventId, { sendUpdates: 'all' });
+    },
+    updateDescription: function (calendarId, eventId, description) {
+      Calendar.Events.patch({ description: description }, calendarId, eventId, { sendUpdates: 'none' });
     }
   };
 }
@@ -141,12 +145,18 @@ function syncCalendarGuests_(changes, client) {
         next.push({ email: guest.email });
       });
       if (change.action === 'add') {
-        if (found) return;
-        next.push({ email: email });
-      } else if (!found) {
-        return;
+        if (!found) {
+          next.push({ email: email });
+          api.setGuests(calendarId, eventId, next);
+        }
+      } else if (found) {
+        api.setGuests(calendarId, eventId, next);
       }
-      api.setGuests(calendarId, eventId, next);
+      try {
+        if (api.updateDescription) api.updateDescription(calendarId, eventId, plan.description);
+      } catch (describeErr) {
+        try { Logger.log('Calendar description update failed: ' + describeErr); } catch (ignoreDescribe) {}
+      }
     } catch (err) {
       allOk = false;
       try { Logger.log('Calendar guest update failed: ' + err); } catch (ignore) {}

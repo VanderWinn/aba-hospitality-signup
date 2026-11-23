@@ -1239,7 +1239,12 @@ function cancelSignup_(body, deps) {
       if (!row) { result = { ok: false, error: 'That link is not valid.' }; return; }
       var slot = slotForRow_(state, row);
       if (!ABA_RULES.isActive(row)) {
-        result = { ok: true, message: 'This sign-up is already cancelled.' };
+        result = {
+          ok: true,
+          already: true,
+          message: 'This sign-up is already cancelled.',
+          signup: { task: row.task || '', date: row.date || '', event: row.event || '' }
+        };
         return;
       }
       var fields = {
@@ -1252,7 +1257,11 @@ function cancelSignup_(body, deps) {
         mail = buildMessage_(copyFields_(row, fields), slot, 'cancel');
         calendarChanges.push({ action: 'remove', email: row.email, slot: slot });
       }
-      result = { ok: true, message: 'Your sign-up is cancelled.' };
+      result = {
+        ok: true,
+        message: 'Your sign-up is cancelled.',
+        signup: { task: slot.task || row.task || '', date: slot.date || row.date || '', event: slot.event || row.event || '' }
+      };
     });
   } catch (err) {
     return { ok: false, error: 'Could not cancel the sign-up.' };

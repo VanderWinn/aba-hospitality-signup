@@ -69,6 +69,11 @@ test('a timed event is two hours in Eastern time and escapes calendar text', () 
   assert.equal(appleLine.includes('manage='), false);
   assert.equal(appleLine.includes(signup.token), false);
   assert.match(message.text, /\?manage=a{32}/);
+  assert.match(message.text, /Cancel this sign-up:/);
+  assert.match(message.html, /Cancel this sign-up/);
+  const unfolded = message.ics.replace(/\r\n /g, '');
+  assert.match(unfolded, /Cancel this sign-up: https:\/\/vanderwinn\.github\.io\/aba-hospitality-signup\/\?cancel=/);
+  assert.match(unfolded, /URL:https:\/\/vanderwinn\.github\.io\/aba-hospitality-signup\/\?cancel=/);
   const roleFile = aba.buildMessage_(signup, {
     event: 'Lunch & Learn',
     date: '2027-01-21',
