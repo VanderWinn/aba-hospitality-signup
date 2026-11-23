@@ -1412,7 +1412,13 @@ function planMigrateV5_(values, slots) {
   }
   var dateValues = [];
   var timeValues = [];
+  var taskEdits = [];
   var kept = 0;
+  function shifted_(zeroBased) {
+    var col = zeroBased;
+    if (insert && timeCol !== -1 && zeroBased > timeCol) col += 1;
+    return col + 1;
+  }
   for (var r = 1; r < values.length; r++) {
     var src = values[r] || [];
     var blank = true;
@@ -1433,6 +1439,27 @@ function planMigrateV5_(values, slots) {
         dateValues.push({ rowNumber: r + 1, column: dateCol + 1, iso: iso });
       }
     }
+    var taskCol = headerIndex_(headers, 'task');
+    var slotCol = headerIndex_(headers, 'slotid');
+    var oldCol = headerIndex_(headers, 'oldtask');
+    if (String(record.task || '') === 'Networking Host') {
+      var priorSlot = String(record.slotId || '');
+      var renamedSlot = priorSlot ? priorSlot.replace(/\|Networking Host$/, '|Networking Ambassador') : '';
+      if (!renamedSlot && record.date && record.event) {
+        renamedSlot = ABA_RULES.formatSheetDate(record.date) + '|' + record.event + '|Networking Ambassador';
+      }
+      if (taskCol !== -1) {
+        taskEdits.push({ rowNumber: r + 1, column: shifted_(taskCol), value: 'Networking Ambassador' });
+      }
+      if (renamedSlot && renamedSlot !== priorSlot && slotCol !== -1) {
+        taskEdits.push({ rowNumber: r + 1, column: shifted_(slotCol), value: renamedSlot });
+      }
+      if (!String(record.oldTask || '').trim() && oldCol !== -1) {
+        taskEdits.push({ rowNumber: r + 1, column: shifted_(oldCol), value: 'Networking Host' });
+      }
+      record.task = 'Networking Ambassador';
+      if (renamedSlot) record.slotId = renamedSlot;
+    }
     var clocks = clocksForRow_(record, slots);
     var currentStart = insert ? '' : (startCol === -1 ? '' : tidyClock_(ABA_RULES.formatSheetTime(src[startCol])));
     var currentEnd = insert ? '' : (endCol === -1 ? '' : tidyClock_(ABA_RULES.formatSheetTime(src[endCol])));
@@ -1452,6 +1479,7 @@ function planMigrateV5_(values, slots) {
     headers: working,
     dateValues: dateValues,
     timeValues: timeValues,
+    taskEdits: taskEdits,
     kept: kept
   };
 }
@@ -1497,9 +1525,14 @@ function migrateV5() {
     cell.setNumberFormat('@');
     cell.setValue(change.value);
   });
+  plan.taskEdits.forEach(function (change) {
+    sheet.getRange(change.rowNumber, change.column).setValue(change.value);
+  });
   SpreadsheetApp.flush();
   var summary = 'Migration v5 complete. Kept ' + plan.kept + ' sign-up rows. Updated ' + plan.dateValues.length +
-    ' dates to M/d/yyyy and ' + plan.timeValues.length + ' start/end time cells as text. Statuses and other formatting were not changed.';
+    ' dates to M/d/yyyy and ' + plan.timeValues.length + ' start/end time cells as text. Renamed ' +
+    plan.taskEdits.filter(function (change) { return change.value === 'Networking Ambassador'; }).length +
+    ' Networking Host rows to Networking Ambassador. Statuses and other formatting were not changed.';
   Logger.log(summary);
   return summary;
 }

@@ -44,6 +44,20 @@ test('migrateV5 uses role times, keeps statuses, and a second run changes nothin
   assert.equal(second.insert, false);
   assert.equal(second.timeValues.length, 0);
   assert.equal(second.dateValues.length, 0);
+  const hostHeaders = ['name', 'date', 'time', 'task', 'slotId', 'oldTask', 'status', 'token'];
+  const hostRows = [[
+    'Donny Nguyen', '2026-12-09', '4:30 PM', 'Networking Host', '2026-12-09|Happy Hour|Networking Host', '', 'active', 'd'.repeat(32)
+  ], [
+    'Ada Volunteer', '2026-12-09', '4:30 PM', 'Networking Host', '2026-12-09|Happy Hour|Networking Host', 'Mixer Host', 'active', 'e'.repeat(32)
+  ]];
+  const renamed = aba.planMigrateV5_([hostHeaders].concat(hostRows), slots);
+  const taskWrites = renamed.taskEdits.filter((item) => item.value === 'Networking Ambassador');
+  const slotWrites = renamed.taskEdits.filter((item) => String(item.value).indexOf('Networking Ambassador') !== -1 && String(item.value).indexOf('|') !== -1);
+  const oldWrites = renamed.taskEdits.filter((item) => item.value === 'Networking Host');
+  assert.equal(taskWrites.length, 2);
+  assert.equal(slotWrites.length, 2);
+  assert.equal(oldWrites.length, 1);
+  assert.equal(renamed.taskEdits.some((item) => item.value === 'active' || item.value === 'd'.repeat(32)), false);
   const source = fs.readFileSync(path.join(root, 'apps-script/Code.gs'), 'utf8');
   const fn = source.slice(source.indexOf('function migrateV5'));
   assert.equal(fn.includes('getUi'), false);

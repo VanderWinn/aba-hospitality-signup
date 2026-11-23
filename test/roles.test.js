@@ -81,7 +81,7 @@ test('templates cover the 11 events in role order with absolute and relative tim
   assert.equal(drinks.timeLabel, 'Jan 20, 2:00–3:00 PM');
   assert.match(drinks.description, /Picks up the drinks/);
   const hour = slots.filter((slot) => slot.date === '2026-12-09').map((slot) => slot.task);
-  assert.equal(JSON.stringify(hour), JSON.stringify(['Set-Up', 'Door Greeter', 'Sign-In Table', 'Networking Host', 'Clean-Up']));
+  assert.equal(JSON.stringify(hour), JSON.stringify(['Set-Up', 'Door Greeter', 'Sign-In Table', 'Networking Ambassador', 'Clean-Up']));
   assert.equal(slots.filter((slot) => slot.date === '2026-11-17')[0].description, '');
 });
 
@@ -128,7 +128,7 @@ test('migration remaps the 25 current rows, flags full-lunch rows, and stays ide
     '2027-05-20 Kevin Snyder'
   ]));
   assert.equal(plan.overCapacity.length, 0);
-  const donny = plan.changes.find((change) => change.fields.task === 'Networking Host' && change.fields.date === '2026-12-09');
+  const donny = plan.changes.find((change) => change.fields.task === 'Networking Ambassador' && change.fields.date === '2026-12-09');
   assert.equal(donny.fields.oldTask, 'Mixer Host');
   assert.equal(donny.fields.capacity, 3);
   const applied = rows.map((row) => Object.assign({}, row));
@@ -144,7 +144,7 @@ test('migration remaps the 25 current rows, flags full-lunch rows, and stays ide
   const nov19 = catalog.events.find((event) => event.date === '2026-11-19');
   assert.equal(JSON.stringify(nov19).includes('Kevin Snyder'), false);
   assert.equal(JSON.stringify(nov19).includes('Christian Viel'), false);
-  const networking = catalog.events.find((event) => event.date === '2026-12-09').tasks.find((task) => task.task === 'Networking Host');
+  const networking = catalog.events.find((event) => event.date === '2026-12-09').tasks.find((task) => task.task === 'Networking Ambassador');
   const setup = catalog.events.find((event) => event.date === '2026-12-09').tasks.find((task) => task.task === 'Set-Up');
   assert.deepEqual(JSON.parse(JSON.stringify(networking.names)), ['Donny Nguyen']);
   assert.deepEqual(JSON.parse(JSON.stringify(setup.names)), ['Kevin Snyder']);
