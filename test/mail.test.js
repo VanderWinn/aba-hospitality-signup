@@ -219,12 +219,14 @@ test('the manage panel does not print the token and offers another open spot', (
     task: 'Mixer Host',
     location: 'Ada Hotel'
   }, view);
-  assert.match(html, /event-progress|Cancel this sign-up|manage-cancel/);
+  assert.match(html, /Cancel this sign-up|manage-cancel/);
   assert.match(html, /id="manage-cancel"/);
   assert.match(html, /data-task="Ambassadors Clean up"/);
   assert.equal(html.includes('secret-token'), false);
   const board = aba.ABACatalog.renderBoard(view, 'live');
-  assert.match(board, /event-progress/);
+  assert.match(board, /type-filter/);
+  assert.equal(/\d+ open/.test(board), false);
+  assert.equal(board.includes('event-progress'), false);
   const cancelled = aba.ABACatalog.renderManage({
     name: 'Ada Volunteer',
     status: 'cancelled',

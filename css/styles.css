@@ -325,7 +325,6 @@ main { padding: 1.25rem 0 3rem; }
 
 .event-head .kicker,
 .event-head .event-date,
-.event-head .event-status,
 .event-head .sep { color: #1a333c; }
 
 .event-clock { font-weight: 700; }
@@ -338,27 +337,7 @@ main { padding: 1.25rem 0 3rem; }
 
 .venue-street { overflow-wrap: anywhere; }
 
-.event-line .event-status {
-  margin: 0;
-  font-size: 0.78rem;
-  white-space: nowrap;
-}
-
 .sep { color: #8aa0a8; font-weight: 400; }
-
-.event-progress {
-  height: 4px;
-  margin-top: 0.45rem;
-  background: rgba(26, 51, 60, 0.18);
-  border-radius: 99px;
-  overflow: hidden;
-}
-
-.event-progress span {
-  display: block;
-  height: 100%;
-  background: #2d515f;
-}
 
 .kicker {
   margin: 0;
@@ -369,10 +348,6 @@ main { padding: 1.25rem 0 3rem; }
 }
 
 h2 { margin: 0; font-size: 1rem; line-height: 1.35; }
-
-.event-status { color: var(--pine-deep); font-weight: 700; }
-
-.is-past .event-status { color: #5e564c; }
 
 .task {
   display: grid;

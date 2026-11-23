@@ -312,26 +312,12 @@
   }
 
   function renderEvent(event, mode) {
-    var open = 0;
-    event.tasks.forEach(function (task) { open += task.remaining; });
-    var meta = event.past
-      ? 'Past'
-      : (open === 0 ? 'Full' : open + ' open');
-    var filled = 0;
-    var cap = 0;
-    event.tasks.forEach(function (task) {
-      filled += task.filled;
-      cap += task.capacity;
-    });
-    var pct = cap > 0 ? Math.round((filled / cap) * 100) : 0;
     var place = placeParts(event.location, event.name);
     var where = '<span class="event-where">' +
       '<span class="sep" aria-hidden="true">·</span>' +
       '<span class="event-clock">' + escapeHtml(event.time) + '</span>' +
       (place.name ? '<span class="sep" aria-hidden="true">·</span><span class="event-place"><span class="venue-name">' + escapeHtml(place.name) + '</span>' +
         (place.street ? '<span class="venue-street">, ' + escapeHtml(place.street) + '</span>' : '') + '</span>' : '') +
-      '<span class="sep" aria-hidden="true">·</span>' +
-      '<span class="event-status">' + escapeHtml(meta) + '</span>' +
     '</span>';
     var offer = calendarLinks(event);
     var calId = eventDomId(event) + '-calendar';
@@ -355,7 +341,6 @@
           '<a href="' + escapeHtml(offer.outlook) + '" target="_blank" rel="noopener noreferrer">Outlook</a>' +
           '<a href="data:text/calendar;charset=utf-8,' + encodeURIComponent(offer.ics) + '" download="' + escapeHtml(offer.filename) + '">Download .ics</a>' +
         '</div>' +
-        '<div class="event-progress" role="img" aria-label="' + filled + ' of ' + cap + ' spots filled"><span style="width:' + Math.min(100, pct) + '%"></span></div>' +
       '</header>' +
       '<div class="tasks">' + event.tasks.map(function (task) { return renderTask(event, task, mode); }).join('') + '</div>' +
     '</section>';
@@ -363,18 +348,16 @@
 
   function typeTotals(view, type) {
     var dates = 0;
-    var open = 0;
     view.events.forEach(function (event) {
       if (event.past) return;
       if (type && event.name !== type) return;
       dates += 1;
-      event.tasks.forEach(function (task) { open += task.remaining; });
     });
-    return { dates: dates, open: open };
+    return { dates: dates };
   }
 
   function filterTile(type, label, totals, pressed) {
-    var count = totals.dates + (totals.dates === 1 ? ' date' : ' dates') + ' · ' + totals.open + ' open';
+    var count = totals.dates + (totals.dates === 1 ? ' date' : ' dates');
     return '<button type="button" class="type-filter' + (pressed ? ' is-selected' : '') + '" data-type="' + escapeHtml(type) + '" aria-pressed="' + (pressed ? 'true' : 'false') + '">' +
       '<span class="type-filter-name">' + escapeHtml(label) + '</span>' +
       '<span class="type-filter-count">' + count + '</span></button>';
