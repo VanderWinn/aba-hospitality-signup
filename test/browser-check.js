@@ -61,7 +61,7 @@ async function main() {
     const liveBanner = await livePage.$eval('#banner', (el) => el.textContent.trim());
     assert(liveBanner === '', 'live mode still shows a banner: ' + liveBanner);
     const fullTask = await livePage.$eval('#task-2026-12-09-happy-hour-door-sign-in-table', (el) => el.innerText);
-    assert(fullTask.includes('Full'), 'full task is not locked');
+    assert(!fullTask.includes('>Full<') && !fullTask.includes('Sign up'), 'full task still offers a badge or sign-up');
     assert(fullTask.includes('Rebecca Vandenbroek'), 'filled name missing');
     assert(!fullTask.includes('Sign up'), 'full task still offers sign-up');
 

@@ -153,8 +153,12 @@ test('live board locks a full upcoming task and escapes names', () => {
   const setupTask = setup.split('id="task-2026-12-09-happy-hour-set-up"')[1].split('</article>')[0];
   assert.equal((setupTask.match(/Kevin Snyder/g) || []).length, 1);
   assert.equal((setupTask.match(/class="open-spot"/g) || []).length, 2);
-  assert.match(full, /Full/);
+  assert.equal((setupTask.match(/>Open</g) || []).length, 2);
+  assert.equal(setupTask.includes('1 of 3'), false);
+  assert.equal(setupTask.includes('No one yet'), false);
+  assert.doesNotMatch(full, />Full</);
   assert.doesNotMatch(full, /class="claim"/);
+  assert.doesNotMatch(full, /class="open-spot"/);
 
   const hostile = aba.ABACatalog.toView({
     events: [{

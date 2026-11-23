@@ -147,13 +147,6 @@
     return '';
   }
 
-  function countLabel(event, task) {
-    var ratio = task.filled + ' of ' + task.capacity;
-    if (event.past) return ratio + ' · Closed';
-    if (task.remaining === 0) return ratio + ' · Full';
-    return ratio;
-  }
-
   function renderTask(event, task, mode) {
     var canClaim = mode !== 'preview' && !event.past && task.remaining > 0;
     var spots = task.names.map(function (name) {
@@ -161,7 +154,7 @@
     });
     var openSpots = task.remaining;
     for (var s = 0; s < openSpots; s++) {
-      spots.push('<li class="open-spot">No one yet</li>');
+      spots.push('<li class="open-spot">Open</li>');
     }
     var names = spots.length ? '<ul class="who">' + spots.join('') + '</ul>' : '';
     var when = task.timeLabel || event.time || '';
@@ -175,7 +168,7 @@
     } else if (event.past) {
       action = '<span class="pill closed">Closed</span>';
     } else if (task.remaining === 0) {
-      action = '<span class="pill full">Full</span>';
+      action = '';
     } else {
       action = '<span class="pill open">Open</span>';
     }
@@ -183,12 +176,12 @@
       '<div class="task-main">' +
         '<h3><span class="role-name">' + escapeHtml(task.task) + '</span>' +
         (when ? '<span class="role-when">· ' + escapeHtml(when) + '</span>' : '') +
-        '<span class="role-count">· ' + escapeHtml(countLabel(event, task)) + '</span></h3>' +
+        '</h3>' +
         (task.description ? '<p class="task-desc">' + escapeHtml(task.description) + '</p>' : '') +
       '</div>' +
       '<div class="task-signup">' +
         names +
-        '<div class="task-action">' + action + '</div>' +
+        (action ? '<div class="task-action">' + action + '</div>' : '') +
       '</div>' +
     '</article>';
   }
