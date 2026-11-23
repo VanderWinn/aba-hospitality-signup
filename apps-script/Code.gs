@@ -400,6 +400,7 @@ function processPost_(body, deps) {
 
   var result = { ok: false, error: 'Could not submit the form.' };
   var mail = null;
+  var calendarChanges = [];
   var outcome;
   try {
     outcome = deps.withLock(function () {
@@ -410,7 +411,10 @@ function processPost_(body, deps) {
         return;
       }
       var record = signupRecord_(decision, deps);
-      if (record.email) mail = buildMessage_(record, decision.slot, 'confirm');
+      if (record.email) {
+        mail = buildMessage_(record, decision.slot, 'confirm');
+        calendarChanges.push({ action: 'add', email: record.email, slot: decision.slot });
+      }
       deps.appendSignup(record);
       result = { ok: true, message: decision.message };
     });
@@ -420,7 +424,7 @@ function processPost_(body, deps) {
   if (outcome === false) {
     return { ok: false, error: 'The sheet is busy. Please try again in a moment.' };
   }
-  return deliverMail_(result, mail, deps);
+  return finishWithCalendar_(result, mail, deps, calendarChanges);
 }
 
 function splitPlace_(location, eventName) {
@@ -531,6 +535,21 @@ function signupRecord_(decision, deps) {
   };
 }
 
+function finishWithCalendar_(result, mail, deps, changes) {
+  if (result && result.ok && changes && changes.length) {
+    var invited = false;
+    try {
+      var run = deps && deps.calendarGuest ? deps.calendarGuest : syncCalendarGuests_;
+      invited = run(changes) === true;
+    } catch (err) {
+      invited = false;
+      try { Logger.log('Calendar update failed: ' + err); } catch (ignore) {}
+    }
+    if (invited && mail) mail.ics = '';
+  }
+  return deliverMail_(result, mail, deps);
+}
+
 function deliverMail_(result, mail, deps) {
   if (result && result.ok && mail && deps.sendMail) {
     try {
@@ -555,6 +574,7 @@ function scriptDeps_() {
     newId: function () { return Utilities.getUuid(); },
     newToken: newToken_,
     sendMail: sendMailApp_,
+    calendarGuest: function (changes) { return syncCalendarGuests_(changes); },
     todayEastern: function () { return ABA_RULES.todayKeyIn(new Date(), ABA_CALENDAR_TZ); }
   };
 }
@@ -1017,19 +1037,22 @@ function newToken_() {
 }
 
 function sendMailApp_(message) {
-  var method = /METHOD:CANCEL/.test(message && message.ics || '') ? 'CANCEL' : 'REQUEST';
-  var blob = Utilities.newBlob(message.ics || '', 'text/calendar', 'invite.ics');
-  blob.setName('invite.ics');
-  blob.setContentType('text/calendar; method=' + method + '; charset=UTF-8');
-  MailApp.sendEmail({
+  var options = {
     to: message.to,
     subject: message.subject,
     body: message.text,
     htmlBody: message.html,
     name: message.name || ABA_MAIL_NAME,
-    replyTo: message.replyTo || ABA_MAIL_REPLY_TO,
-    attachments: [blob]
-  });
+    replyTo: message.replyTo || ABA_MAIL_REPLY_TO
+  };
+  if (message.ics) {
+    var method = /METHOD:CANCEL/.test(message.ics) ? 'CANCEL' : 'REQUEST';
+    var blob = Utilities.newBlob(message.ics, 'text/calendar', 'invite.ics');
+    blob.setName('invite.ics');
+    blob.setContentType('text/calendar; method=' + method + '; charset=UTF-8');
+    options.attachments = [blob];
+  }
+  MailApp.sendEmail(options);
 }
 
 function cleanToken_(value) {
@@ -1154,6 +1177,7 @@ function cancelByEmail_(body, deps) {
   }
   var result = mismatch;
   var mail = null;
+  var calendarChanges = [];
   var outcome;
   try {
     outcome = deps.withLock(function () {
@@ -1188,14 +1212,17 @@ function cancelByEmail_(body, deps) {
       };
       deps.updateSignup(match.rowNumber, fields);
       var mailSlot = slot || slotForRow_(state, match);
-      if (match.email) mail = buildMessage_(copyFields_(match, fields), mailSlot, 'cancel');
+      if (match.email) {
+        mail = buildMessage_(copyFields_(match, fields), mailSlot, 'cancel');
+        calendarChanges.push({ action: 'remove', email: match.email, slot: mailSlot });
+      }
       result = { ok: true, message: 'Your sign-up is cancelled.' };
     });
   } catch (err) {
     return { ok: false, error: 'Could not cancel the sign-up.' };
   }
   if (outcome === false) return { ok: false, error: 'The sheet is busy. Please try again in a moment.' };
-  return deliverMail_(result, mail, deps);
+  return finishWithCalendar_(result, mail, deps, calendarChanges);
 }
 
 function cancelSignup_(body, deps) {
@@ -1203,6 +1230,7 @@ function cancelSignup_(body, deps) {
   if (!token) return { ok: false, error: 'That link is not valid.' };
   var result = { ok: false, error: 'Could not cancel the sign-up.' };
   var mail = null;
+  var calendarChanges = [];
   var outcome;
   try {
     outcome = deps.withLock(function () {
@@ -1220,14 +1248,17 @@ function cancelSignup_(body, deps) {
         sequence: (Math.floor(Number(row.sequence)) || 0) + 1
       };
       deps.updateSignup(row.rowNumber, fields);
-      if (row.email) mail = buildMessage_(copyFields_(row, fields), slot, 'cancel');
+      if (row.email) {
+        mail = buildMessage_(copyFields_(row, fields), slot, 'cancel');
+        calendarChanges.push({ action: 'remove', email: row.email, slot: slot });
+      }
       result = { ok: true, message: 'Your sign-up is cancelled.' };
     });
   } catch (err) {
     return { ok: false, error: 'Could not cancel the sign-up.' };
   }
   if (outcome === false) return { ok: false, error: 'The sheet is busy. Please try again in a moment.' };
-  return deliverMail_(result, mail, deps);
+  return finishWithCalendar_(result, mail, deps, calendarChanges);
 }
 
 function moveSignup_(body, deps) {
@@ -1242,6 +1273,7 @@ function moveSignup_(body, deps) {
   var slotId = ABA_RULES.slotId(date, eventName, task);
   var result = { ok: false, error: 'Could not update the sign-up.' };
   var mail = null;
+  var calendarChanges = [];
   var outcome;
   try {
     outcome = deps.withLock(function () {
@@ -1279,15 +1311,20 @@ function moveSignup_(body, deps) {
         sequence: (Math.floor(Number(row.sequence)) || 0) + 1,
         status: 'active'
       };
+      var oldSlot = findSlotLocal_(state.slots, row.slotId) || slotForRow_(state, row);
       deps.updateSignup(row.rowNumber, fields);
-      if (row.email) mail = buildMessage_(copyFields_(row, fields), slot, 'move');
+      if (row.email) {
+        mail = buildMessage_(copyFields_(row, fields), slot, 'move');
+        calendarChanges.push({ action: 'remove', email: row.email, slot: oldSlot });
+        calendarChanges.push({ action: 'add', email: row.email, slot: slot });
+      }
       result = { ok: true, message: 'You are now signed up for ' + slot.task + '.' };
     });
   } catch (err) {
     return { ok: false, error: 'Could not update the sign-up.' };
   }
   if (outcome === false) return { ok: false, error: 'The sheet is busy. Please try again in a moment.' };
-  return deliverMail_(result, mail, deps);
+  return finishWithCalendar_(result, mail, deps, calendarChanges);
 }
 
 function runReminders_(deps) {

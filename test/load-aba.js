@@ -29,6 +29,7 @@ function loadAba() {
   context.window = context;
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(root, 'apps-script/Code.gs'), 'utf8'), context, { filename: 'Code.gs' });
+  vm.runInContext(fs.readFileSync(path.join(root, 'apps-script/Calendar.gs'), 'utf8'), context, { filename: 'Calendar.gs' });
   vm.runInContext(fs.readFileSync(path.join(root, 'apps-script/Mail.gs'), 'utf8'), context, { filename: 'Mail.gs' });
   vm.runInContext(fs.readFileSync(path.join(root, 'apps-script/Templates.gs'), 'utf8'), context, { filename: 'Templates.gs' });
   vm.runInContext(fs.readFileSync(path.join(root, 'apps-script/FixFullLunch.gs'), 'utf8'), context, { filename: 'FixFullLunch.gs' });
