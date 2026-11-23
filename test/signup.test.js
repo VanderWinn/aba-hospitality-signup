@@ -125,10 +125,19 @@ test('preview board shows seeded names, closes past events, and has no sign-up b
   });
   assert.match(offer.google, /dates=20261209T213000Z(%2F|\/)20261209T233000Z/);
   assert.match(offer.outlook, /startdt=2026-12-09T21%3A30%3A00Z/);
+  assert.match(offer.ics, /BEGIN:VTIMEZONE/);
+  assert.match(offer.ics, /TZID:America\/New_York/);
   assert.match(offer.ics, /DTSTART;TZID=America\/New_York:20261209T163000/);
   assert.match(offer.ics, /DTEND;TZID=America\/New_York:20261209T183000/);
   assert.match(offer.ics, /SUMMARY:Happy Hour/);
+  assert.match(offer.ics, /DESCRIPTION:Ada Business Association hospitality event/);
   assert.match(offer.ics, /LOCATION:Ada Hotel\\, 7415 River St SE\\, Ada/);
+  assert.equal(offer.ics.includes('\n') && !offer.ics.includes('\r\n') ? false : true, true);
+  assert.equal(html.includes('who-name'), false);
+  assert.match(html, /Apple Calendar \(iPhone\)/);
+  assert.match(html, /Download \.ics/);
+  assert.match(fs.readFileSync(path.join(root, 'js/catalog.js'), 'utf8'), /data:text\/calendar;charset=utf-8,/);
+  assert.match(fs.readFileSync(path.join(root, 'js/catalog.js'), 'utf8'), /window\.location\.href/);
   assert.equal(html.includes('Upcoming events'), false);
   assert.equal(html.includes('Spots open'), false);
   assert.equal(html.includes('Spots filled'), false);
@@ -153,7 +162,8 @@ test('live board locks a full upcoming task and escapes names', () => {
     }]
   }, '2026-11-22'), 'live');
   const setupTask = setup.split('id="task-2026-12-09-happy-hour-set-up"')[1].split('</article>')[0];
-  assert.equal((setupTask.match(/Kevin Snyder/g) || []).length, 1);
+  assert.equal((setupTask.match(/class="who-name"/g) || []).length, 1);
+  assert.match(setupTask, />Kevin Snyder<\/button>/);
   assert.equal((setupTask.match(/class="open-spot"/g) || []).length, 2);
   assert.equal((setupTask.match(/>Open</g) || []).length, 2);
   assert.equal(setupTask.includes('1 of 3'), false);
@@ -329,6 +339,8 @@ test('the published config points at the Apps Script web app and posts text/plai
   assert.match(app, /text\/plain;charset=utf-8/);
   assert.match(app, /redirect:\s*'follow'/);
   assert.match(code, /LockService\.getScriptLock\(\)/);
+  assert.match(code, /invite\.ics/);
+  assert.match(code, /text\/calendar/);
   assert.match(code, /1wVRyW_PRfB-rgPB716lWkqQraBBnw1lXuPH5o2-4u74/);
   assert.match(fs.readFileSync(path.join(root, '.github/workflows/pages.yml'), 'utf8'), /actions\/deploy-pages/);
 });

@@ -177,8 +177,10 @@ function calendarPieces_(signup, slot) {
   var googleDates = '';
   var outlookStart = '';
   var outlookEnd = '';
-  var roleStart = slot.roleStart ? parseClock_(slot.roleStart) : null;
-  var roleEnd = slot.roleEnd ? parseClock_(slot.roleEnd) : null;
+  var startText = slot.roleStart || slot.startTime || '';
+  var endText = slot.roleEnd || slot.endTime || '';
+  var roleStart = startText ? parseClock_(startText) : null;
+  var roleEnd = endText ? parseClock_(endText) : null;
   if (roleStart && roleEnd) {
     var roleDate = slot.roleDate || slot.date;
     var endDate = roleDate;
@@ -282,6 +284,10 @@ function buildMessage_(signup, slot, kind) {
   var method = kind === 'cancel' ? 'CANCEL' : 'REQUEST';
   lines.splice(4, 0, 'METHOD:' + method);
   lines.push('STATUS:' + (kind === 'cancel' ? 'CANCELLED' : 'CONFIRMED'));
+  lines.push('ORGANIZER;CN=Ada Business Association:mailto:' + ABA_MAIL_REPLY_TO);
+  if (signup.email) {
+    lines.push('ATTENDEE;CN=' + escapeIcs_(signup.name) + ';ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:' + String(signup.email).trim());
+  }
   lines.push('END:VEVENT');
   lines.push('END:VCALENDAR');
   var ics = foldIcs_(lines.join('\r\n')) + '\r\n';
@@ -319,7 +325,7 @@ function buildMessage_(signup, slot, kind) {
     'Add to Outlook:',
     pieces.outlook,
     '',
-    'A calendar file is attached.'
+    'An invite.ics calendar file is attached. On an iPhone, open it to add the event to Apple Calendar.'
   ];
   if (kind !== 'cancel' && pieces.manage) {
     text.push('', 'Change or cancel:', pieces.manage);
@@ -348,7 +354,7 @@ function buildMessage_(signup, slot, kind) {
     row('Where', where),
     '</table>',
     '<p style="margin:0 0 8px;">' + button(pieces.google, 'Add to Google Calendar') + button(pieces.outlook, 'Add to Outlook') + '</p>',
-    '<p style="margin:0 0 8px;color:#5c5c5c;">A calendar file is attached. ' + escapeHtmlMail_(whenText) + '.</p>'
+    '<p style="margin:0 0 8px;color:#5c5c5c;">An invite.ics calendar file is attached. On an iPhone, open it to add the event to Apple Calendar. ' + escapeHtmlMail_(whenText) + '.</p>'
   ];
   if (kind !== 'cancel' && pieces.manage) {
     html.push('<p style="margin:16px 0 0;">' + button(pieces.manage, 'Change or cancel') + '</p>');
@@ -360,7 +366,7 @@ function buildMessage_(signup, slot, kind) {
     text: text.join('\n'),
     html: html.join(''),
     ics: ics,
-    filename: 'aba-hospitality.ics',
+    filename: 'invite.ics',
     name: ABA_MAIL_NAME,
     replyTo: ABA_MAIL_REPLY_TO
   };

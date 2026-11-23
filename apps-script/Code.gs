@@ -296,7 +296,8 @@ var ABA_RULES = (function () {
         names: names,
         timeLabel: slot.timeLabel || '',
         description: slot.description || '',
-        roleDate: slot.roleDate || slot.date || ''
+        roleDate: slot.roleDate || slot.date || '',
+        roleStart: slot.roleStart || ''
       });
     }
     return {
@@ -317,6 +318,7 @@ var ABA_RULES = (function () {
     slotId: slotId,
     cleanName: cleanName,
     normalizeEmail: normalizeEmail,
+    isValidEmail: isValidEmail,
     sheetSafe: sheetSafe,
     unwrapSheetText: unwrapSheetText,
     todayKey: todayKey,
@@ -372,6 +374,7 @@ function interpretPost_(raw, deps) {
   if (body && typeof body === 'object' && !Array.isArray(body) && body.action) {
     if (body.action === 'lookup') return lookupSignup_(body, deps);
     if (body.action === 'cancel') return cancelSignup_(body, deps);
+    if (body.action === 'cancelByEmail') return cancelByEmail_(body, deps);
     if (body.action === 'move') return moveSignup_(body, deps);
     return { ok: false, error: 'Invalid request.' };
   }
@@ -986,7 +989,10 @@ function newToken_() {
 }
 
 function sendMailApp_(message) {
-  var blob = Utilities.newBlob(message.ics, 'text/calendar', message.filename || 'aba-hospitality.ics');
+  var method = /METHOD:CANCEL/.test(message && message.ics || '') ? 'CANCEL' : 'REQUEST';
+  var blob = Utilities.newBlob(message.ics || '', 'text/calendar', 'invite.ics');
+  blob.setName('invite.ics');
+  blob.setContentType('text/calendar; method=' + method + '; charset=UTF-8');
   MailApp.sendEmail({
     to: message.to,
     subject: message.subject,
@@ -1090,6 +1096,78 @@ function lookupSignup_(body, deps) {
       location: fullPlace_(slot.venue, slot.address) || slot.location || ''
     }
   };
+}
+
+function sameSignupName_(a, b) {
+  return ABA_RULES.cleanName(a).toLowerCase() === ABA_RULES.cleanName(b).toLowerCase();
+}
+
+function clockLabel_(value) {
+  var text = tidyClock_(ABA_RULES.formatSheetTime(value));
+  if (/^\d{1,2}:\d{2}\s+(AM|PM)$/.test(text)) return text;
+  var split = splitStoredTime_(value);
+  var start = tidyClock_(split.start);
+  if (/^\d{1,2}:\d{2}\s+(AM|PM)$/.test(start)) return start;
+  return '';
+}
+
+function cancelByEmail_(body, deps) {
+  var email = ABA_RULES.normalizeEmail(body && body.email);
+  var eventName = String(body && body.event || '').trim();
+  var date = ABA_RULES.formatSheetDate(body && body.date);
+  var task = String(body && body.task || '').trim();
+  var start = clockLabel_(body && (body.startTime || ''));
+  var name = ABA_RULES.cleanName(body && body.name);
+  var mismatch = { ok: false, error: 'That email does not match this sign-up.' };
+  if (!email || !ABA_RULES.isValidEmail(email)) return { ok: false, error: 'Enter the email you signed up with.' };
+  if (!eventName || !task || !name || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !start) return mismatch;
+  if (!deps.rateLimit(email, deps.now())) {
+    return { ok: false, error: 'Too many attempts. Please wait a few minutes and try again.' };
+  }
+  var result = mismatch;
+  var mail = null;
+  var outcome;
+  try {
+    outcome = deps.withLock(function () {
+      var state = deps.readState();
+      var slotId = ABA_RULES.slotId(date, eventName, task);
+      var slot = findSlotLocal_(state.slots, slotId);
+      var match = null;
+      for (var i = 0; i < state.signups.length; i++) {
+        var row = state.signups[i];
+        if (!ABA_RULES.isActive(row) || !sameSignupName_(row.name, name)) continue;
+        var sameSlot = row.slotId === slotId || (
+          String(row.event || '') === eventName &&
+          ABA_RULES.formatSheetDate(row.date) === date &&
+          String(row.task || '') === task
+        );
+        if (!sameSlot) continue;
+        var rowStart = clockLabel_(row.startTime);
+        if (!rowStart && slot && slot.roleStart) rowStart = clockLabel_(slot.roleStart);
+        if (!rowStart) rowStart = clockLabel_(row.time);
+        if (rowStart !== start || row.email !== email) continue;
+        match = row;
+        break;
+      }
+      if (!match) {
+        result = mismatch;
+        return;
+      }
+      var fields = {
+        status: 'cancelled',
+        updatedAt: deps.stamp(deps.now()),
+        sequence: (Math.floor(Number(match.sequence)) || 0) + 1
+      };
+      deps.updateSignup(match.rowNumber, fields);
+      var mailSlot = slot || slotForRow_(state, match);
+      if (match.email) mail = buildMessage_(copyFields_(match, fields), mailSlot, 'cancel');
+      result = { ok: true, message: 'Your sign-up is cancelled.' };
+    });
+  } catch (err) {
+    return { ok: false, error: 'Could not cancel the sign-up.' };
+  }
+  if (outcome === false) return { ok: false, error: 'The sheet is busy. Please try again in a moment.' };
+  return deliverMail_(result, mail, deps);
 }
 
 function cancelSignup_(body, deps) {

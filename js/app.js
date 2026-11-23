@@ -130,6 +130,9 @@
     var form = document.getElementById('signup-form');
     form.addEventListener('submit', onSubmit);
     document.getElementById('dialog-cancel').addEventListener('click', closeDialog);
+    document.getElementById('cancel-form').addEventListener('submit', onCancelSubmit);
+    document.getElementById('cancel-keep').addEventListener('click', closeCancel);
+    document.getElementById('cancel-close').addEventListener('click', closeCancel);
     document.getElementById('dialog-close').addEventListener('click', closeDialog);
     document.addEventListener('click', function (event) {
       if (event.target.closest('.event-cal-toggle') || event.target.closest('.cal-menu')) return;
@@ -212,6 +215,26 @@
       }
       return;
     }
+    var person = event.target.closest('.who-name');
+    if (person) {
+      if (state.mode !== 'live') return;
+      openCancel(person);
+      return;
+    }
+    var fileButton = event.target.closest('.cal-file');
+    if (fileButton) {
+      event.preventDefault();
+      var menu = fileButton.closest('.cal-menu');
+      if (!menu) return;
+      var offer = catalog.calendarLinks({
+        date: menu.getAttribute('data-date'),
+        time: menu.getAttribute('data-time'),
+        name: menu.getAttribute('data-name'),
+        location: menu.getAttribute('data-location')
+      });
+      catalog.deliverIcs(offer.ics, offer.filename);
+      return;
+    }
     if (event.target.closest('.cal-menu')) return;
     closeCalendars(false);
     var button = event.target.closest('.claim');
@@ -235,6 +258,76 @@
     lastFocus = document.activeElement;
     document.getElementById('signup-dialog').showModal();
     document.getElementById('signup-name').focus();
+  }
+
+  var cancelTarget = null;
+
+  function openCancel(button) {
+    cancelTarget = {
+      name: button.getAttribute('data-name'),
+      date: button.getAttribute('data-date'),
+      event: button.getAttribute('data-event'),
+      task: button.getAttribute('data-task'),
+      startTime: button.getAttribute('data-start')
+    };
+    document.getElementById('cancel-copy').textContent = 'Cancel your sign-up for ' + cancelTarget.task +
+      ' — ' + cancelTarget.event + ' ' + catalog.formatLong(cancelTarget.date) + '?';
+    document.getElementById('cancel-form').reset();
+    var error = document.getElementById('cancel-error');
+    error.hidden = true;
+    error.textContent = '';
+    lastFocus = document.activeElement;
+    document.getElementById('cancel-dialog').showModal();
+    document.getElementById('cancel-email').focus();
+  }
+
+  function closeCancel() {
+    var dialog = document.getElementById('cancel-dialog');
+    if (dialog.open) dialog.close();
+    cancelTarget = null;
+  }
+
+  function showCancelError(text) {
+    var error = document.getElementById('cancel-error');
+    error.textContent = text;
+    error.hidden = false;
+  }
+
+  async function onCancelSubmit(event) {
+    event.preventDefault();
+    if (submitting || !cancelTarget || state.mode !== 'live') return;
+    var email = document.getElementById('cancel-email').value;
+    if (!String(email).trim()) {
+      showCancelError('Enter the email you signed up with.');
+      return;
+    }
+    submitting = true;
+    var submitButton = document.getElementById('cancel-submit');
+    submitButton.disabled = true;
+    try {
+      var data = await postSignup({
+        action: 'cancelByEmail',
+        name: cancelTarget.name,
+        email: email,
+        event: cancelTarget.event,
+        date: cancelTarget.date,
+        task: cancelTarget.task,
+        startTime: cancelTarget.startTime
+      });
+      if (!data || data.ok !== true) {
+        showCancelError((data && data.error) || 'Could not cancel the sign-up.');
+        return;
+      }
+      closeCancel();
+      setToast(data.message || 'Your sign-up is cancelled.');
+      try { await loadLive(); } catch (err) {}
+      paint();
+    } catch (err) {
+      showCancelError('Could not reach the sign-up sheet. Check your connection and try again.');
+    } finally {
+      submitting = false;
+      submitButton.disabled = false;
+    }
   }
 
   function closeDialog() {

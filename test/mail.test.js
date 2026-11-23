@@ -49,8 +49,78 @@ test('a timed event is two hours in Eastern time and escapes calendar text', () 
   assert.match(message.ics, /METHOD:REQUEST/);
   assert.match(message.ics, /LOCATION:Ada Hotel\\, 7415 River St SE\\, Ada/);
   assert.match(message.ics, /UID:id-1@aba-hospitality\.ada/);
+  assert.equal(message.filename, 'invite.ics');
+  assert.match(message.ics, /ORGANIZER;CN=Ada Business Association:mailto:donny@vanderwinn.com/);
+  assert.match(message.text, /invite\.ics/);
   assert.match(message.text, /\?manage=a{32}/);
+  const roleFile = aba.buildMessage_(signup, {
+    event: 'Lunch & Learn',
+    date: '2027-01-21',
+    time: '11:30 AM',
+    startTime: '11:00 AM',
+    endTime: '11:25 AM',
+    task: 'Set-Up',
+    venue: 'Amway WHQ',
+    address: '7575 Fulton St E, Ada'
+  }, 'confirm');
+  assert.match(roleFile.ics, /DTSTART;TZID=America\/New_York:20270121T110000/);
+  assert.match(roleFile.ics, /DTEND;TZID=America\/New_York:20270121T112500/);
+  assert.match(roleFile.ics, /LOCATION:Amway WHQ\\, 7575 Fulton St E\\, Ada/);
   assert.equal(message.ics.includes('\n') && !message.ics.includes('\r\n') ? false : true, true);
+});
+
+test('cancelByEmail cancels only when the email matches and hides that address', () => {
+  const state = {
+    slots: aba.abaCatalogSlots_(),
+    signups: [{
+      rowNumber: 2,
+      signupId: 'id-1',
+      slotId: '2026-12-09|Happy Hour|Networking Ambassador',
+      name: 'Donny Nguyen',
+      email: 'donny@vanderwinn.com',
+      event: 'Happy Hour',
+      date: '2026-12-09',
+      task: 'Networking Ambassador',
+      startTime: '4:30 PM',
+      time: '4:30–6:30 PM',
+      status: 'active',
+      token: 't'.repeat(32),
+      sequence: 0
+    }]
+  };
+  const deps = memoryDeps(aba, state);
+  const wrong = aba.cancelByEmail_({
+    name: 'Donny Nguyen',
+    email: 'other@example.com',
+    event: 'Happy Hour',
+    date: '2026-12-09',
+    task: 'Networking Ambassador',
+    startTime: '4:30 PM'
+  }, deps);
+  assert.equal(wrong.ok, false);
+  assert.equal(wrong.error, 'That email does not match this sign-up.');
+  assert.equal(JSON.stringify(wrong).includes('donny@'), false);
+  assert.equal(state.signups[0].status, 'active');
+  const before = aba.ABACatalog.renderBoard(aba.ABACatalog.toView(aba.ABA_RULES.publicCatalog(state.slots, state.signups, TODAY), TODAY), 'live');
+  assert.match(before, /title="Cancel this sign-up"/);
+  assert.equal(before.toLowerCase().includes('donny@'), false);
+  const right = aba.cancelByEmail_({
+    name: 'donny nguyen',
+    email: 'Donny@VanderWinn.com',
+    event: 'Happy Hour',
+    date: '2026-12-09',
+    task: 'Networking Ambassador',
+    startTime: '4:30 pm'
+  }, deps);
+  assert.equal(right.ok, true);
+  assert.equal(state.signups[0].status, 'cancelled');
+  assert.equal(deps.mails.length, 1);
+  assert.match(deps.mails[0].ics, /METHOD:CANCEL/);
+  const catalog = aba.ABA_RULES.publicCatalog(state.slots, state.signups, TODAY);
+  const task = catalog.events.find((event) => event.date === '2026-12-09').tasks.find((item) => item.task === 'Networking Ambassador');
+  assert.equal(task.names.includes('Donny Nguyen'), false);
+  assert.equal(task.roleStart, '4:30 PM');
+  assert.equal(JSON.stringify(catalog).toLowerCase().includes('donny@'), false);
 });
 
 test('a summer clock time converts through daylight saving, and a blank time is all day', () => {

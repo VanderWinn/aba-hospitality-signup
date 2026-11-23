@@ -73,6 +73,24 @@
       </div>
     </form>
   </dialog>
+  <dialog id="cancel-dialog" aria-labelledby="cancel-title">
+    <form id="cancel-form" method="dialog">
+      <div class="dialog-head">
+        <h2 id="cancel-title">Cancel sign-up</h2>
+        <button type="button" class="icon-close" id="cancel-close">Close</button>
+      </div>
+      <p id="cancel-copy"></p>
+      <div class="field">
+        <label for="cancel-email">Enter the email you signed up with</label>
+        <input id="cancel-email" name="email" type="email" autocomplete="email" required maxlength="120" inputmode="email" spellcheck="false">
+      </div>
+      <p id="cancel-error" class="form-error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn ghost" id="cancel-keep">Keep it</button>
+        <button type="submit" class="btn danger" id="cancel-submit">Cancel sign-up</button>
+      </div>
+    </form>
+  </dialog>
   <script src="js/catalog.js"></script>
   <script src="js/config.js"></script>
   <script src="js/app.js"></script>

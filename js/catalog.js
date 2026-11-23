@@ -89,7 +89,8 @@
           remaining: Math.max(0, capacity - names.length),
           timeLabel: task.timeLabel || '',
           description: task.description || '',
-          roleDate: task.roleDate || ''
+          roleDate: task.roleDate || '',
+          roleStart: task.roleStart || ''
         };
       });
       return {
@@ -147,10 +148,28 @@
     return '';
   }
 
+  function roleStartText(task, event) {
+    if (task.roleStart) return task.roleStart;
+    var label = String(task.timeLabel || event.time || '').replace(/^[A-Za-z]{3,9}\s+\d{1,2},\s*/, '');
+    var range = parseEventRange(label);
+    if (!range) return '';
+    var hour = range.start.hour;
+    var ap = hour >= 12 ? 'PM' : 'AM';
+    var shown = hour % 12;
+    if (shown === 0) shown = 12;
+    return shown + ':' + pad2(range.start.minute) + ' ' + ap;
+  }
+
   function renderTask(event, task, mode) {
     var canClaim = mode !== 'preview' && !event.past && task.remaining > 0;
+    var canCancel = mode === 'live';
+    var start = roleStartText(task, event);
     var spots = task.names.map(function (name) {
-      return '<li>' + escapeHtml(name) + '</li>';
+      if (!canCancel) return '<li>' + escapeHtml(name) + '</li>';
+      return '<li><button type="button" class="who-name" title="Cancel this sign-up" data-name="' + escapeHtml(name) +
+        '" data-date="' + escapeHtml(event.date) + '" data-event="' + escapeHtml(event.name) +
+        '" data-task="' + escapeHtml(task.task) + '" data-start="' + escapeHtml(start) +
+        '" aria-label="' + escapeHtml('Cancel this sign-up for ' + name) + '">' + escapeHtml(name) + '</button></li>';
     });
     var openSpots = task.remaining;
     for (var s = 0; s < openSpots; s++) {
@@ -262,12 +281,32 @@
       'VERSION:2.0',
       'PRODID:-//Ada Business Association//Hospitality Sign-up//EN',
       'CALSCALE:GREGORIAN',
-      'METHOD:PUBLISH',
-      'BEGIN:VEVENT',
-      'UID:' + uid,
-      'DTSTAMP:' + stamp,
-      'SUMMARY:' + escapeIcs(title)
+      'METHOD:PUBLISH'
     ];
+    if (range) {
+      lines.push('BEGIN:VTIMEZONE');
+      lines.push('TZID:America/New_York');
+      lines.push('X-LIC-LOCATION:America/New_York');
+      lines.push('BEGIN:DAYLIGHT');
+      lines.push('TZOFFSETFROM:-0500');
+      lines.push('TZOFFSETTO:-0400');
+      lines.push('TZNAME:EDT');
+      lines.push('DTSTART:19700308T020000');
+      lines.push('RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU');
+      lines.push('END:DAYLIGHT');
+      lines.push('BEGIN:STANDARD');
+      lines.push('TZOFFSETFROM:-0400');
+      lines.push('TZOFFSETTO:-0500');
+      lines.push('TZNAME:EST');
+      lines.push('DTSTART:19701101T020000');
+      lines.push('RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU');
+      lines.push('END:STANDARD');
+      lines.push('END:VTIMEZONE');
+    }
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:' + uid);
+    lines.push('DTSTAMP:' + stamp);
+    lines.push('SUMMARY:' + escapeIcs(title));
     var googleDates = '';
     var outlookStart = '';
     var outlookEnd = '';
@@ -311,6 +350,31 @@
     };
   }
 
+  function isAppleMobile() {
+    var nav = typeof navigator === 'undefined' ? null : navigator;
+    if (!nav) return false;
+    var ua = String(nav.userAgent || '');
+    if (/iPad|iPhone|iPod/.test(ua)) return true;
+    return nav.platform === 'MacIntel' && Number(nav.maxTouchPoints) > 1;
+  }
+
+  function deliverIcs(ics, filename) {
+    var name = filename || 'invite.ics';
+    if (isAppleMobile()) {
+      window.location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+      return;
+    }
+    var blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+  }
+
   function renderEvent(event, mode) {
     var place = placeParts(event.location, event.name);
     var where = '<span class="event-where">' +
@@ -335,11 +399,12 @@
             '</span>' +
           '</button>' +
         '</h2>' +
-        '<div class="cal-menu" id="' + calId + '" hidden>' +
+        '<div class="cal-menu" id="' + calId + '" hidden data-date="' + escapeHtml(event.date) + '" data-time="' + escapeHtml(event.time || '') + '" data-name="' + escapeHtml(event.name || '') + '" data-location="' + escapeHtml(event.location || '') + '">' +
           '<p class="cal-menu-label">Add to calendar</p>' +
           '<a href="' + escapeHtml(offer.google) + '" target="_blank" rel="noopener noreferrer">Google Calendar</a>' +
           '<a href="' + escapeHtml(offer.outlook) + '" target="_blank" rel="noopener noreferrer">Outlook</a>' +
-          '<a href="data:text/calendar;charset=utf-8,' + encodeURIComponent(offer.ics) + '" download="' + escapeHtml(offer.filename) + '">Download .ics</a>' +
+          '<button type="button" class="cal-file">Apple Calendar (iPhone)</button>' +
+          '<button type="button" class="cal-file">Download .ics</button>' +
         '</div>' +
       '</header>' +
       '<div class="tasks">' + event.tasks.map(function (task) { return renderTask(event, task, mode); }).join('') + '</div>' +
@@ -436,6 +501,7 @@
     renderBanner: renderBanner,
     renderBoard: renderBoard,
     calendarLinks: calendarLinks,
+    deliverIcs: deliverIcs,
     renderManage: renderManage,
     eventDomId: eventDomId
   };
