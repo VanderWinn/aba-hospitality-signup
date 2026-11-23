@@ -115,4 +115,6 @@ A matching event in `abaEvents()` supplies the venue and street. Any other row i
 
 ## Upgrading to v5
 
-Sheets turned some date and time cells into real date values, so a time like `11:30 AM` displays as `12/30/1899`. Paste the updated `apps-script/Code.gs`, save, and run **normalizeDatesV5** once. It rewrites only the date and time columns as plain text (`2027-01-21` and `11:30 AM`), sets those columns to plain text, and leaves every other cell alone. It writes to the log only. Running it again changes nothing. Then publish a new deployment version so new sign-ups keep storing those columns as text. The `/exec` URL stays the same.
+Do not run `normalizeDatesV5`. Paste the updated `apps-script/Code.gs`, `apps-script/FixFullLunch.gs`, and `apps-script/Templates.gs`, save, and run **migrateV5** once.
+
+It keeps the formatting you already set (column widths, fonts, colors, header styling, and freezes) and does not unhide hidden columns. It shows the date column as M/D/Y, for example `1/21/2027`, and replaces `time` with `Start Time` and `End Time` from each role in the templates, stored as text such as `11:00 AM` and `11:25 AM`. It also renames `Networking Host` to `Networking Ambassador` on existing rows and in their slot ids. The previous name is stored in `oldTask` only when that cell is empty. Statuses and manage tokens stay. It writes to the log only. Running it again changes nothing. Then publish a new deployment version so the page, emails, reminders, and calendar files use the new role name. The `/exec` URL stays the same.

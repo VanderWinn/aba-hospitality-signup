@@ -1,47 +1,67 @@
 const assert = require('node:assert/strict');
-const test = require('node:test');
 const fs = require('fs');
 const path = require('path');
+const test = require('node:test');
 const { loadAba, root } = require('./load-aba');
 
 const aba = loadAba();
 
-test('sheet dates and time-only values become Eastern text', () => {
+test('dates read as yyyy-MM-dd from Date, ISO text, or M/d/yyyy', () => {
   assert.equal(aba.ABA_RULES.formatSheetDate(new Date('2027-01-21T05:00:00Z')), '2027-01-21');
   assert.equal(aba.ABA_RULES.formatSheetDate('2027-01-21'), '2027-01-21');
+  assert.equal(aba.ABA_RULES.formatSheetDate('1/21/2027'), '2027-01-21');
   assert.equal(aba.ABA_RULES.formatSheetTime(new Date('1899-12-30T16:30:00Z')), '11:30 AM');
-  assert.equal(aba.ABA_RULES.formatSheetTime(11.5 / 24), '11:30 AM');
   assert.equal(aba.ABA_RULES.formatSheetTime('11:30 AM'), '11:30 AM');
-  assert.equal(aba.ABA_RULES.formatSheetTime('Nov 18, 2:00–3:00 PM'), 'Nov 18, 2:00–3:00 PM');
   const state = aba.rowsToState_([[]], [[
     'signupId', 'slotId', 'name', 'date', 'time', 'status'
   ], [
     'id-1', '2027-01-21|Lunch & Learn|Set-Up', 'Kevin Snyder',
-    new Date('2027-01-21T05:00:00Z'), new Date('1899-12-30T16:30:00Z'), 'active'
+    '1/21/2027', new Date('1899-12-30T16:30:00Z'), 'active'
   ]]);
   assert.equal(state.signups[0].date, '2027-01-21');
-  assert.equal(state.signups[0].time, '11:30 AM');
+  assert.equal(state.signups[0].startTime, '11:30 AM');
   assert.equal(state.signups[0].status, 'active');
 });
 
-test('normalizeDatesV5 rewrites only typed date and time cells and is idempotent', () => {
-  const headers = ['name', 'date', 'time', 'status', 'token'];
+test('migrateV5 uses role times, keeps statuses, and a second run changes nothing', () => {
+  const slots = aba.abaCatalogSlots_();
+  const headers = ['name', 'email', 'event', 'date', 'time', 'task', 'status', 'slotId', 'token'];
   const rows = [[
-    'Kevin Snyder', new Date('2027-01-21T05:00:00Z'), new Date('1899-12-30T16:30:00Z'), 'active', 'a'.repeat(32)
-  ], [
-    'Ada Volunteer', '2026-12-09', '4:30–6:30 PM', 'active', 'b'.repeat(32)
+    'Kevin Snyder', 'kevin@example.com', 'Lunch & Learn', new Date('2027-01-21T05:00:00Z'),
+    new Date('1899-12-30T16:30:00Z'), 'Set-Up', 'active', '2027-01-21|Lunch & Learn|Set-Up', 'a'.repeat(32)
   ]];
-  const first = aba.planDateText_(headers, rows);
-  assert.equal(first.length, 2);
-  assert.equal(first[0].value, '2027-01-21');
-  assert.equal(first[1].value, '11:30 AM');
-  assert.equal(first.every((change) => change.field === 'date' || change.field === 'time'), true);
-  const rewritten = rows.map((row) => row.slice());
-  first.forEach((change) => { rewritten[change.rowNumber - 2][change.column - 1] = change.value; });
-  assert.equal(rewritten[0][3], 'active');
-  assert.equal(rewritten[0][4], 'a'.repeat(32));
-  assert.equal(aba.planDateText_(headers, rewritten).length, 0);
+  const first = aba.planMigrateV5_([headers].concat(rows), slots);
+  assert.equal(first.insert, true);
+  assert.equal(first.kept, 1);
+  assert.equal(first.timeValues.map((item) => item.value).join(' | '), '11:00 AM | 11:25 AM');
+  assert.equal(first.dateValues.length, 0);
+  const secondHeaders = ['name', 'email', 'event', 'date', 'Start Time', 'End Time', 'task', 'status', 'slotId', 'token'];
+  const secondRows = [[
+    'Kevin Snyder', 'kevin@example.com', 'Lunch & Learn', new Date('2027-01-21T05:00:00Z'),
+    '11:00 AM', '11:25 AM', 'Set-Up', 'active', '2027-01-21|Lunch & Learn|Set-Up', 'a'.repeat(32)
+  ]];
+  const second = aba.planMigrateV5_([secondHeaders].concat(secondRows), slots);
+  assert.equal(second.insert, false);
+  assert.equal(second.timeValues.length, 0);
+  assert.equal(second.dateValues.length, 0);
+  const hostHeaders = ['name', 'date', 'time', 'task', 'slotId', 'oldTask', 'status', 'token'];
+  const hostRows = [[
+    'Donny Nguyen', '2026-12-09', '4:30 PM', 'Networking Host', '2026-12-09|Happy Hour|Networking Host', '', 'active', 'd'.repeat(32)
+  ], [
+    'Ada Volunteer', '2026-12-09', '4:30 PM', 'Networking Host', '2026-12-09|Happy Hour|Networking Host', 'Mixer Host', 'active', 'e'.repeat(32)
+  ]];
+  const renamed = aba.planMigrateV5_([hostHeaders].concat(hostRows), slots);
+  const taskWrites = renamed.taskEdits.filter((item) => item.value === 'Networking Ambassador');
+  const slotWrites = renamed.taskEdits.filter((item) => String(item.value).indexOf('Networking Ambassador') !== -1 && String(item.value).indexOf('|') !== -1);
+  const oldWrites = renamed.taskEdits.filter((item) => item.value === 'Networking Host');
+  assert.equal(taskWrites.length, 2);
+  assert.equal(slotWrites.length, 2);
+  assert.equal(oldWrites.length, 1);
+  assert.equal(renamed.taskEdits.some((item) => item.value === 'active' || item.value === 'd'.repeat(32)), false);
   const source = fs.readFileSync(path.join(root, 'apps-script/Code.gs'), 'utf8');
-  const fn = source.slice(source.indexOf('function normalizeDatesV5'));
+  const fn = source.slice(source.indexOf('function migrateV5'));
   assert.equal(fn.includes('getUi'), false);
+  assert.equal(fn.includes('setBackground'), false);
+  assert.equal(fn.includes('showColumns'), false);
+  assert.equal(fn.includes('writeHeaders_'), false);
 });

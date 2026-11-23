@@ -73,7 +73,9 @@ function planFullLunchResolution_(signups, slots, today, factories) {
         email: row.email || '',
         event: 'Lunch & Learn',
         date: date,
-        time: slot ? slot.time : '',
+        time: slot && slot.roleStart ? slot.roleStart + '–' + (slot.roleEnd || '') : (slot ? slot.time : ''),
+        startTime: slot ? (slot.roleStart || '') : '',
+        endTime: slot ? (slot.roleEnd || '') : '',
         task: role,
         venue: slot && slot.venue ? slot.venue : splitPlace_(slot ? slot.location : row.location, 'Lunch & Learn').venue,
         address: slot && (slot.address || slot.venue) ? (slot.address || '') : splitPlace_(slot ? slot.location : row.location, 'Lunch & Learn').address,
@@ -105,7 +107,7 @@ function planFullLunchResolution_(signups, slots, today, factories) {
     if (!slot || !slot.timeLabel || String(row.time || '') === slot.timeLabel) return;
     drinkUpdates.push({
       rowNumber: row.rowNumber,
-      fields: { time: slot.timeLabel },
+      fields: { time: slot.timeLabel, startTime: slot.roleStart, endTime: slot.roleEnd },
       name: row.name,
       date: row.date
     });

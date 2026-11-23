@@ -24,8 +24,8 @@ test('migrateV4 splits location, keeps every row and status, and a second run ch
   const first = aba.planSignupV4_(values, aba.abaEvents_());
   assert.equal(first.kept, 2);
   assert.equal(first.already, false);
-  assert.equal(JSON.stringify(first.headers.slice(0, 11)), JSON.stringify([
-    'name', 'email', 'event', 'date', 'time', 'task', 'venue', 'address', 'capacity', 'status', 'createdAt'
+  assert.equal(JSON.stringify(first.headers.slice(0, 12)), JSON.stringify([
+    'name', 'email', 'event', 'date', 'startTime', 'endTime', 'task', 'venue', 'address', 'capacity', 'status', 'createdAt'
   ]));
   assert.equal(first.rows[0][headerIndex('venue')], 'Ada Hotel');
   assert.equal(first.rows[0][headerIndex('address')], '7415 River St SE, Ada');

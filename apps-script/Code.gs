@@ -12,7 +12,7 @@ var SPREADSHEET_ID = '1wVRyW_PRfB-rgPB716lWkqQraBBnw1lXuPH5o2-4u74';
 
 var SLOT_HEADERS = ['slotId', 'date', 'time', 'event', 'location', 'task', 'capacity'];
 var SIGNUP_HEADERS = [
-  'name', 'email', 'event', 'date', 'time', 'task', 'venue', 'address', 'capacity', 'status', 'createdAt',
+  'name', 'email', 'event', 'date', 'startTime', 'endTime', 'task', 'venue', 'address', 'capacity', 'status', 'createdAt',
   'signupId', 'slotId', 'source', 'token', 'oldTask', 'previousSlotId', 'sequence', 'reminderSent', 'updatedAt'
 ];
 var SIGNUP_HIDDEN = ['signupId', 'slotId', 'source', 'token', 'oldTask', 'previousSlotId', 'sequence', 'reminderSent', 'updatedAt'];
@@ -122,7 +122,15 @@ var ABA_RULES = (function () {
     }
     var s = unwrapSheetText(value).trim();
     var match = s.match(/^(\d{4}-\d{2}-\d{2})/);
-    return match ? match[1] : s;
+    if (match) return match[1];
+    var mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (!mdy) return s;
+    var year = Number(mdy[3]);
+    if (year < 100) year += 2000;
+    var month = Number(mdy[1]);
+    var day = Number(mdy[2]);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return s;
+    return year + '-' + (month < 10 ? '0' : '') + month + '-' + (day < 10 ? '0' : '') + day;
   }
 
   function minutesToClock_(minutes) {
@@ -464,6 +472,11 @@ function planSignupV4_(values, events) {
     var record = {};
     SIGNUP_HEADERS.forEach(function (name) { record[name] = cell(src, name); });
     record.status = cell(src, 'status');
+    if (!record.startTime && !record.endTime) {
+      var clocks = splitStoredTime_(cell(src, 'time'));
+      record.startTime = clocks.start;
+      record.endTime = clocks.end;
+    }
     if (!already) {
       var raw = cell(src, 'location');
       var place = placeFromEvents_(record.date, record.event, events) || splitPlace_(raw, record.event);
@@ -491,7 +504,9 @@ function signupRecord_(decision, deps) {
     email: decision.signup.email,
     event: slot.event,
     date: slot.date,
-    time: slot.time,
+    time: (slot.roleStart && slot.roleEnd) ? slot.roleStart + '–' + slot.roleEnd : (slot.time || ''),
+    startTime: slot.roleStart || '',
+    endTime: slot.roleEnd || '',
     task: slot.task,
     venue: place.venue,
     address: place.address,
@@ -596,6 +611,74 @@ function abaCatalogSlots_() {
   return abaExpandEvents_();
 }
 
+function headerKey_(name) {
+  return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function headerIndex_(headers, key) {
+  for (var i = 0; i < headers.length; i++) {
+    if (headerKey_(headers[i]) === key) return i;
+  }
+  return -1;
+}
+
+function sheetField_(row, key) {
+  var names = Object.keys(row || {});
+  for (var i = 0; i < names.length; i++) {
+    if (headerKey_(names[i]) === key && row[names[i]] != null && row[names[i]] !== '') return row[names[i]];
+  }
+  return '';
+}
+
+function tidyClock_(text) {
+  var match = String(text || '').trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return String(text || '').trim();
+  return Number(match[1]) + ':' + match[2] + ' ' + match[3].toUpperCase();
+}
+
+function splitStoredTime_(value) {
+  var text = ABA_RULES.formatSheetTime(value).replace(/^([A-Za-z]{3,9}\s+\d{1,2},\s*)/, '');
+  text = text.replace(/[\u2013\u2014]/g, '-').replace(/\s+/g, ' ').trim();
+  var both = text.match(/^(\d{1,2}:\d{2})\s*(AM|PM)?\s*-\s*(\d{1,2}:\d{2})\s*(AM|PM)$/i);
+  if (both) {
+    var endAp = both[4].toUpperCase();
+    var startAp = (both[2] || endAp).toUpperCase();
+    return { start: tidyClock_(both[1] + ' ' + startAp), end: tidyClock_(both[3] + ' ' + endAp) };
+  }
+  var one = text.match(/^(\d{1,2}:\d{2})\s*(AM|PM)$/i);
+  if (one) return { start: tidyClock_(one[1] + ' ' + one[2]), end: '' };
+  return { start: text, end: '' };
+}
+
+function clocksForRow_(row, slots) {
+  var date = ABA_RULES.formatSheetDate(sheetField_(row, 'date') || row.date || '');
+  var eventName = sheetField_(row, 'event') || row.event || '';
+  var task = sheetField_(row, 'task') || row.task || '';
+  var slotId = String(sheetField_(row, 'slotid') || row.slotId || (date && eventName && task ? date + '|' + eventName + '|' + task : ''));
+  var slot = null;
+  for (var i = 0; i < (slots || []).length; i++) {
+    if (slots[i].slotId === slotId) { slot = slots[i]; break; }
+  }
+  if (slot && slot.roleStart) return { start: tidyClock_(slot.roleStart), end: tidyClock_(slot.roleEnd || '') };
+  var stored = sheetField_(row, 'starttime') || row.startTime || '';
+  if (stored) return { start: tidyClock_(ABA_RULES.formatSheetTime(stored)), end: tidyClock_(ABA_RULES.formatSheetTime(sheetField_(row, 'endtime') || row.endTime || '')) };
+  return splitStoredTime_(sheetField_(row, 'time') || row.time || '');
+}
+
+function clockStart_(row) {
+  return clocksForRow_(row, []).start;
+}
+
+function clockEnd_(row) {
+  return clocksForRow_(row, []).end;
+}
+
+function clockRange_(row) {
+  var clocks = clocksForRow_(row, []);
+  if (clocks.start && clocks.end) return clocks.start + '–' + clocks.end;
+  return clocks.start || ABA_RULES.formatSheetTime(sheetField_(row, 'time') || row.time || '');
+}
+
 function rowsToState_(slotValues, signupValues) {
   var slotObjects = tableObjects_(slotValues);
   var signupObjects = tableObjects_(signupValues);
@@ -628,7 +711,9 @@ function rowsToState_(slotValues, signupValues) {
       source: String(row.source || ''),
       event: String(row.event || (parsedId && parsedId.event) || ''),
       date: ABA_RULES.formatSheetDate(row.date || (parsedId && parsedId.date) || ''),
-      time: ABA_RULES.formatSheetTime(row.time),
+      time: clockRange_(row),
+      startTime: clockStart_(row),
+      endTime: clockEnd_(row),
       task: String(row.task || (parsedId && parsedId.task) || ''),
       venue: String(row.venue || ''),
       address: String(row.address || ''),
@@ -666,26 +751,50 @@ function tableObjects_(values) {
 }
 
 function signupValue_(name, row) {
-  if (name === 'name' || name === 'email') return ABA_RULES.sheetSafe(row[name] == null ? '' : row[name]);
-  if (name === 'date') return ABA_RULES.formatSheetDate(row[name]);
-  if (name === 'time') return ABA_RULES.formatSheetTime(row[name]);
-  var value = row[name];
-  return value == null ? '' : value;
+  var key = headerKey_(name);
+  if (key === 'name' || key === 'email') return ABA_RULES.sheetSafe(sheetField_(row, key));
+  if (key === 'date') {
+    var iso = ABA_RULES.formatSheetDate(sheetField_(row, 'date'));
+    if (!iso) return '';
+    var parts = iso.split('-');
+    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  }
+  if (key === 'starttime') return ABA_RULES.formatSheetTime(sheetField_(row, 'starttime'));
+  if (key === 'endtime') return ABA_RULES.formatSheetTime(sheetField_(row, 'endtime'));
+  if (key === 'time') return ABA_RULES.formatSheetTime(sheetField_(row, 'time'));
+  if (row[name] != null) return row[name];
+  return sheetField_(row, key);
 }
 
 function plainTextColumns_(sheet, headers) {
-  var height = Math.max(sheet.getMaxRows(), sheet.getLastRow(), 2);
-  ['date', 'time'].forEach(function (name) {
-    var col = headers.indexOf(name);
-    if (col === -1) return;
-    sheet.getRange(1, col + 1, height, 1).setNumberFormat('@');
+  var height = Math.max(sheet.getLastRow() + 20, 2);
+  headers.forEach(function (name, col) {
+    var key = headerKey_(name);
+    if (key !== 'time' && key !== 'starttime' && key !== 'endtime') return;
+    sheet.getRange(2, col + 1, height - 1, 1).setNumberFormat('@');
   });
 }
 
+function writeDateCells_(sheet, headers, startRow, grid) {
+  var col = headerIndex_(headers, 'date');
+  if (col === -1 || !grid.length) return;
+  var values = [];
+  for (var i = 0; i < grid.length; i++) {
+    var iso = ABA_RULES.formatSheetDate(grid[i][col]);
+    if (!iso) { values.push(['']); continue; }
+    var parts = iso.split('-');
+    values.push([new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))]);
+  }
+  var range = sheet.getRange(startRow, col + 1, grid.length, 1);
+  range.setNumberFormat('M/d/yyyy');
+  range.setValues(values);
+}
+
 function writePlainTextCells_(sheet, headers, startRow, grid) {
-  ['date', 'time'].forEach(function (name) {
-    var col = headers.indexOf(name);
-    if (col === -1 || !grid.length) return;
+  headers.forEach(function (name, col) {
+    var key = headerKey_(name);
+    if (key !== 'time' && key !== 'starttime' && key !== 'endtime') return;
+    if (!grid.length) return;
     var values = [];
     for (var i = 0; i < grid.length; i++) values.push([grid[i][col] == null ? '' : String(grid[i][col])]);
     var range = sheet.getRange(startRow, col + 1, grid.length, 1);
@@ -714,6 +823,7 @@ function appendSignup_(row) {
   plainTextColumns_(sheet, headers);
   SpreadsheetApp.flush();
   sheet.getRange(rowNumber, 1, 1, values.length).setValues([values]);
+  writeDateCells_(sheet, headers, rowNumber, [values]);
   writePlainTextCells_(sheet, headers, rowNumber, [values]);
 }
 
@@ -724,10 +834,13 @@ function updateSignup_(rowNumber, fields) {
   plainTextColumns_(sheet, headers);
   if (fields.date != null || fields.time != null) SpreadsheetApp.flush();
   Object.keys(fields).forEach(function (name) {
-    var col = headers.indexOf(name);
+    var col = headerIndex_(headers, headerKey_(name));
+    if (col === -1) col = headers.indexOf(name);
     if (col === -1) return;
     var cell = sheet.getRange(rowNumber, col + 1);
-    if (name === 'date' || name === 'time') cell.setNumberFormat('@');
+    var key = headerKey_(name);
+    if (key === 'date') cell.setNumberFormat('M/d/yyyy');
+    if (key === 'time' || key === 'starttime' || key === 'endtime') cell.setNumberFormat('@');
     cell.setValue(signupValue_(name, fields));
   });
 }
@@ -750,6 +863,8 @@ function buildSeedRows_(seed) {
           event: event.name,
           date: event.date,
           time: event.time,
+          startTime: event.time,
+          endTime: '',
           task: task.task,
           venue: place.venue,
           address: place.address,
@@ -822,6 +937,7 @@ function setup() {
   // getRange(row, column, numRows, numColumns) — the third argument is a count.
   signupsSheet.getRange(2, 1, built.signupRows.length, SIGNUP_HEADERS.length).setNumberFormat('@');
   signupsSheet.getRange(2, 1, built.signupRows.length, SIGNUP_HEADERS.length).setValues(built.signupRows);
+  writeDateCells_(signupsSheet, SIGNUP_HEADERS, 2, built.signupRows);
   writePlainTextCells_(signupsSheet, SIGNUP_HEADERS, 2, built.signupRows);
   var emailCol = SIGNUP_HEADERS.indexOf('email') + 1;
   signupsSheet.getRange(1, emailCol).setNote('Email addresses stay in this sheet. The public page shows names only.');
@@ -1036,7 +1152,9 @@ function moveSignup_(body, deps) {
       var fields = {
         event: slot.event,
         date: slot.date,
-        time: slot.time,
+        time: (slot.roleStart && slot.roleEnd) ? slot.roleStart + '–' + slot.roleEnd : (slot.time || ''),
+        startTime: slot.roleStart || '',
+        endTime: slot.roleEnd || '',
         task: slot.task,
         venue: place.venue,
         address: place.address,
@@ -1129,6 +1247,7 @@ function migrateV2() {
   SpreadsheetApp.flush();
   sheet.getRange(1, 1, result.values.length, SIGNUP_HEADERS.length).setNumberFormat('@');
   sheet.getRange(1, 1, result.values.length, SIGNUP_HEADERS.length).setValues(result.values);
+  writeDateCells_(sheet, result.values[0], 2, result.values.slice(1));
   writePlainTextCells_(sheet, result.values[0], 2, result.values.slice(1));
   if (lastRow > result.values.length) {
     sheet.getRange(result.values.length + 1, 1, lastRow - result.values.length, Math.max(lastCol, SIGNUP_HEADERS.length)).clearContent();
@@ -1231,6 +1350,7 @@ function migrateV4() {
   SpreadsheetApp.flush();
   sheet.getRange(1, 1, grid.length, width).setNumberFormat('@');
   sheet.getRange(1, 1, grid.length, width).setValues(grid);
+  writeDateCells_(sheet, plan.headers, 2, plan.rows);
   writePlainTextCells_(sheet, plan.headers, 2, plan.rows);
   if (lastCol > width) sheet.getRange(1, width + 1, lastRow, lastCol - width).clearContent();
   if (lastRow > grid.length) sheet.getRange(grid.length + 1, 1, lastRow - grid.length, width).clearContent();
@@ -1271,22 +1391,148 @@ function planDateText_(headers, rows) {
  * Does not change any other column. Safe to run again. Logs only.
  */
 function normalizeDatesV5() {
+  var summary = 'normalizeDatesV5 was not run. Use migrateV5. It keeps owner formatting, shows dates as M/d/yyyy, and stores start and end times as text.';
+  Logger.log(summary);
+  return summary;
+}
+
+function planMigrateV5_(values, slots) {
+  var headers = (values[0] || []).map(function (cell) { return String(cell || '').trim(); });
+  var timeCol = headerIndex_(headers, 'time');
+  var startCol = headerIndex_(headers, 'starttime');
+  var endCol = headerIndex_(headers, 'endtime');
+  var dateCol = headerIndex_(headers, 'date');
+  var insert = timeCol !== -1 && startCol === -1;
+  var working = headers.slice();
+  if (insert) {
+    working[timeCol] = 'Start Time';
+    working.splice(timeCol + 1, 0, 'End Time');
+    startCol = timeCol;
+    endCol = timeCol + 1;
+  }
+  var dateValues = [];
+  var timeValues = [];
+  var taskEdits = [];
+  var kept = 0;
+  function shifted_(zeroBased) {
+    var col = zeroBased;
+    if (insert && timeCol !== -1 && zeroBased > timeCol) col += 1;
+    return col + 1;
+  }
+  for (var r = 1; r < values.length; r++) {
+    var src = values[r] || [];
+    var blank = true;
+    for (var c = 0; c < src.length; c++) {
+      if (src[c] !== '' && src[c] != null) blank = false;
+    }
+    if (blank) continue;
+    kept += 1;
+    var record = { __row: r + 1 };
+    headers.forEach(function (name, index) { if (name) record[name] = src[index]; });
+    var iso = dateCol === -1 ? '' : ABA_RULES.formatSheetDate(src[dateCol]);
+    if (dateCol !== -1 && iso) {
+      var rawDate = src[dateCol];
+      var typedDate = rawDate instanceof Date || typeof rawDate === 'number';
+      var shown = !typedDate && String(rawDate).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      var shownIso = shown ? ABA_RULES.formatSheetDate(String(rawDate).trim()) : '';
+      if (!(typedDate && ABA_RULES.formatSheetDate(rawDate) === iso) && shownIso !== iso) {
+        dateValues.push({ rowNumber: r + 1, column: dateCol + 1, iso: iso });
+      }
+    }
+    var taskCol = headerIndex_(headers, 'task');
+    var slotCol = headerIndex_(headers, 'slotid');
+    var oldCol = headerIndex_(headers, 'oldtask');
+    if (String(record.task || '') === 'Networking Host') {
+      var priorSlot = String(record.slotId || '');
+      var renamedSlot = priorSlot ? priorSlot.replace(/\|Networking Host$/, '|Networking Ambassador') : '';
+      if (!renamedSlot && record.date && record.event) {
+        renamedSlot = ABA_RULES.formatSheetDate(record.date) + '|' + record.event + '|Networking Ambassador';
+      }
+      if (taskCol !== -1) {
+        taskEdits.push({ rowNumber: r + 1, column: shifted_(taskCol), value: 'Networking Ambassador' });
+      }
+      if (renamedSlot && renamedSlot !== priorSlot && slotCol !== -1) {
+        taskEdits.push({ rowNumber: r + 1, column: shifted_(slotCol), value: renamedSlot });
+      }
+      if (!String(record.oldTask || '').trim() && oldCol !== -1) {
+        taskEdits.push({ rowNumber: r + 1, column: shifted_(oldCol), value: 'Networking Host' });
+      }
+      record.task = 'Networking Ambassador';
+      if (renamedSlot) record.slotId = renamedSlot;
+    }
+    var clocks = clocksForRow_(record, slots);
+    var currentStart = insert ? '' : (startCol === -1 ? '' : tidyClock_(ABA_RULES.formatSheetTime(src[startCol])));
+    var currentEnd = insert ? '' : (endCol === -1 ? '' : tidyClock_(ABA_RULES.formatSheetTime(src[endCol])));
+    if (clocks.start && (insert || currentStart !== clocks.start)) {
+      timeValues.push({ rowNumber: r + 1, column: startCol + 1, value: clocks.start });
+    }
+    if ((clocks.end || insert || currentEnd) && (insert || currentEnd !== clocks.end)) {
+      timeValues.push({ rowNumber: r + 1, column: endCol + 1, value: clocks.end || '' });
+    }
+  }
+  return {
+    insert: insert,
+    timeColumn: timeCol,
+    dateColumn: dateCol,
+    startColumn: startCol,
+    endColumn: endCol,
+    headers: working,
+    dateValues: dateValues,
+    timeValues: timeValues,
+    taskEdits: taskEdits,
+    kept: kept
+  };
+}
+
+/**
+ * Shows dates as M/d/yyyy and splits time into start and end text.
+ * Does not restyle the sheet, unhide columns, delete rows, or change statuses.
+ * Safe to run again. Logs only.
+ */
+function migrateV5() {
   var sheet = openSheet_().getSheetByName('Signups');
   if (!sheet) throw new Error('Signups tab is missing.');
-  var headers = readHeaders_(sheet);
-  var lastRow = sheet.getLastRow();
-  var width = Math.max(sheet.getLastColumn(), headers.length, 1);
-  var values = lastRow ? sheet.getRange(1, 1, lastRow, width).getValues() : [headers];
-  var changes = planDateText_(headers, values.slice(1));
-  plainTextColumns_(sheet, headers);
+  var lastRow = Math.max(sheet.getLastRow(), 1);
+  var width = Math.max(sheet.getLastColumn(), 1);
+  var values = sheet.getRange(1, 1, lastRow, width).getValues();
+  var before = 0;
+  for (var r = 1; r < values.length; r++) {
+    var blank = true;
+    for (var c = 0; c < values[r].length; c++) {
+      if (values[r][c] !== '' && values[r][c] != null) blank = false;
+    }
+    if (!blank) before += 1;
+  }
+  var plan = planMigrateV5_(values, abaCatalogSlots_());
+  if (plan.kept !== before) throw new Error('Migration stopped because it would change the number of sign-up rows.');
+  if (plan.insert && plan.timeColumn !== -1) {
+    sheet.insertColumnAfter(plan.timeColumn + 1);
+    sheet.getRange(1, plan.timeColumn + 1).setValue('Start Time');
+    sheet.getRange(1, plan.timeColumn + 2).setValue('End Time');
+  }
+  plan.dateValues.forEach(function (change) {
+    var parts = change.iso.split('-');
+    var cell = sheet.getRange(change.rowNumber, change.column);
+    cell.setNumberFormat('M/d/yyyy');
+    cell.setValue(new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])));
+  });
+  if (plan.dateColumn !== -1 && lastRow >= 2) {
+    sheet.getRange(2, plan.dateColumn + 1, lastRow - 1, 1).setNumberFormat('M/d/yyyy');
+  }
   SpreadsheetApp.flush();
-  changes.forEach(function (change) {
+  plan.timeValues.forEach(function (change) {
     var cell = sheet.getRange(change.rowNumber, change.column);
     cell.setNumberFormat('@');
     cell.setValue(change.value);
   });
+  plan.taskEdits.forEach(function (change) {
+    sheet.getRange(change.rowNumber, change.column).setValue(change.value);
+  });
   SpreadsheetApp.flush();
-  var summary = 'Normalized ' + changes.length + ' date/time cells to plain text. Dates are yyyy-MM-dd and times are h:mm AM/PM. Nothing else was changed.';
+  var summary = 'Migration v5 complete. Kept ' + plan.kept + ' sign-up rows. Updated ' + plan.dateValues.length +
+    ' dates to M/d/yyyy and ' + plan.timeValues.length + ' start/end time cells as text. Renamed ' +
+    plan.taskEdits.filter(function (change) { return change.value === 'Networking Ambassador'; }).length +
+    ' Networking Host rows to Networking Ambassador. Statuses and other formatting were not changed.';
   Logger.log(summary);
   return summary;
 }

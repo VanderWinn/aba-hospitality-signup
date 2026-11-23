@@ -23,7 +23,7 @@ function abaTemplates_() {
       { task: 'Set-Up', capacity: 3, start: '4:00 PM', end: '4:30 PM', description: 'Arranges the room, signage, and tables before guests arrive.' },
       { task: 'Door Greeter', capacity: 1, start: '4:00 PM', end: '4:30 PM', description: 'Welcomes guests at the entrance and directs them to sign-in.' },
       { task: 'Sign-In Table', capacity: 1, start: '4:00 PM', end: '6:00 PM', description: 'Checks guests in, hands out name tags, and collects contact details.' },
-      { task: 'Networking Host', capacity: 3, start: '4:30 PM', end: '6:30 PM', description: 'Mingles with guests, makes introductions, and helps new attendees feel welcome.' },
+      { task: 'Networking Ambassador', capacity: 3, start: '4:30 PM', end: '6:30 PM', description: 'Mingles with guests, makes introductions, and helps new attendees feel welcome.' },
       { task: 'Clean-Up', capacity: 2, start: '6:30 PM', end: '7:00 PM', description: 'Clears tables, takes out the trash, packs up supplies, and resets the room after the event.' }
     ]
   };
@@ -133,7 +133,7 @@ function mapLegacyTask_(task) {
   if (compact === 'ribbon holders') return { task: 'Ribbon Holders' };
   if (compact === 'ambassadors set up') return { task: 'Set-Up' };
   if (compact === 'ambassadors clean up') return { task: 'Clean-Up' };
-  if (compact === 'ambassadors entire happy hour' || compact === 'mixer host') return { task: 'Networking Host' };
+  if (compact === 'ambassadors entire happy hour' || compact === 'mixer host' || compact === 'networking host') return { task: 'Networking Ambassador' };
   if (compact === 'door greeter') return { task: 'Door Greeter' };
   if (compact === 'door/sign in table' || compact === 'door/sign in table host') return { task: 'Sign-In Table' };
   if (/drinks delivery$/.test(compact) || /drink delivery$/.test(compact)) return { task: 'Drink Delivery' };
@@ -181,7 +181,9 @@ function planRoleMigration_(signups, slots) {
     var fields = { oldTask: row.task, task: decision.task, slotId: newSlotId, event: eventName, date: date };
     if (slot) {
       fields.capacity = slot.capacity;
-      fields.time = slot.time;
+      fields.time = slot.roleStart ? slot.roleStart + '–' + (slot.roleEnd || '') : slot.time;
+      fields.startTime = slot.roleStart || '';
+      fields.endTime = slot.roleEnd || '';
       if (!row.location && !row.venue) {
         fields.location = slot.location;
         fields.venue = slot.venue || '';
