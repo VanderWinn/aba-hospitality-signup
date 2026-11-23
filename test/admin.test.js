@@ -85,6 +85,44 @@ test('admin login locks after five failures and a session can see the roster', (
   assert.equal(roster.people[0].signupId, 'id-1');
   assert.equal(JSON.stringify(roster).includes('secret@example.com'), false);
   assert.equal(aba.adminRoster_({ session: 'bad' }, deps).ok, false);
+  const other = aba.adminLogin_({ password: 'correct-horse' }, deps).session;
+  const changed = aba.adminChangePassword_({
+    session: good.session,
+    current: 'correct-horse',
+    next: 'a-longer-password',
+    confirm: 'a-longer-password'
+  }, deps);
+  assert.equal(changed.ok, true);
+  assert.notEqual(changed.session, good.session);
+  assert.equal(aba.adminRoster_({ session: good.session }, deps).ok, false);
+  assert.equal(aba.adminRoster_({ session: other }, deps).ok, false);
+  assert.equal(aba.adminRoster_({ session: changed.session }, deps).ok, true);
+  assert.equal(aba.adminLogin_({ password: 'correct-horse' }, deps).ok, false);
+  assert.equal(aba.adminLogin_({ password: 'a-longer-password' }, deps).ok, true);
+  const short = aba.adminChangePassword_({
+    session: changed.session,
+    current: 'a-longer-password',
+    next: 'short-pass',
+    confirm: 'short-pass'
+  }, deps);
+  assert.equal(short.error, 'New password must be at least 12 characters.');
+  const missed = aba.adminChangePassword_({
+    session: changed.session,
+    current: 'wrong-current',
+    next: 'another-password',
+    confirm: 'another-password'
+  }, deps);
+  assert.equal(missed.error, 'That password is not correct.');
+  let again = null;
+  for (let i = 0; i < 4; i++) {
+    again = aba.adminChangePassword_({
+      session: changed.session,
+      current: 'wrong-current',
+      next: 'another-password',
+      confirm: 'another-password'
+    }, deps);
+  }
+  assert.equal(again.error, 'Too many tries. Try again in 15 minutes.');
   assert.equal(aba.adminLogout_({ session: good.session }, deps).ok, true);
   assert.equal(aba.adminRoster_({ session: good.session }, deps).ok, false);
 });

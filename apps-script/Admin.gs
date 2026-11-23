@@ -81,7 +81,8 @@ function setAdminPassword() {
   var hash = sha256Hex_(salt + '\n' + password);
   PropertiesService.getScriptProperties().setProperties({
     ADMIN_SALT: salt,
-    ADMIN_PASSWORD_HASH: hash
+    ADMIN_PASSWORD_HASH: hash,
+    ADMIN_SESSION_EPOCH: String(new Date().getTime())
   }, false);
   Logger.log('Admin password (save this, it will not be shown again): ' + password);
   return 'Admin password generated and stored. Read the execution log, save the password, then clear the log.';
@@ -105,12 +106,35 @@ function writeLoginGuard_(store, guard) {
   store.putCache(ADMIN_GUARD_KEY, JSON.stringify(guard), 900);
 }
 
+function adminEpoch_(store) {
+  return store.getSecret('ADMIN_SESSION_EPOCH') || '1';
+}
+
+function issueAdminSession_(store) {
+  var session = newAdminSecret_() + newAdminSecret_().slice(0, 12);
+  session = session.replace(/[^A-Za-z0-9]/g, '').slice(0, 48);
+  store.putCache('admin-session-' + session, adminEpoch_(store), ADMIN_SESSION_SECONDS);
+  return session;
+}
+
+function notePasswordFailure_(store, guard, now) {
+  guard.fails += 1;
+  if (guard.fails >= ADMIN_MAX_FAILS) {
+    guard.fails = 0;
+    guard.lockedUntil = now + ADMIN_LOCK_MS;
+  }
+  writeLoginGuard_(store, guard);
+  return guard.lockedUntil && now < guard.lockedUntil
+    ? { ok: false, error: 'Too many tries. Try again in 15 minutes.' }
+    : { ok: false, error: 'That password is not correct.' };
+}
+
 function adminSessionOk_(session, deps) {
   var token = String(session || '').trim();
   if (!/^[A-Za-z0-9]{32,80}$/.test(token)) return false;
   var store = adminStore_(deps);
   var found = store.getCache('admin-session-' + token);
-  return timingEqual_(found || '', '1');
+  return timingEqual_(found || '', adminEpoch_(store));
 }
 
 function adminLogin_(body, deps) {
@@ -132,22 +156,53 @@ function adminLogin_(body, deps) {
     }
     var actual = sha256Hex_(salt + '\n' + password);
     if (!timingEqual_(actual, expected)) {
-      guard.fails += 1;
-      if (guard.fails >= ADMIN_MAX_FAILS) {
-        guard.fails = 0;
-        guard.lockedUntil = now + ADMIN_LOCK_MS;
-      }
-      writeLoginGuard_(store, guard);
-      result = guard.lockedUntil && now < guard.lockedUntil
-        ? { ok: false, error: 'Too many tries. Try again in 15 minutes.' }
-        : { ok: false, error: 'That password is not correct.' };
+      result = notePasswordFailure_(store, guard, now);
       return;
     }
     writeLoginGuard_(store, { fails: 0, lockedUntil: 0 });
-    var session = newAdminSecret_() + newAdminSecret_().slice(0, 12);
-    session = session.replace(/[^A-Za-z0-9]/g, '').slice(0, 48);
-    store.putCache('admin-session-' + session, '1', ADMIN_SESSION_SECONDS);
-    result = { ok: true, session: session };
+    result = { ok: true, session: issueAdminSession_(store) };
+  });
+  if (outcome === false) return { ok: false, error: 'The sheet is busy. Please try again in a moment.' };
+  return result;
+}
+
+function adminChangePassword_(body, deps) {
+  var store = adminStore_(deps);
+  var result = { ok: false, error: 'Could not change the password.' };
+  var outcome = deps.withLock(function () {
+    if (!adminSessionOk_(body && body.session, deps)) {
+      result = { ok: false, error: 'Admin login expired.' };
+      return;
+    }
+    var now = store.now();
+    var guard = readLoginGuard_(store);
+    if (guard.lockedUntil && now < guard.lockedUntil) {
+      result = { ok: false, error: 'Too many tries. Try again in 15 minutes.' };
+      return;
+    }
+    var current = body && body.current != null ? String(body.current) : '';
+    var next = body && body.next != null ? String(body.next) : '';
+    var confirm = body && body.confirm != null ? String(body.confirm) : '';
+    var salt = store.getSecret('ADMIN_SALT');
+    var expected = store.getSecret('ADMIN_PASSWORD_HASH');
+    var actual = sha256Hex_(salt + '\n' + current);
+    if (!salt || !expected || !timingEqual_(actual, expected)) {
+      result = notePasswordFailure_(store, guard, now);
+      return;
+    }
+    if (next.length < 12) {
+      result = { ok: false, error: 'New password must be at least 12 characters.' };
+      return;
+    }
+    if (next !== confirm) {
+      result = { ok: false, error: 'New passwords do not match.' };
+      return;
+    }
+    store.putSecret('ADMIN_SALT', newAdminSecret_());
+    store.putSecret('ADMIN_PASSWORD_HASH', sha256Hex_(store.getSecret('ADMIN_SALT') + '\n' + next));
+    store.putSecret('ADMIN_SESSION_EPOCH', String(now));
+    writeLoginGuard_(store, { fails: 0, lockedUntil: 0 });
+    result = { ok: true, session: issueAdminSession_(store), message: 'Password changed.' };
   });
   if (outcome === false) return { ok: false, error: 'The sheet is busy. Please try again in a moment.' };
   return result;

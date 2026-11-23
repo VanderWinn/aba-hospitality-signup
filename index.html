@@ -47,7 +47,7 @@
   <footer class="site-footer">
     <div class="wrap">
       <p>Ada Business Association. Anyone with this link can sign up. Names are visible on the page. Email addresses are not.</p>
-      <p class="admin-links"><button type="button" class="text-button" id="admin-open">Admin</button> <button type="button" class="text-button" id="admin-logout" hidden>Log out</button></p>
+      <p class="admin-links"><button type="button" class="text-button" id="admin-open">Admin</button> <button type="button" class="text-button" id="admin-change" hidden>Change password</button> <button type="button" class="text-button" id="admin-logout" hidden>Log out</button></p>
     </div>
   </footer>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
@@ -92,6 +92,30 @@
       <p id="admin-login-error" class="form-error" role="alert" hidden></p>
       <div class="dialog-actions">
         <button type="submit" class="btn" id="admin-login-submit">Log in</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="admin-password-dialog" aria-labelledby="admin-password-title">
+    <form id="admin-password-form" method="dialog">
+      <div class="dialog-head">
+        <h2 id="admin-password-title">Change password</h2>
+        <button type="button" class="icon-close" id="admin-password-close">Close</button>
+      </div>
+      <div class="field">
+        <label for="admin-current-password">Current password</label>
+        <input id="admin-current-password" name="current-password" type="password" autocomplete="current-password" required>
+      </div>
+      <div class="field">
+        <label for="admin-new-password">New password</label>
+        <input id="admin-new-password" name="new-password" type="password" autocomplete="new-password" required minlength="12">
+      </div>
+      <div class="field">
+        <label for="admin-confirm-password">Confirm new password</label>
+        <input id="admin-confirm-password" name="confirm-password" type="password" autocomplete="new-password" required minlength="12">
+      </div>
+      <p id="admin-password-error" class="form-error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="submit" class="btn">Change password</button>
       </div>
     </form>
   </dialog>

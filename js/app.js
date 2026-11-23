@@ -201,6 +201,11 @@
     document.getElementById('dialog-close').addEventListener('click', closeDialog);
     document.getElementById('admin-open').addEventListener('click', openAdminLogin);
     document.getElementById('admin-logout').addEventListener('click', logOutAdmin);
+    document.getElementById('admin-change').addEventListener('click', openAdminPassword);
+    document.getElementById('admin-password-form').addEventListener('submit', onAdminPassword);
+    document.getElementById('admin-password-close').addEventListener('click', function () {
+      document.getElementById('admin-password-dialog').close();
+    });
     document.getElementById('admin-login-form').addEventListener('submit', onAdminLogin);
     document.getElementById('admin-login-close').addEventListener('click', function () {
       document.getElementById('admin-login').close();
@@ -569,8 +574,11 @@
   var adminTarget = null;
 
   function updateAdminChrome() {
+    var loggedIn = !!state.adminSession;
     var logout = document.getElementById('admin-logout');
-    if (logout) logout.hidden = !state.adminSession;
+    var change = document.getElementById('admin-change');
+    if (logout) logout.hidden = !loggedIn;
+    if (change) change.hidden = !loggedIn;
   }
 
   function saveAdminSession(session) {
@@ -623,6 +631,49 @@
       document.getElementById('admin-login').close();
       await refreshAdmin();
       paint();
+    } catch (err) {
+      error.textContent = 'Could not reach the sign-up sheet.';
+      error.hidden = false;
+    }
+  }
+
+  function openAdminPassword() {
+    var error = document.getElementById('admin-password-error');
+    error.hidden = true;
+    error.textContent = '';
+    document.getElementById('admin-password-form').reset();
+    document.getElementById('admin-password-dialog').showModal();
+    document.getElementById('admin-current-password').focus();
+  }
+
+  async function onAdminPassword(event) {
+    event.preventDefault();
+    var error = document.getElementById('admin-password-error');
+    var next = document.getElementById('admin-new-password').value;
+    var confirm = document.getElementById('admin-confirm-password').value;
+    if (next !== confirm) {
+      error.textContent = 'New passwords do not match.';
+      error.hidden = false;
+      return;
+    }
+    error.hidden = true;
+    try {
+      var data = await postSignup({
+        action: 'adminChangePassword',
+        session: state.adminSession,
+        current: document.getElementById('admin-current-password').value,
+        next: next,
+        confirm: confirm
+      });
+      if (!data || data.ok !== true || !data.session) {
+        error.textContent = (data && data.error) || 'Could not change the password.';
+        error.hidden = false;
+        if (data && data.error === 'Admin login expired.') logOutAdmin();
+        return;
+      }
+      saveAdminSession(data.session);
+      document.getElementById('admin-password-dialog').close();
+      setToast(data.message || 'Password changed.');
     } catch (err) {
       error.textContent = 'Could not reach the sign-up sheet.';
       error.hidden = false;
