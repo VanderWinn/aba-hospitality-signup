@@ -181,7 +181,9 @@ function planRoleMigration_(signups, slots) {
     var fields = { oldTask: row.task, task: decision.task, slotId: newSlotId, event: eventName, date: date };
     if (slot) {
       fields.capacity = slot.capacity;
-      fields.time = slot.time;
+      fields.time = slot.roleStart ? slot.roleStart + '–' + (slot.roleEnd || '') : slot.time;
+      fields.startTime = slot.roleStart || '';
+      fields.endTime = slot.roleEnd || '';
       if (!row.location && !row.venue) {
         fields.location = slot.location;
         fields.venue = slot.venue || '';
