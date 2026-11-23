@@ -607,7 +607,7 @@ dialog {
 
 dialog::backdrop { background: rgba(18, 36, 30, 0.55); }
 
-#signup-form { padding: 1.15rem 1.2rem 1.2rem; }
+#signup-form, #cancel-form { padding: 1.15rem 1.2rem 1.2rem; }
 
 .dialog-head {
   display: flex;
@@ -616,9 +616,9 @@ dialog::backdrop { background: rgba(18, 36, 30, 0.55); }
   align-items: flex-start;
 }
 
-#dialog-title { font-size: 1.45rem; margin-bottom: 0.35rem; }
+#dialog-title, #cancel-title { font-size: 1.45rem; margin-bottom: 0.35rem; }
 
-#dialog-copy { color: var(--ink-soft); margin-bottom: 1rem; }
+#dialog-copy, #cancel-copy { color: var(--ink-soft); margin-bottom: 1rem; }
 
 .field { margin-bottom: 0.85rem; }
 
