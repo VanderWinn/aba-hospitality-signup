@@ -659,7 +659,10 @@ dialog {
 
 dialog::backdrop { background: rgba(18, 36, 30, 0.55); }
 
-#signup-form, #cancel-form { padding: 1.15rem 1.2rem 1.2rem; }
+#signup-form, #cancel-form,
+#admin-login-form, #admin-password-form, #admin-add-form, #admin-remove-form {
+  padding: 1.15rem 1.2rem 1.2rem;
+}
 
 .dialog-head {
   display: flex;
@@ -668,15 +671,56 @@ dialog::backdrop { background: rgba(18, 36, 30, 0.55); }
   align-items: flex-start;
 }
 
-#dialog-title, #cancel-title { font-size: 1.45rem; margin-bottom: 0.35rem; }
+#dialog-title, #cancel-title,
+#admin-login-title, #admin-password-title, #admin-add-title, #admin-remove-title {
+  font-size: 1.45rem;
+  margin-bottom: 0.35rem;
+}
 
-#dialog-copy, #cancel-copy { color: var(--ink-soft); margin-bottom: 1rem; }
+#dialog-copy, #cancel-copy, #admin-add-copy, #admin-remove-copy {
+  color: var(--ink-soft);
+  margin-bottom: 1rem;
+}
+
+.dialog-x {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  margin-top: 0.1rem;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dialog-x:hover { background: #f2f2f2; color: var(--ink); }
+
+.admin-dialog {
+  max-height: calc(100% - 1.5rem);
+  overflow: auto;
+}
+
+.admin-dialog .dialog-actions { flex-wrap: wrap; }
+
+@media (max-width: 420px) {
+  .admin-dialog .dialog-actions .btn {
+    flex: 1 1 auto;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    white-space: nowrap;
+  }
+}
 
 .field { margin-bottom: 0.85rem; }
 
 label { display: block; font-weight: 700; margin-bottom: 0.3rem; }
 
-input[type="text"], input[type="email"] {
+input[type="text"], input[type="email"], input[type="password"] {
   width: 100%;
   min-height: 48px;
   border: 1px solid #cfc5b2;

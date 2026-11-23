@@ -210,6 +210,12 @@
     document.getElementById('admin-login-close').addEventListener('click', function () {
       document.getElementById('admin-login').close();
     });
+    document.getElementById('admin-login-cancel').addEventListener('click', function () {
+      document.getElementById('admin-login').close();
+    });
+    document.getElementById('admin-password-cancel').addEventListener('click', function () {
+      document.getElementById('admin-password-dialog').close();
+    });
     document.getElementById('admin-add-form').addEventListener('submit', onAdminAdd);
     document.getElementById('admin-add-close').addEventListener('click', function () { document.getElementById('admin-add-dialog').close(); });
     document.getElementById('admin-add-keep').addEventListener('click', function () { document.getElementById('admin-add-dialog').close(); });
