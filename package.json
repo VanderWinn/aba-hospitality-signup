@@ -3,7 +3,7 @@
   "private": true,
   "description": "Volunteer sign-up sheet for Ada Business Association hospitality events",
   "scripts": {
-    "test": "node --test test/signup.test.js test/mail.test.js test/roles.test.js test/full-lunch.test.js test/venue-address.test.js",
+    "test": "node --test test/signup.test.js test/mail.test.js test/roles.test.js test/full-lunch.test.js test/venue-address.test.js test/dates.test.js",
     "start": "node test/mock-server.js",
     "build:seed": "node scripts/build-seed.js"
   }

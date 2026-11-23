@@ -112,3 +112,7 @@ Do not run `setup`, `migrateV2`, or `migrateV3` again.
 The first run logs: `Migration v4 complete. Split location into venue and address on N sign-up rows. Hid signupId, slotId, source, token, oldTask, and the other internal columns. Statuses were not changed.` A second run logs that v4 is already applied and no rows were changed.
 
 A matching event in `abaEvents()` supplies the venue and street. Any other row is split from the old location text. New sign-ups write venue and address separately. Confirmation email and the calendar file still show the full place, such as `Ada Hotel, 7415 River St SE, Ada`.
+
+## Upgrading to v5
+
+Sheets turned some date and time cells into real date values, so a time like `11:30 AM` displays as `12/30/1899`. Paste the updated `apps-script/Code.gs`, save, and run **normalizeDatesV5** once. It rewrites only the date and time columns as plain text (`2027-01-21` and `11:30 AM`), sets those columns to plain text, and leaves every other cell alone. It writes to the log only. Running it again changes nothing. Then publish a new deployment version so new sign-ups keep storing those columns as text. The `/exec` URL stays the same.

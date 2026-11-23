@@ -109,7 +109,7 @@ var ABA_RULES = (function () {
 
   function formatSheetDate(value) {
     if (value instanceof Date && !isNaN(value.getTime())) {
-      return todayKey(value);
+      return todayKeyIn(value, 'America/New_York');
     }
     if (typeof value === 'number' && isFinite(value)) {
       var ms = Date.UTC(1899, 11, 30) + Math.round(value) * 86400000;
@@ -123,6 +123,43 @@ var ABA_RULES = (function () {
     var s = unwrapSheetText(value).trim();
     var match = s.match(/^(\d{4}-\d{2}-\d{2})/);
     return match ? match[1] : s;
+  }
+
+  function minutesToClock_(minutes) {
+    var wrapped = ((minutes % 1440) + 1440) % 1440;
+    var hour24 = Math.floor(wrapped / 60);
+    var minute = wrapped % 60;
+    var ap = hour24 >= 12 ? 'PM' : 'AM';
+    var hour = hour24 % 12;
+    if (hour === 0) hour = 12;
+    return hour + ':' + (minute < 10 ? '0' : '') + minute + ' ' + ap;
+  }
+
+  function formatSheetTime(value) {
+    if (value instanceof Date && !isNaN(value.getTime())) {
+      var parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }).formatToParts(value);
+      var hour = '';
+      var minute = '';
+      var ap = '';
+      parts.forEach(function (part) {
+        if (part.type === 'hour') hour = String(Number(part.value));
+        if (part.type === 'minute') minute = part.value;
+        if (part.type === 'dayPeriod') ap = part.value.toUpperCase();
+      });
+      return (hour + ':' + minute + ' ' + ap).replace(/\s+/g, ' ').trim();
+    }
+    if (typeof value === 'number' && isFinite(value)) {
+      var whole = Math.floor(Math.abs(value));
+      var minutes = Math.round((Math.abs(value) - whole) * 1440);
+      if (whole <= 1 || Math.abs(value) - whole > 0) return minutesToClock_(minutes);
+      return '';
+    }
+    return unwrapSheetText(value).trim();
   }
 
   function parseSignup(body) {
@@ -279,6 +316,7 @@ var ABA_RULES = (function () {
     isActive: isActive,
     stamp: stamp,
     formatSheetDate: formatSheetDate,
+    formatSheetTime: formatSheetTime,
     parseSignup: parseSignup,
     checkRateLimit: checkRateLimit,
     decide: decide,
@@ -568,7 +606,7 @@ function rowsToState_(slotValues, signupValues) {
     slots.push({
       slotId: String(slot.slotId),
       date: ABA_RULES.formatSheetDate(slot.date),
-      time: String(slot.time || ''),
+      time: ABA_RULES.formatSheetTime(slot.time),
       event: String(slot.event || ''),
       location: String(slot.location || ''),
       task: String(slot.task || ''),
@@ -590,7 +628,7 @@ function rowsToState_(slotValues, signupValues) {
       source: String(row.source || ''),
       event: String(row.event || (parsedId && parsedId.event) || ''),
       date: ABA_RULES.formatSheetDate(row.date || (parsedId && parsedId.date) || ''),
-      time: String(row.time || ''),
+      time: ABA_RULES.formatSheetTime(row.time),
       task: String(row.task || (parsedId && parsedId.task) || ''),
       venue: String(row.venue || ''),
       address: String(row.address || ''),
@@ -629,8 +667,31 @@ function tableObjects_(values) {
 
 function signupValue_(name, row) {
   if (name === 'name' || name === 'email') return ABA_RULES.sheetSafe(row[name] == null ? '' : row[name]);
+  if (name === 'date') return ABA_RULES.formatSheetDate(row[name]);
+  if (name === 'time') return ABA_RULES.formatSheetTime(row[name]);
   var value = row[name];
   return value == null ? '' : value;
+}
+
+function plainTextColumns_(sheet, headers) {
+  var height = Math.max(sheet.getMaxRows(), sheet.getLastRow(), 2);
+  ['date', 'time'].forEach(function (name) {
+    var col = headers.indexOf(name);
+    if (col === -1) return;
+    sheet.getRange(1, col + 1, height, 1).setNumberFormat('@');
+  });
+}
+
+function writePlainTextCells_(sheet, headers, startRow, grid) {
+  ['date', 'time'].forEach(function (name) {
+    var col = headers.indexOf(name);
+    if (col === -1 || !grid.length) return;
+    var values = [];
+    for (var i = 0; i < grid.length; i++) values.push([grid[i][col] == null ? '' : String(grid[i][col])]);
+    var range = sheet.getRange(startRow, col + 1, grid.length, 1);
+    range.setNumberFormat('@');
+    range.setValues(values);
+  });
 }
 
 function signupCells_(row) {
@@ -648,18 +709,26 @@ function appendSignup_(row) {
   var sheet = openSheet_().getSheetByName('Signups');
   if (!sheet) throw new Error('Signups tab is missing.');
   var headers = readHeaders_(sheet);
-  sheet.appendRow(headers.map(function (name) { return signupValue_(name, row); }));
+  var values = headers.map(function (name) { return signupValue_(name, row); });
+  var rowNumber = sheet.getLastRow() + 1;
+  plainTextColumns_(sheet, headers);
+  SpreadsheetApp.flush();
+  sheet.getRange(rowNumber, 1, 1, values.length).setValues([values]);
+  writePlainTextCells_(sheet, headers, rowNumber, [values]);
 }
 
 function updateSignup_(rowNumber, fields) {
   var sheet = openSheet_().getSheetByName('Signups');
   if (!sheet) throw new Error('Signups tab is missing.');
   var headers = readHeaders_(sheet);
+  plainTextColumns_(sheet, headers);
+  if (fields.date != null || fields.time != null) SpreadsheetApp.flush();
   Object.keys(fields).forEach(function (name) {
     var col = headers.indexOf(name);
     if (col === -1) return;
-    sheet.getRange(rowNumber, col + 1).setNumberFormat('@');
-    sheet.getRange(rowNumber, col + 1).setValue(signupValue_(name, fields));
+    var cell = sheet.getRange(rowNumber, col + 1);
+    if (name === 'date' || name === 'time') cell.setNumberFormat('@');
+    cell.setValue(signupValue_(name, fields));
   });
 }
 
@@ -748,9 +817,12 @@ function setup() {
   }
 
   writeHeaders_(signupsSheet, SIGNUP_HEADERS);
+  plainTextColumns_(signupsSheet, SIGNUP_HEADERS);
+  SpreadsheetApp.flush();
   // getRange(row, column, numRows, numColumns) — the third argument is a count.
   signupsSheet.getRange(2, 1, built.signupRows.length, SIGNUP_HEADERS.length).setNumberFormat('@');
   signupsSheet.getRange(2, 1, built.signupRows.length, SIGNUP_HEADERS.length).setValues(built.signupRows);
+  writePlainTextCells_(signupsSheet, SIGNUP_HEADERS, 2, built.signupRows);
   var emailCol = SIGNUP_HEADERS.indexOf('email') + 1;
   signupsSheet.getRange(1, emailCol).setNote('Email addresses stay in this sheet. The public page shows names only.');
   signupsSheet.getRange(1, SIGNUP_HEADERS.indexOf('token') + 1).setNote('Private manage token. Do not share this column.');
@@ -1053,8 +1125,11 @@ function migrateV2() {
   if (result.kept !== before) {
     throw new Error('Migration stopped because it would change the number of sign-up rows.');
   }
+  plainTextColumns_(sheet, SIGNUP_HEADERS);
+  SpreadsheetApp.flush();
   sheet.getRange(1, 1, result.values.length, SIGNUP_HEADERS.length).setNumberFormat('@');
   sheet.getRange(1, 1, result.values.length, SIGNUP_HEADERS.length).setValues(result.values);
+  writePlainTextCells_(sheet, result.values[0], 2, result.values.slice(1));
   if (lastRow > result.values.length) {
     sheet.getRange(result.values.length + 1, 1, lastRow - result.values.length, Math.max(lastCol, SIGNUP_HEADERS.length)).clearContent();
   }
@@ -1152,8 +1227,11 @@ function migrateV4() {
   }
   var width = plan.headers.length;
   var grid = [plan.headers].concat(plan.rows);
+  plainTextColumns_(sheet, plan.headers);
+  SpreadsheetApp.flush();
   sheet.getRange(1, 1, grid.length, width).setNumberFormat('@');
   sheet.getRange(1, 1, grid.length, width).setValues(grid);
+  writePlainTextCells_(sheet, plan.headers, 2, plan.rows);
   if (lastCol > width) sheet.getRange(1, width + 1, lastRow, lastCol - width).clearContent();
   if (lastRow > grid.length) sheet.getRange(grid.length + 1, 1, lastRow - grid.length, width).clearContent();
   writeHeaders_(sheet, plan.headers);
@@ -1165,5 +1243,50 @@ function migrateV4() {
     ' sign-up rows. Hid signupId, slotId, source, token, oldTask, and the other internal columns. Statuses were not changed.';
   Logger.log(summary);
   try { SpreadsheetApp.getUi().alert(summary); } catch (err2) {}
+  return summary;
+}
+
+function planDateText_(headers, rows) {
+  var targets = [];
+  ['date', 'time'].forEach(function (name) {
+    var col = headers.indexOf(name);
+    if (col !== -1) targets.push({ name: name, col: col });
+  });
+  var changes = [];
+  (rows || []).forEach(function (row, index) {
+    targets.forEach(function (target) {
+      var raw = row[target.col];
+      if (raw == null || raw === '') return;
+      var text = target.name === 'date' ? ABA_RULES.formatSheetDate(raw) : ABA_RULES.formatSheetTime(raw);
+      var typed = raw instanceof Date || typeof raw === 'number';
+      if (!typed && String(raw) === text) return;
+      changes.push({ rowNumber: index + 2, column: target.col + 1, field: target.name, value: text });
+    });
+  });
+  return changes;
+}
+
+/**
+ * Rewrites Date-typed date and time cells as plain text.
+ * Does not change any other column. Safe to run again. Logs only.
+ */
+function normalizeDatesV5() {
+  var sheet = openSheet_().getSheetByName('Signups');
+  if (!sheet) throw new Error('Signups tab is missing.');
+  var headers = readHeaders_(sheet);
+  var lastRow = sheet.getLastRow();
+  var width = Math.max(sheet.getLastColumn(), headers.length, 1);
+  var values = lastRow ? sheet.getRange(1, 1, lastRow, width).getValues() : [headers];
+  var changes = planDateText_(headers, values.slice(1));
+  plainTextColumns_(sheet, headers);
+  SpreadsheetApp.flush();
+  changes.forEach(function (change) {
+    var cell = sheet.getRange(change.rowNumber, change.column);
+    cell.setNumberFormat('@');
+    cell.setValue(change.value);
+  });
+  SpreadsheetApp.flush();
+  var summary = 'Normalized ' + changes.length + ' date/time cells to plain text. Dates are yyyy-MM-dd and times are h:mm AM/PM. Nothing else was changed.';
+  Logger.log(summary);
   return summary;
 }
