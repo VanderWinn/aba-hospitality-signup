@@ -179,10 +179,8 @@
         '</h3>' +
         (task.description ? '<p class="task-desc">' + escapeHtml(task.description) + '</p>' : '') +
       '</div>' +
-      '<div class="task-signup">' +
-        names +
-        (action ? '<div class="task-action">' + action + '</div>' : '') +
-      '</div>' +
+      names +
+      '<div class="task-action">' + action + '</div>' +
     '</article>';
   }
 
