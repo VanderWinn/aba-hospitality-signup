@@ -12,10 +12,10 @@ var SPREADSHEET_ID = '1wVRyW_PRfB-rgPB716lWkqQraBBnw1lXuPH5o2-4u74';
 
 var SLOT_HEADERS = ['slotId', 'date', 'time', 'event', 'location', 'task', 'capacity'];
 var SIGNUP_HEADERS = [
-  'name', 'email', 'event', 'date', 'time', 'task', 'location', 'capacity', 'createdAt',
-  'signupId', 'slotId', 'source',
-  'token', 'status', 'reminderSent', 'updatedAt', 'previousSlotId', 'sequence', 'oldTask'
+  'name', 'email', 'event', 'date', 'time', 'task', 'venue', 'address', 'capacity', 'status', 'createdAt',
+  'signupId', 'slotId', 'source', 'token', 'oldTask', 'previousSlotId', 'sequence', 'reminderSent', 'updatedAt'
 ];
+var SIGNUP_HIDDEN = ['signupId', 'slotId', 'source', 'token', 'oldTask', 'previousSlotId', 'sequence', 'reminderSent', 'updatedAt'];
 
 var ABA_RULES = (function () {
   var ORG = 'Ada Business Association';
@@ -370,8 +370,84 @@ function processPost_(body, deps) {
   return deliverMail_(result, mail, deps);
 }
 
+function splitPlace_(location, eventName) {
+  var text = String(location || '').trim();
+  var prefix = String(eventName || '') + ', ';
+  if (prefix !== ', ' && text.indexOf(prefix) === 0) text = text.slice(prefix.length).trim();
+  var dash = text.match(/^(.*?)\s+-\s*(.+)$/) || text.match(/^(.*?)\s*-\s*(\d.*)$/);
+  if (dash && dash[1] && /\d/.test(dash[2])) {
+    return { venue: dash[1].trim(), address: dash[2].trim() };
+  }
+  var comma = text.indexOf(',');
+  if (comma > 0 && /^\d/.test(text.slice(comma + 1).trim())) {
+    return { venue: text.slice(0, comma).trim(), address: text.slice(comma + 1).trim() };
+  }
+  return { venue: text, address: '' };
+}
+
+function fullPlace_(venue, address) {
+  var name = String(venue || '').trim();
+  var street = String(address || '').trim();
+  if (name && street) return name + ', ' + street;
+  return name || street;
+}
+
+function placeFromEvents_(date, eventName, events) {
+  var key = ABA_RULES.formatSheetDate(date);
+  var list = events || [];
+  for (var i = 0; i < list.length; i++) {
+    if (String(list[i].date) === String(key) && list[i].type === eventName) {
+      return splitPlace_(list[i].location, list[i].type);
+    }
+  }
+  return null;
+}
+
+function planSignupV4_(values, events) {
+  var sourceHeader = (values[0] || []).map(function (cell) { return String(cell || '').trim(); });
+  var map = {};
+  sourceHeader.forEach(function (name, index) { if (name) map[name] = index; });
+  function cell(row, name) {
+    if (map[name] == null) return '';
+    var value = row[map[name]];
+    return value == null ? '' : value;
+  }
+  var already = map.location == null && map.venue != null && map.address != null;
+  var rows = [];
+  var kept = 0;
+  for (var r = 1; r < values.length; r++) {
+    var src = values[r] || [];
+    var blank = true;
+    for (var c = 0; c < src.length; c++) {
+      if (src[c] !== '' && src[c] != null) blank = false;
+    }
+    if (blank) continue;
+    kept += 1;
+    var record = {};
+    SIGNUP_HEADERS.forEach(function (name) { record[name] = cell(src, name); });
+    record.status = cell(src, 'status');
+    if (!already) {
+      var raw = cell(src, 'location');
+      var place = placeFromEvents_(record.date, record.event, events) || splitPlace_(raw, record.event);
+      record.venue = place.venue;
+      record.address = place.address;
+    }
+    rows.push(SIGNUP_HEADERS.map(function (name) {
+      var value = record[name];
+      return value == null ? '' : value;
+    }));
+  }
+  return { headers: SIGNUP_HEADERS.slice(), rows: rows, kept: kept, already: already, hidden: SIGNUP_HIDDEN.slice() };
+}
+
+function signupPlace_(slot) {
+  if (slot && (slot.venue || slot.address)) return { venue: slot.venue || '', address: slot.address || '' };
+  return splitPlace_(slot && slot.location, slot && slot.event);
+}
+
 function signupRecord_(decision, deps) {
   var slot = decision.slot;
+  var place = signupPlace_(slot);
   return {
     name: decision.signup.name,
     email: decision.signup.email,
@@ -379,7 +455,9 @@ function signupRecord_(decision, deps) {
     date: slot.date,
     time: slot.time,
     task: slot.task,
-    location: slot.location,
+    venue: place.venue,
+    address: place.address,
+    location: fullPlace_(place.venue, place.address) || (slot.location || ''),
     capacity: slot.capacity,
     createdAt: deps.stamp(deps.now()),
     signupId: deps.newId(),
@@ -514,7 +592,9 @@ function rowsToState_(slotValues, signupValues) {
       date: ABA_RULES.formatSheetDate(row.date || (parsedId && parsedId.date) || ''),
       time: String(row.time || ''),
       task: String(row.task || (parsedId && parsedId.task) || ''),
-      location: String(row.location || ''),
+      venue: String(row.venue || ''),
+      address: String(row.address || ''),
+      location: fullPlace_(row.venue, row.address) || String(row.location || ''),
       capacity: row.capacity === '' || row.capacity == null ? '' : Math.floor(Number(row.capacity)),
       token: String(row.token || '').trim(),
       status: String(row.status || '').trim(),
@@ -594,27 +674,33 @@ function buildSeedRows_(seed) {
       (task.names || []).forEach(function (person) {
         count += 1;
         var name = typeof person === 'string' ? person : person.name;
-        signupRows.push([
-          name,
-          '',
-          event.name,
-          event.date,
-          event.time,
-          task.task,
-          event.location,
-          task.capacity,
-          seed.pulledAt || '',
-          'seed-' + String(count).padStart(2, '0'),
-          id,
-          'seed',
-          '',
-          '',
-          '',
-          '',
-          '',
-          0,
-          ''
-        ]);
+        var place = splitPlace_(event.location, event.name);
+        var record = {
+          name: name,
+          email: '',
+          event: event.name,
+          date: event.date,
+          time: event.time,
+          task: task.task,
+          venue: place.venue,
+          address: place.address,
+          capacity: task.capacity,
+          status: '',
+          createdAt: seed.pulledAt || '',
+          signupId: 'seed-' + String(count).padStart(2, '0'),
+          slotId: id,
+          source: 'seed',
+          token: '',
+          oldTask: '',
+          previousSlotId: '',
+          sequence: 0,
+          reminderSent: '',
+          updatedAt: ''
+        };
+        signupRows.push(SIGNUP_HEADERS.map(function (key) {
+          var value = record[key];
+          return value == null ? '' : value;
+        }));
       });
     });
   });
@@ -774,7 +860,9 @@ function slotForRow_(state, row) {
     date: row.date,
     time: row.time,
     task: row.task,
-    location: row.location,
+    venue: row.venue || '',
+    address: row.address || '',
+    location: fullPlace_(row.venue, row.address) || row.location || '',
     capacity: row.capacity
   };
 }
@@ -805,7 +893,7 @@ function lookupSignup_(body, deps) {
       description: slot.description || '',
       roleDate: slot.roleDate || '',
       task: slot.task,
-      location: slot.location
+      location: fullPlace_(slot.venue, slot.address) || slot.location || ''
     }
   };
 }
@@ -872,12 +960,15 @@ function moveSignup_(body, deps) {
       if (!isFinite(capacity) || capacity < 1 || countActive_(state.signups, slot.slotId, row.signupId) >= capacity) {
         result = { ok: false, error: 'That task is full.' }; return;
       }
+      var place = signupPlace_(slot);
       var fields = {
         event: slot.event,
         date: slot.date,
         time: slot.time,
         task: slot.task,
-        location: slot.location,
+        venue: place.venue,
+        address: place.address,
+        location: fullPlace_(place.venue, place.address) || slot.location || '',
         capacity: slot.capacity,
         slotId: slot.slotId,
         previousSlotId: row.slotId,
@@ -1018,5 +1109,61 @@ function migrateV3() {
     (over.length ? ' Over capacity: ' + over.join('; ') + '.' : '');
   Logger.log(summary);
   try { SpreadsheetApp.getUi().alert(summary); } catch (err) {}
+  return summary;
+}
+
+function hideSignupColumns_(sheet) {
+  var headers = readHeaders_(sheet);
+  var width = Math.max(sheet.getLastColumn(), headers.length, 1);
+  sheet.showColumns(1, width);
+  SIGNUP_HIDDEN.forEach(function (name) {
+    var index = headers.indexOf(name);
+    if (index !== -1) sheet.hideColumns(index + 1);
+  });
+}
+
+/**
+ * Splits location into venue and address, puts owner columns first,
+ * and hides the internal columns. Does not delete rows or change statuses.
+ * Safe to run again.
+ */
+function migrateV4() {
+  var sheet = openSheet_().getSheetByName('Signups');
+  if (!sheet) throw new Error('Signups tab is missing.');
+  var lastRow = Math.max(sheet.getLastRow(), 1);
+  var lastCol = Math.max(sheet.getLastColumn(), 1);
+  var values = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  var before = 0;
+  for (var r = 1; r < values.length; r++) {
+    var blank = true;
+    for (var c = 0; c < values[r].length; c++) {
+      if (values[r][c] !== '' && values[r][c] != null) blank = false;
+    }
+    if (!blank) before += 1;
+  }
+  var plan = planSignupV4_(values, abaEvents_());
+  if (plan.kept !== before) throw new Error('Migration stopped because it would change the number of sign-up rows.');
+  if (plan.already) {
+    hideSignupColumns_(sheet);
+    var done = 'Migration v4 already applied. Venue and address are in place and internal columns stay hidden. No rows were changed.';
+    Logger.log(done);
+    try { SpreadsheetApp.getUi().alert(done); } catch (err) {}
+    return done;
+  }
+  var width = plan.headers.length;
+  var grid = [plan.headers].concat(plan.rows);
+  sheet.getRange(1, 1, grid.length, width).setNumberFormat('@');
+  sheet.getRange(1, 1, grid.length, width).setValues(grid);
+  if (lastCol > width) sheet.getRange(1, width + 1, lastRow, lastCol - width).clearContent();
+  if (lastRow > grid.length) sheet.getRange(grid.length + 1, 1, lastRow - grid.length, width).clearContent();
+  writeHeaders_(sheet, plan.headers);
+  sheet.getRange(1, plan.headers.indexOf('email') + 1).setNote('Email addresses stay in this sheet. The public page shows names only.');
+  sheet.getRange(1, plan.headers.indexOf('token') + 1).setNote('Private manage token. Do not share this column. It stays hidden.');
+  hideSignupColumns_(sheet);
+  SpreadsheetApp.flush();
+  var summary = 'Migration v4 complete. Split location into venue and address on ' + plan.kept +
+    ' sign-up rows. Hid signupId, slotId, source, token, oldTask, and the other internal columns. Statuses were not changed.';
+  Logger.log(summary);
+  try { SpreadsheetApp.getUi().alert(summary); } catch (err2) {}
   return summary;
 }

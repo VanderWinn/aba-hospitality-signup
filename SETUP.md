@@ -97,3 +97,18 @@ Role times are what the page, the emails, and the calendar file use. A Ribbon Cu
 After v3 is deployed, paste `apps-script/FixFullLunch.gs` as a new script file named `FixFullLunch`. Also paste the updated `Templates.gs` and `Code.gs` (`Mail.gs` is unchanged). Run **resolveFullLunchV3** once. It does not send email. Then **Deploy → Manage deployments → pencil → New version → Deploy**, because `Templates.gs` and `Code.gs` changed. The `/exec` URL stays the same.
 
 The run before January 21, 2027 should log: `Resolved 5 Ambassadors - Full lunch rows. Created 15 sign-ups. Skipped 0 roles already held. Over capacity: none. Left 4 past rows unchanged. Updated 1 Drink Delivery time to 2:00–3:00 PM the day before.` Running it again logs zeros for created rows and Drink Delivery updates.
+
+## Upgrading to v4
+
+This splits the Signups `location` column into `venue` and `address`, and hides the columns the page needs but you do not edit: `signupId`, `slotId`, `source`, `token`, `oldTask`, `previousSlotId`, `sequence`, `reminderSent`, and `updatedAt`. Those values stay in the sheet. `status` and `createdAt` stay visible. The public page still shows names only. It does not return email addresses or tokens.
+
+Do not run `setup`, `migrateV2`, or `migrateV3` again.
+
+1. In the spreadsheet, choose **Extensions → Apps Script**.
+2. Replace `Code.gs`, `Mail.gs`, `Templates.gs`, and `FixFullLunch.gs` with the copies in `apps-script/`. Save.
+3. Choose **migrateV4** and click **Run**. It does not send email, does not delete rows, and does not change any status. Running it again does not rewrite the rows.
+4. Click **Deploy → Manage deployments → pencil icon**. Set **Version** to **New version**. Click **Deploy**. The `/exec` URL stays the same.
+
+The first run logs: `Migration v4 complete. Split location into venue and address on N sign-up rows. Hid signupId, slotId, source, token, oldTask, and the other internal columns. Statuses were not changed.` A second run logs that v4 is already applied and no rows were changed.
+
+A matching event in `abaEvents()` supplies the venue and street. Any other row is split from the old location text. New sign-ups write venue and address separately. Confirmation email and the calendar file still show the full place, such as `Ada Hotel, 7415 River St SE, Ada`.

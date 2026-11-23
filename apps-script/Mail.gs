@@ -140,6 +140,12 @@ function longDate_(iso) {
   }).format(dt);
 }
 
+function mailWhere_(slot) {
+  var composed = fullPlace_(slot && slot.venue, slot && slot.address);
+  if (composed) return composed;
+  return venueLine_(slot && slot.location, slot && slot.event);
+}
+
 function venueLine_(location, eventName) {
   var text = String(location || '');
   var prefix = String(eventName || '') + ', ';
@@ -154,7 +160,7 @@ function manageUrl_(token) {
 function calendarPieces_(signup, slot) {
   var when = parseClock_(slot.time);
   var summary = slot.event + ': ' + slot.task;
-  var where = venueLine_(slot.location, slot.event);
+  var where = mailWhere_(slot);
   var manage = manageUrl_(signup.token);
   var details = 'Task: ' + slot.task + '\nEvent: ' + slot.event + '\nWhen: ' + longDate_(slot.date) +
     (when ? ', ' + String(slot.time).trim() + ' Eastern' : ', all day');
@@ -294,7 +300,7 @@ function buildMessage_(signup, slot, kind) {
     intro = 'Your sign-up is cancelled and the spot is open again.';
     subject = 'Cancelled: ' + slot.task + ' — ' + slot.event;
   }
-  var where = pieces.where || String(slot.location || '');
+  var where = pieces.where || mailWhere_(slot);
   var text = [
     'Hello ' + signup.name + ',',
     '',
@@ -415,6 +421,14 @@ function migrateSignupTable_(values, catalog, headers, tokenFactory) {
     if (!record.task && parsed) record.task = parsed.task;
     if (!record.time && known) record.time = known.time;
     if (!record.location && known) record.location = known.location;
+    if (!record.venue && !record.address) {
+      var rawPlace = record.location || (known && known.location) || '';
+      if (rawPlace) {
+        var place = splitPlace_(rawPlace, record.event);
+        if (headers.indexOf('venue') !== -1) record.venue = place.venue;
+        if (headers.indexOf('address') !== -1) record.address = place.address;
+      }
+    }
     if ((record.capacity === '' || record.capacity == null) && known) {
       record.capacity = known.capacity;
       capacitiesFilled += 1;

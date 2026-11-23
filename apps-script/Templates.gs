@@ -105,12 +105,15 @@ function abaExpandEvents_() {
         roleDate = addDays_(event.date, role.dayOffset);
       }
       var timeLabel = roleDate === event.date ? compactRange_(start, end) : shortMonthDay_(roleDate) + ', ' + compactRange_(start, end);
+      var place = splitPlace_(event.location, event.type);
       slots.push({
         slotId: event.date + '|' + event.type + '|' + role.task,
         date: event.date,
         time: headerTime,
         event: event.type,
         location: event.location,
+        venue: place.venue,
+        address: place.address,
         task: role.task,
         capacity: role.capacity,
         roleDate: roleDate,
@@ -179,7 +182,11 @@ function planRoleMigration_(signups, slots) {
     if (slot) {
       fields.capacity = slot.capacity;
       fields.time = slot.time;
-      if (!row.location) fields.location = slot.location;
+      if (!row.location && !row.venue) {
+        fields.location = slot.location;
+        fields.venue = slot.venue || '';
+        fields.address = slot.address || '';
+      }
     }
     changes.push({ rowNumber: row.rowNumber, fields: fields });
     projected.push({ name: row.name, date: date, event: eventName, task: decision.task, status: row.status || 'active', slotId: newSlotId, from: row.task });
