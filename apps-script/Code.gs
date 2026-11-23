@@ -16,8 +16,8 @@ var SIGNUP_FIELDS = [
   'signupId', 'slotId', 'source', 'token', 'oldTask', 'previousSlotId', 'sequence', 'reminderSent', 'updatedAt'
 ];
 var SIGNUP_HEADERS = [
-  'Name', 'Email', 'Event', 'Date', 'Start Time', 'End Time', 'Task', 'Venue', 'Address', 'Capacity', 'Created At', 'Status',
-  'Signup ID', 'Slot ID', 'Source', 'Token', 'Old Task', 'Previous Slot ID', 'Sequence', 'Reminder Sent', 'Updated At'
+  'NAME', 'EMAIL', 'EVENT TYPE', 'DATE', 'START TIME', 'END TIME', 'TASK', 'VENUE', 'ADDRESS', 'CAPACITY', 'CREATED AT', 'STATUS',
+  'SIGNUP ID', 'SLOT ID', 'SOURCE', 'TOKEN', 'OLD TASK', 'PREVIOUS SLOT ID', 'SEQUENCE', 'REMINDER SENT', 'UPDATED AT'
 ];
 var SIGNUP_HIDDEN = ['signupId', 'slotId', 'source', 'token', 'oldTask', 'previousSlotId', 'sequence', 'reminderSent', 'updatedAt'];
 
@@ -623,6 +623,7 @@ function headerKey_(name) {
 
 function headerField_(name) {
   var key = headerKey_(name);
+  if (key === 'eventtype' || key === 'eventname') return 'event';
   for (var i = 0; i < SIGNUP_FIELDS.length; i++) {
     if (headerKey_(SIGNUP_FIELDS[i]) === key) return SIGNUP_FIELDS[i];
   }
@@ -638,7 +639,14 @@ function headerIndex_(headers, key) {
 }
 
 function columnIndex_(headers, field) {
-  return headerIndex_(headers, headerKey_(field));
+  var want = headerField_(field) || headerKey_(field);
+  var list = headers || [];
+  for (var i = 0; i < list.length; i++) {
+    var got = headerField_(list[i]);
+    if (got && got === want) return i;
+    if (headerKey_(list[i]) === headerKey_(field)) return i;
+  }
+  return -1;
 }
 
 function sheetField_(row, key) {
@@ -772,7 +780,8 @@ function tableObjects_(values) {
 }
 
 function signupValue_(name, row) {
-  var key = headerKey_(name);
+  var field = headerField_(name) || name;
+  var key = headerKey_(field);
   if (key === 'name' || key === 'email') return ABA_RULES.sheetSafe(sheetField_(row, key));
   if (key === 'date') {
     var iso = ABA_RULES.formatSheetDate(sheetField_(row, 'date'));
@@ -783,6 +792,7 @@ function signupValue_(name, row) {
   if (key === 'starttime') return ABA_RULES.formatSheetTime(sheetField_(row, 'starttime'));
   if (key === 'endtime') return ABA_RULES.formatSheetTime(sheetField_(row, 'endtime'));
   if (key === 'time') return ABA_RULES.formatSheetTime(sheetField_(row, 'time'));
+  if (row[field] != null) return row[field];
   if (row[name] != null) return row[name];
   return sheetField_(row, key);
 }
@@ -857,7 +867,7 @@ function updateSignup_(rowNumber, fields) {
   plainTextColumns_(sheet, headers);
   if (fields.date != null || fields.time != null) SpreadsheetApp.flush();
   Object.keys(fields).forEach(function (name) {
-    var col = headerIndex_(headers, headerKey_(name));
+    var col = columnIndex_(headers, name);
     if (col === -1) col = headers.indexOf(name);
     if (col === -1) {
       if (headerKey_(name) === 'status') throw new Error('The status column is missing.');

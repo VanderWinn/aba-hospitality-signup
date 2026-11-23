@@ -25,7 +25,7 @@ test('migrateV4 splits location, keeps every row and status, and a second run ch
   assert.equal(first.kept, 2);
   assert.equal(first.already, false);
   assert.equal(JSON.stringify(first.headers.slice(0, 12)), JSON.stringify([
-    'Name', 'Email', 'Event', 'Date', 'Start Time', 'End Time', 'Task', 'Venue', 'Address', 'Capacity', 'Created At', 'Status'
+    'NAME', 'EMAIL', 'EVENT TYPE', 'DATE', 'START TIME', 'END TIME', 'TASK', 'VENUE', 'ADDRESS', 'CAPACITY', 'CREATED AT', 'STATUS'
   ]));
   assert.equal(first.rows[0][headerIndex('venue')], 'Ada Hotel');
   assert.equal(first.rows[0][headerIndex('address')], '7415 River St SE, Ada');

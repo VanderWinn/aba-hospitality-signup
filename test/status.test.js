@@ -68,8 +68,20 @@ test('title-case headers still read as the internal fields', () => {
   assert.equal(aba.ABA_RULES.isActive(signup), true);
   assert.equal(aba.headerField_('Created At'), 'createdAt');
   assert.equal(aba.headerField_('Signup ID'), 'signupId');
-  assert.equal(aba.SIGNUP_HEADERS[aba.columnIndex_(aba.SIGNUP_HEADERS, 'createdAt')], 'Created At');
-  assert.equal(aba.SIGNUP_HEADERS[aba.columnIndex_(aba.SIGNUP_HEADERS, 'status')], 'Status');
+  assert.equal(aba.headerField_('EVENT TYPE'), 'event');
+  assert.equal(aba.headerField_('Event Type'), 'event');
+  assert.equal(aba.headerField_('eventname'), 'event');
+  assert.equal(aba.columnIndex_(['NAME', 'EVENT TYPE', 'DATE'], 'event'), 1);
+  assert.equal(aba.SIGNUP_HEADERS[aba.columnIndex_(aba.SIGNUP_HEADERS, 'event')], 'EVENT TYPE');
+  assert.equal(aba.SIGNUP_HEADERS[aba.columnIndex_(aba.SIGNUP_HEADERS, 'createdAt')], 'CREATED AT');
+  assert.equal(aba.SIGNUP_HEADERS[aba.columnIndex_(aba.SIGNUP_HEADERS, 'status')], 'STATUS');
+  const typed = aba.rowsToState_([[]], [[
+    'NAME', 'EVENT TYPE', 'DATE', 'TASK', 'SLOT ID', 'STATUS'
+  ], [
+    'Ada Volunteer', 'Happy Hour', '12/9/2026', 'Set-Up', '2026-12-09|Happy Hour|Set-Up', 'active'
+  ]]);
+  assert.equal(typed.signups[0].event, 'Happy Hour');
+  assert.equal(typed.signups[0].task, 'Set-Up');
 });
 
 test('restoreStatusV7 backfills the missing column and leaves an existing column alone', () => {
