@@ -18,7 +18,10 @@ const files = {
   '/js/catalog.js': 'js/catalog.js',
   '/js/config.js': 'js/config.js',
   '/data/seed.json': 'data/seed.json',
-  '/assets/aba-logo.png': 'assets/aba-logo.png'
+  '/assets/aba-logo.png': 'assets/aba-logo.png',
+  '/assets/favicon.ico': 'assets/favicon.ico',
+  '/assets/favicon-32.png': 'assets/favicon-32.png',
+  '/assets/favicon-180.png': 'assets/favicon-180.png'
 };
 
 function start(options) {
@@ -75,7 +78,8 @@ function start(options) {
       : rel.endsWith('.js') ? 'text/javascript; charset=utf-8'
         : rel.endsWith('.json') ? 'application/json; charset=utf-8'
           : rel.endsWith('.png') ? 'image/png'
-            : 'text/html; charset=utf-8';
+            : rel.endsWith('.ico') ? 'image/x-icon'
+              : 'text/html; charset=utf-8';
     res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' });
     res.end(body);
   });

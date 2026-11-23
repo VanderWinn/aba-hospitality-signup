@@ -32,7 +32,7 @@ jobs:
           cp css/styles.css _site/css/
           cp js/config.js js/catalog.js js/app.js _site/js/
           cp data/seed.json _site/data/
-          cp assets/aba-logo.png _site/assets/
+          cp assets/aba-logo.png assets/favicon.ico assets/favicon-32.png assets/favicon-180.png _site/assets/
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
