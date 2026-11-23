@@ -372,14 +372,8 @@
   }
 
   function renderBoard(view, mode) {
-    var summary = summarize(view);
     var upcoming = view.events.filter(function (event) { return !event.past; });
     var past = view.events.filter(function (event) { return event.past; });
-    var stats = '<section class="stats" aria-label="Sheet summary">' +
-      '<p><strong>' + summary.upcoming + '</strong><span>Upcoming events</span></p>' +
-      '<p><strong>' + summary.open + '</strong><span>Spots open</span></p>' +
-      '<p><strong>' + summary.filled + '</strong><span>Spots filled</span></p>' +
-    '</section>';
     var jump = renderFilters(view);
     var upcomingHtml = '<div class="event-list">' + upcoming.map(function (event) { return renderEvent(event, mode); }).join('') + '</div>' +
       '<p class="filter-empty" hidden>No upcoming events of this type.</p>';
@@ -387,7 +381,7 @@
       ? '<details class="past-block"><summary>Past events (' + past.length + ')</summary><div class="event-list">' +
         past.map(function (event) { return renderEvent(event, mode); }).join('') + '</div></details>'
       : '';
-    return stats + jump + upcomingHtml + pastHtml;
+    return jump + upcomingHtml + pastHtml;
   }
 
   function renderManage(record, view) {

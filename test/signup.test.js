@@ -129,7 +129,9 @@ test('preview board shows seeded names, closes past events, and has no sign-up b
   assert.match(offer.ics, /DTEND;TZID=America\/New_York:20261209T183000/);
   assert.match(offer.ics, /SUMMARY:Happy Hour/);
   assert.match(offer.ics, /LOCATION:Ada Hotel\\, 7415 River St SE\\, Ada/);
-  assert.match(html, />251</);
+  assert.equal(html.includes('Upcoming events'), false);
+  assert.equal(html.includes('Spots open'), false);
+  assert.equal(html.includes('Spots filled'), false);
   assert.match(aba.ABACatalog.renderBanner('preview', ''), /Preview only/);
   assert.match(aba.ABACatalog.renderBanner('stale', 'Sheet missing.'), /Sheet missing\./);
 });

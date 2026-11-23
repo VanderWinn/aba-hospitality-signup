@@ -29,7 +29,7 @@ async function main() {
     const previewText = await page.evaluate(() => document.body.innerText);
     assert(previewText.includes('Preview only'), 'missing preview banner');
     assert(previewText.includes('Kevin Snyder'), 'missing seeded name');
-    assert(previewText.includes('251'), 'missing open-spot count');
+    assert(!previewText.includes('Spots open'), 'summary cards are still on the page');
     assert(previewText.includes('Ada Hotel'), 'missing venue');
     assert(!previewText.toLowerCase().includes('@'), 'an email is visible in preview');
     const claimCount = await page.$$eval('.claim', (nodes) => nodes.length);
