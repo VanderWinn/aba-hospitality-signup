@@ -428,9 +428,29 @@ h2 { margin: 0; font-size: 1rem; line-height: 1.35; }
 }
 
 .task-action .claim,
-.task-action .pill {
+.task-action .pill,
+.task-action .full-label {
   width: 100%;
   justify-content: center;
+}
+
+.full-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 38px;
+  padding: 0.1rem 0.75rem;
+  border-radius: 999px;
+  background: #f0f0f0;
+  color: #757575;
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 0.78rem;
+  line-height: 1.1;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
 }
 
 .claim, .btn, .icon-close, summary {

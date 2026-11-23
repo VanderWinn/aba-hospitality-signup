@@ -168,7 +168,7 @@
     } else if (event.past) {
       action = '<span class="pill closed">Closed</span>';
     } else if (task.remaining === 0) {
-      action = '';
+      action = '<span class="full-label">Full</span>';
     } else {
       action = '<span class="pill open">Open</span>';
     }

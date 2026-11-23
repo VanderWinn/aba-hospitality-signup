@@ -174,6 +174,6 @@ test('legacy rows may exceed the new capacity and the slot shows full', () => {
   assert.equal(task.names.length, 2);
   const view = aba.ABACatalog.toView(catalog, '2026-11-22');
   const html = aba.ABACatalog.renderBoard(view, 'live');
-  assert.equal(html.includes('>Full<'), false);
+  assert.equal(html.includes('<span class="full-label">Full</span>'), true);
   assert.equal(html.includes('Sign up for Sign-In Table, Happy Hour, Wednesday, December 9, 2026'), false);
 });

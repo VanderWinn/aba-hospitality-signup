@@ -158,7 +158,8 @@ test('live board locks a full upcoming task and escapes names', () => {
   assert.equal((setupTask.match(/>Open</g) || []).length, 2);
   assert.equal(setupTask.includes('1 of 3'), false);
   assert.equal(setupTask.includes('No one yet'), false);
-  assert.doesNotMatch(full, />Full</);
+  assert.match(full, /<span class="full-label">Full<\/span>/);
+  assert.doesNotMatch(full, /<button[^>]*class="claim"/);
   assert.doesNotMatch(full, /class="claim"/);
   assert.doesNotMatch(full, /class="open-spot"/);
 
