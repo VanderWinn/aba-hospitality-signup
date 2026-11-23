@@ -38,7 +38,7 @@ function loadAba() {
 
 function stateFromSeed(aba, seed) {
   const built = aba.buildSeedRows_(seed || aba.abaSeedData());
-  const col = (row, name) => row[aba.SIGNUP_HEADERS.indexOf(name)];
+  const col = (row, name) => row[aba.columnIndex_(aba.SIGNUP_HEADERS, name)];
   return {
     slots: built.slotRows.map((row) => ({
       slotId: row[0],

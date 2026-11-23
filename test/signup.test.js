@@ -75,7 +75,7 @@ test('setup rows carry the 24 names and no email addresses', () => {
   const built = aba.buildSeedRows_(aba.abaSeedData());
   assert.equal(built.slotRows.length, 59);
   assert.equal(built.signupRows.length, 24);
-  const col = (row, name) => row[aba.SIGNUP_HEADERS.indexOf(name)];
+  const col = (row, name) => row[aba.columnIndex_(aba.SIGNUP_HEADERS, name)];
   const emails = built.signupRows.map((row) => col(row, 'email'));
   assert.equal(emails.length, 24);
   assert.equal(emails.every((email) => email === ''), true);
@@ -327,7 +327,7 @@ test('posted text is parsed, and formula-looking names are stored as text', () =
     createdAt: 't',
     source: 'web'
   });
-  assert.equal(String(cells[aba.SIGNUP_HEADERS.indexOf('name')]).startsWith("'"), true);
+  assert.equal(String(cells[aba.columnIndex_(aba.SIGNUP_HEADERS, 'name')]).startsWith("'"), true);
   assert.equal(aba.ABA_RULES.sheetSafe('Ada Volunteer'), 'Ada Volunteer');
 });
 

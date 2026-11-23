@@ -398,11 +398,10 @@ function planTriggerHandlers_(handlers) {
 
 function migrateSignupTable_(values, catalog, headers, tokenFactory) {
   var sourceHeader = (values[0] || []).map(function (cell) { return String(cell || '').trim(); });
-  var map = {};
-  sourceHeader.forEach(function (name, i) { if (name) map[name] = i; });
   function cell(row, name) {
-    if (map[name] == null) return '';
-    var value = row[map[name]];
+    var index = columnIndex_(sourceHeader, name);
+    if (index === -1) return '';
+    var value = row[index];
     return value == null ? '' : value;
   }
   var byId = {};
@@ -419,7 +418,10 @@ function migrateSignupTable_(values, catalog, headers, tokenFactory) {
     }
     if (blank) continue;
     var record = {};
-    headers.forEach(function (name) { record[name] = cell(src, name); });
+    headers.forEach(function (name) {
+      var field = headerField_(name) || name;
+      record[field] = cell(src, field);
+    });
     var parsed = parseSlotId_(record.slotId);
     var known = byId[String(record.slotId || '')] || null;
     if (!record.event && parsed) record.event = parsed.event;
@@ -431,8 +433,8 @@ function migrateSignupTable_(values, catalog, headers, tokenFactory) {
       var rawPlace = record.location || (known && known.location) || '';
       if (rawPlace) {
         var place = splitPlace_(rawPlace, record.event);
-        if (headers.indexOf('venue') !== -1) record.venue = place.venue;
-        if (headers.indexOf('address') !== -1) record.address = place.address;
+        if (columnIndex_(headers, 'venue') !== -1) record.venue = place.venue;
+        if (columnIndex_(headers, 'address') !== -1) record.address = place.address;
       }
     }
     if ((record.capacity === '' || record.capacity == null) && known) {
@@ -445,7 +447,8 @@ function migrateSignupTable_(values, catalog, headers, tokenFactory) {
     }
     kept += 1;
     out.push(headers.map(function (name) {
-      var value = record[name];
+      var field = headerField_(name) || name;
+      var value = record[field];
       return value == null ? '' : value;
     }));
   }

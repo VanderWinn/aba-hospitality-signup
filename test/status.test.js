@@ -31,6 +31,47 @@ function row(fields) {
   });
 }
 
+test('title-case headers still read as the internal fields', () => {
+  const headers = [
+    'Name', 'Email', 'Event', 'Date', 'Start Time', 'End Time', 'Task', 'Created At', 'Status',
+    'Signup ID', 'Slot ID', 'Previous Slot ID', 'Sequence', 'Reminder Sent'
+  ];
+  const values = headers.map(() => '');
+  function set(label, value) { values[headers.indexOf(label)] = value; }
+  set('Name', 'Ada Volunteer');
+  set('Email', 'Ada@Example.com');
+  set('Event', 'Happy Hour');
+  set('Date', '12/9/2026');
+  set('Start Time', '4:00 PM');
+  set('End Time', '4:30 PM');
+  set('Task', 'Set-Up');
+  set('Created At', '2026-11-22 10:00:00');
+  set('Status', 'active');
+  set('Signup ID', 'id-9');
+  set('Slot ID', '2026-12-09|Happy Hour|Set-Up');
+  set('Previous Slot ID', 'old-slot');
+  set('Sequence', 2);
+  set('Reminder Sent', '2026-12-07');
+  const state = aba.rowsToState_([[]], [headers, values]);
+  const signup = state.signups[0];
+  assert.equal(signup.name, 'Ada Volunteer');
+  assert.equal(signup.email, 'ada@example.com');
+  assert.equal(signup.slotId, '2026-12-09|Happy Hour|Set-Up');
+  assert.equal(signup.signupId, 'id-9');
+  assert.equal(signup.status, 'active');
+  assert.equal(signup.createdAt, '2026-11-22 10:00:00');
+  assert.equal(signup.startTime, '4:00 PM');
+  assert.equal(signup.endTime, '4:30 PM');
+  assert.equal(signup.sequence, 2);
+  assert.equal(signup.previousSlotId, 'old-slot');
+  assert.equal(signup.reminderSent, '2026-12-07');
+  assert.equal(aba.ABA_RULES.isActive(signup), true);
+  assert.equal(aba.headerField_('Created At'), 'createdAt');
+  assert.equal(aba.headerField_('Signup ID'), 'signupId');
+  assert.equal(aba.SIGNUP_HEADERS[aba.columnIndex_(aba.SIGNUP_HEADERS, 'createdAt')], 'Created At');
+  assert.equal(aba.SIGNUP_HEADERS[aba.columnIndex_(aba.SIGNUP_HEADERS, 'status')], 'Status');
+});
+
 test('restoreStatusV7 backfills the missing column and leaves an existing column alone', () => {
   const values = [LIVE_HEADERS].concat([
     row({ name: 'Kevin Snyder', event: 'Lunch & Learn', date: '1/21/2027', task: 'Ambassadors - Full lunch' }),

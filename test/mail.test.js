@@ -257,10 +257,10 @@ test('migration keeps every sign-up, backfills capacity and tokens, and is idemp
   assert.equal(first.kept, 2);
   assert.equal(first.tokensFilled, 2);
   assert.equal(first.capacitiesFilled, 2);
-  const nameAt = aba.SIGNUP_HEADERS.indexOf('name');
-  const emailAt = aba.SIGNUP_HEADERS.indexOf('email');
-  const capAt = aba.SIGNUP_HEADERS.indexOf('capacity');
-  const tokenAt = aba.SIGNUP_HEADERS.indexOf('token');
+  const nameAt = aba.columnIndex_(aba.SIGNUP_HEADERS, 'name');
+  const emailAt = aba.columnIndex_(aba.SIGNUP_HEADERS, 'email');
+  const capAt = aba.columnIndex_(aba.SIGNUP_HEADERS, 'capacity');
+  const tokenAt = aba.columnIndex_(aba.SIGNUP_HEADERS, 'token');
   assert.equal(first.values[1][nameAt], 'Stacey Thurston');
   assert.equal(first.values[1][emailAt], '');
   assert.equal(first.values[1][capAt], 1);

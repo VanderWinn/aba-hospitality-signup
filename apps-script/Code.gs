@@ -11,9 +11,13 @@
 var SPREADSHEET_ID = '1wVRyW_PRfB-rgPB716lWkqQraBBnw1lXuPH5o2-4u74';
 
 var SLOT_HEADERS = ['slotId', 'date', 'time', 'event', 'location', 'task', 'capacity'];
-var SIGNUP_HEADERS = [
-  'name', 'email', 'event', 'date', 'startTime', 'endTime', 'task', 'venue', 'address', 'capacity', 'status', 'createdAt',
+var SIGNUP_FIELDS = [
+  'name', 'email', 'event', 'date', 'startTime', 'endTime', 'task', 'venue', 'address', 'capacity', 'createdAt', 'status',
   'signupId', 'slotId', 'source', 'token', 'oldTask', 'previousSlotId', 'sequence', 'reminderSent', 'updatedAt'
+];
+var SIGNUP_HEADERS = [
+  'Name', 'Email', 'Event', 'Date', 'Start Time', 'End Time', 'Task', 'Venue', 'Address', 'Capacity', 'Created At', 'Status',
+  'Signup ID', 'Slot ID', 'Source', 'Token', 'Old Task', 'Previous Slot ID', 'Sequence', 'Reminder Sent', 'Updated At'
 ];
 var SIGNUP_HIDDEN = ['signupId', 'slotId', 'source', 'token', 'oldTask', 'previousSlotId', 'sequence', 'reminderSent', 'updatedAt'];
 
@@ -454,14 +458,13 @@ function placeFromEvents_(date, eventName, events) {
 
 function planSignupV4_(values, events) {
   var sourceHeader = (values[0] || []).map(function (cell) { return String(cell || '').trim(); });
-  var map = {};
-  sourceHeader.forEach(function (name, index) { if (name) map[name] = index; });
   function cell(row, name) {
-    if (map[name] == null) return '';
-    var value = row[map[name]];
+    var index = columnIndex_(sourceHeader, name);
+    if (index === -1) return '';
+    var value = row[index];
     return value == null ? '' : value;
   }
-  var already = map.location == null && map.venue != null && map.address != null;
+  var already = columnIndex_(sourceHeader, 'location') === -1 && columnIndex_(sourceHeader, 'venue') !== -1 && columnIndex_(sourceHeader, 'address') !== -1;
   var rows = [];
   var kept = 0;
   for (var r = 1; r < values.length; r++) {
@@ -473,7 +476,7 @@ function planSignupV4_(values, events) {
     if (blank) continue;
     kept += 1;
     var record = {};
-    SIGNUP_HEADERS.forEach(function (name) { record[name] = cell(src, name); });
+    SIGNUP_FIELDS.forEach(function (name) { record[name] = cell(src, name); });
     record.status = cell(src, 'status');
     if (!record.startTime && !record.endTime) {
       var clocks = splitStoredTime_(cell(src, 'time'));
@@ -486,7 +489,7 @@ function planSignupV4_(values, events) {
       record.venue = place.venue;
       record.address = place.address;
     }
-    rows.push(SIGNUP_HEADERS.map(function (name) {
+    rows.push(SIGNUP_FIELDS.map(function (name) {
       var value = record[name];
       return value == null ? '' : value;
     }));
@@ -618,11 +621,24 @@ function headerKey_(name) {
   return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+function headerField_(name) {
+  var key = headerKey_(name);
+  for (var i = 0; i < SIGNUP_FIELDS.length; i++) {
+    if (headerKey_(SIGNUP_FIELDS[i]) === key) return SIGNUP_FIELDS[i];
+  }
+  if (key === 'time' || key === 'location') return key;
+  return '';
+}
+
 function headerIndex_(headers, key) {
   for (var i = 0; i < headers.length; i++) {
     if (headerKey_(headers[i]) === key) return i;
   }
   return -1;
+}
+
+function columnIndex_(headers, field) {
+  return headerIndex_(headers, headerKey_(field));
 }
 
 function sheetField_(row, key) {
@@ -746,7 +762,9 @@ function tableObjects_(values) {
     if (empty) continue;
     var obj = { __row: r + 1 };
     for (var i = 0; i < header.length; i++) {
-      if (header[i]) obj[header[i]] = values[r][i];
+      if (!header[i]) continue;
+      var field = headerField_(header[i]) || header[i];
+      obj[field] = values[r][i];
     }
     out.push(obj);
   }
@@ -890,7 +908,7 @@ function buildSeedRows_(seed) {
           reminderSent: '',
           updatedAt: ''
         };
-        signupRows.push(SIGNUP_HEADERS.map(function (key) {
+        signupRows.push(SIGNUP_FIELDS.map(function (key) {
           var value = record[key];
           return value == null ? '' : value;
         }));
@@ -948,9 +966,9 @@ function setup() {
   signupsSheet.getRange(2, 1, built.signupRows.length, SIGNUP_HEADERS.length).setValues(built.signupRows);
   writeDateCells_(signupsSheet, SIGNUP_HEADERS, 2, built.signupRows);
   writePlainTextCells_(signupsSheet, SIGNUP_HEADERS, 2, built.signupRows);
-  var emailCol = SIGNUP_HEADERS.indexOf('email') + 1;
+  var emailCol = columnIndex_(SIGNUP_HEADERS, 'email') + 1;
   signupsSheet.getRange(1, emailCol).setNote('Email addresses stay in this sheet. The public page shows names only.');
-  signupsSheet.getRange(1, SIGNUP_HEADERS.indexOf('token') + 1).setNote('Private manage token. Do not share this column.');
+  signupsSheet.getRange(1, columnIndex_(SIGNUP_HEADERS, 'token') + 1).setNote('Private manage token. Do not share this column.');
   sizeColumns_(signupsSheet, [180, 220, 160, 120, 100, 220, 360, 90, 180, 120, 280, 80, 220, 100, 130, 160, 220, 90]);
 
   var stray = ss.getSheetByName('Sheet1');
@@ -1337,8 +1355,8 @@ function migrateV2() {
     sheet.getRange(result.values.length + 1, 1, lastRow - result.values.length, Math.max(lastCol, SIGNUP_HEADERS.length)).clearContent();
   }
   writeHeaders_(sheet, SIGNUP_HEADERS);
-  sheet.getRange(1, SIGNUP_HEADERS.indexOf('email') + 1).setNote('Email addresses stay in this sheet. The public page shows names only.');
-  sheet.getRange(1, SIGNUP_HEADERS.indexOf('token') + 1).setNote('Private manage token. Do not share this column.');
+  sheet.getRange(1, columnIndex_(SIGNUP_HEADERS, 'email') + 1).setNote('Email addresses stay in this sheet. The public page shows names only.');
+  sheet.getRange(1, columnIndex_(SIGNUP_HEADERS, 'token') + 1).setNote('Private manage token. Do not share this column.');
   var slots = ss.getSheetByName('Slots');
   var removed = false;
   if (slots && ss.getSheets().length > 1) {
@@ -1363,9 +1381,9 @@ function migrateV3() {
   var sheet = ss.getSheetByName('Signups');
   if (!sheet) throw new Error('Signups tab is missing. Run migrateV2 first.');
   var headers = readHeaders_(sheet);
-  if (headers.indexOf('oldTask') === -1) {
+  if (columnIndex_(headers, 'oldTask') === -1) {
     var col = headers.length + 1;
-    sheet.getRange(1, col).setValue('oldTask');
+    sheet.getRange(1, col).setValue('Old Task');
     sheet.getRange(1, col).setFontWeight('bold').setBackground('#407589').setFontColor('#ffffff');
     sheet.getRange(1, col).setNote('Task name before the v3 role templates.');
   }
@@ -1395,7 +1413,7 @@ function hideSignupColumns_(sheet) {
   var width = Math.max(sheet.getLastColumn(), headers.length, 1);
   sheet.showColumns(1, width);
   SIGNUP_HIDDEN.forEach(function (name) {
-    var index = headers.indexOf(name);
+    var index = columnIndex_(headers, name);
     if (index !== -1) sheet.hideColumns(index + 1);
   });
 }
@@ -1439,8 +1457,8 @@ function migrateV4() {
   if (lastCol > width) sheet.getRange(1, width + 1, lastRow, lastCol - width).clearContent();
   if (lastRow > grid.length) sheet.getRange(grid.length + 1, 1, lastRow - grid.length, width).clearContent();
   writeHeaders_(sheet, plan.headers);
-  sheet.getRange(1, plan.headers.indexOf('email') + 1).setNote('Email addresses stay in this sheet. The public page shows names only.');
-  sheet.getRange(1, plan.headers.indexOf('token') + 1).setNote('Private manage token. Do not share this column. It stays hidden.');
+  sheet.getRange(1, columnIndex_(plan.headers, 'email') + 1).setNote('Email addresses stay in this sheet. The public page shows names only.');
+  sheet.getRange(1, columnIndex_(plan.headers, 'token') + 1).setNote('Private manage token. Do not share this column. It stays hidden.');
   hideSignupColumns_(sheet);
   SpreadsheetApp.flush();
   var summary = 'Migration v4 complete. Split location into venue and address on ' + plan.kept +
@@ -1648,7 +1666,7 @@ function ensureStatusColumn_(sheet) {
   var height = Math.max(sheet.getLastRow() + 20, 2);
   var column = sheet.getRange(1, statusColumn, height, 1);
   column.setNumberFormat('@');
-  sheet.getRange(1, statusColumn).setValue('status');
+  sheet.getRange(1, statusColumn).setValue('Status');
   SpreadsheetApp.flush();
   hideInternalSignupColumns_(sheet);
   return readHeaders_(sheet);
@@ -1707,7 +1725,8 @@ function planRestoreStatusV7_(values) {
     if (blank) continue;
     var record = {};
     headers.forEach(function (name, index) {
-      if (name) record[headerKey_(name)] = src[index];
+      var field = headerField_(name);
+      if (field) record[field] = src[index];
     });
     var row = {
       name: ABA_RULES.unwrapSheetText(record.name),
@@ -1761,7 +1780,7 @@ function restoreStatusV7() {
   }
   var headerCell = sheet.getRange(1, statusColumn);
   headerCell.setNumberFormat('@');
-  headerCell.setValue('status');
+  headerCell.setValue('Status');
   var logged = [];
   if (plan.assignments.length) {
     var byRow = {};
