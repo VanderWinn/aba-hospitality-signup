@@ -115,6 +115,20 @@ test('preview board shows seeded names, closes past events, and has no sign-up b
   assert.match(html, /data-type="Ribbon Cutting"/);
   assert.equal((html.match(/class="type-filter(?: is-selected)?"/g) || []).length, 4);
   assert.doesNotMatch(html, /class="jump"/);
+  assert.match(html, /class="event-cal-toggle"/);
+  assert.match(html, /Add to calendar/);
+  const offer = aba.ABACatalog.calendarLinks({
+    name: 'Happy Hour',
+    date: '2026-12-09',
+    time: '4:30–6:30 PM',
+    location: 'Happy Hour, Ada Hotel, 7415 River St SE, Ada'
+  });
+  assert.match(offer.google, /dates=20261209T213000Z(%2F|\/)20261209T233000Z/);
+  assert.match(offer.outlook, /startdt=2026-12-09T21%3A30%3A00Z/);
+  assert.match(offer.ics, /DTSTART;TZID=America\/New_York:20261209T163000/);
+  assert.match(offer.ics, /DTEND;TZID=America\/New_York:20261209T183000/);
+  assert.match(offer.ics, /SUMMARY:Happy Hour/);
+  assert.match(offer.ics, /LOCATION:Ada Hotel\\, 7415 River St SE\\, Ada/);
   assert.match(html, />251</);
   assert.match(aba.ABACatalog.renderBanner('preview', ''), /Preview only/);
   assert.match(aba.ABACatalog.renderBanner('stale', 'Sheet missing.'), /Sheet missing\./);

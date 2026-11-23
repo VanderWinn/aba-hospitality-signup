@@ -190,6 +190,133 @@
     '</article>';
   }
 
+  function pad2(n) {
+    return (n < 10 ? '0' : '') + n;
+  }
+
+  function clock24(hourText, minuteText, ap) {
+    var hour = Number(hourText);
+    var minute = Number(minuteText);
+    var marker = String(ap || '').toUpperCase();
+    if (marker === 'PM' && hour < 12) hour += 12;
+    if (marker === 'AM' && hour === 12) hour = 0;
+    return { hour: hour, minute: minute };
+  }
+
+  function parseEventRange(time) {
+    var text = String(time || '').replace(/[\u2013\u2014]/g, '-').replace(/\s+/g, ' ').trim();
+    var both = text.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (both) {
+      var end = clock24(both[4], both[5], both[6]);
+      return { start: clock24(both[1], both[2], both[3] || both[6]), end: end };
+    }
+    var one = text.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!one) return null;
+    var start = clock24(one[1], one[2], one[3]);
+    var total = start.hour * 60 + start.minute + 120;
+    return { start: start, end: { hour: Math.floor(total / 60) % 24, minute: total % 60 }, nextDay: total >= 24 * 60 };
+  }
+
+  function addIsoDay(iso) {
+    var parts = String(iso).split('-');
+    var date = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]) + 1));
+    return date.getUTCFullYear() + '-' + pad2(date.getUTCMonth() + 1) + '-' + pad2(date.getUTCDate());
+  }
+
+  function zonedToUtc(iso, hour, minute) {
+    var bits = String(iso).split('-');
+    var utc = new Date(Date.UTC(Number(bits[0]), Number(bits[1]) - 1, Number(bits[2]), hour, minute, 0));
+    var map = {};
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    }).formatToParts(utc).forEach(function (part) { map[part.type] = part.value; });
+    var asUtc = Date.UTC(Number(map.year), Number(map.month) - 1, Number(map.day), Number(map.hour), Number(map.minute), Number(map.second));
+    return new Date(utc.getTime() - (asUtc - utc.getTime()));
+  }
+
+  function utcBasic(date) {
+    return date.getUTCFullYear() + pad2(date.getUTCMonth() + 1) + pad2(date.getUTCDate()) +
+      'T' + pad2(date.getUTCHours()) + pad2(date.getUTCMinutes()) + '00Z';
+  }
+
+  function escapeIcs(value) {
+    return String(value == null ? '' : value).replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+  }
+
+  function eventWhereText(event) {
+    var place = placeParts(event.location, event.name);
+    if (!place.name) return String(event.location || '');
+    return place.street ? place.name + ', ' + place.street : place.name;
+  }
+
+  function calendarLinks(event) {
+    var title = event.name || 'ABA hospitality event';
+    var where = eventWhereText(event);
+    var details = 'Ada Business Association hospitality event';
+    var range = parseEventRange(event.time);
+    var stamp = utcBasic(new Date());
+    var uid = 'event-' + event.date + '-' + slug(event.name) + '@aba-hospitality.ada';
+    var lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Ada Business Association//Hospitality Sign-up//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      'UID:' + uid,
+      'DTSTAMP:' + stamp,
+      'SUMMARY:' + escapeIcs(title)
+    ];
+    var googleDates = '';
+    var outlookStart = '';
+    var outlookEnd = '';
+    if (!range) {
+      var endDay = addIsoDay(event.date);
+      googleDates = event.date.replace(/-/g, '') + '/' + endDay.replace(/-/g, '');
+      outlookStart = event.date;
+      outlookEnd = endDay;
+      lines.push('DTSTART;VALUE=DATE:' + event.date.replace(/-/g, ''));
+      lines.push('DTEND;VALUE=DATE:' + endDay.replace(/-/g, ''));
+    } else {
+      var endDate = range.nextDay ? addIsoDay(event.date) : event.date;
+      var startUtc = zonedToUtc(event.date, range.start.hour, range.start.minute);
+      var endUtc = zonedToUtc(endDate, range.end.hour, range.end.minute);
+      googleDates = utcBasic(startUtc) + '/' + utcBasic(endUtc);
+      outlookStart = startUtc.toISOString().replace(/\.\d{3}Z$/, 'Z');
+      outlookEnd = endUtc.toISOString().replace(/\.\d{3}Z$/, 'Z');
+      lines.push('DTSTART;TZID=America/New_York:' + event.date.replace(/-/g, '') + 'T' + pad2(range.start.hour) + pad2(range.start.minute) + '00');
+      lines.push('DTEND;TZID=America/New_York:' + endDate.replace(/-/g, '') + 'T' + pad2(range.end.hour) + pad2(range.end.minute) + '00');
+    }
+    if (where) lines.push('LOCATION:' + escapeIcs(where));
+    lines.push('DESCRIPTION:' + escapeIcs(details));
+    lines.push('END:VEVENT');
+    lines.push('END:VCALENDAR');
+    var ics = lines.join('\r\n') + '\r\n';
+    return {
+      google: 'https://calendar.google.com/calendar/render?action=TEMPLATE' +
+        '&text=' + encodeURIComponent(title) +
+        '&dates=' + encodeURIComponent(googleDates) +
+        '&details=' + encodeURIComponent(details) +
+        '&location=' + encodeURIComponent(where),
+      outlook: 'https://outlook.office.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent' +
+        '&subject=' + encodeURIComponent(title) +
+        '&startdt=' + encodeURIComponent(outlookStart) +
+        '&enddt=' + encodeURIComponent(outlookEnd) +
+        '&body=' + encodeURIComponent(details) +
+        '&location=' + encodeURIComponent(where),
+      ics: ics,
+      filename: slug(title) + '-' + event.date + '.ics',
+      where: where
+    };
+  }
+
   function renderEvent(event, mode) {
     var open = 0;
     event.tasks.forEach(function (task) { open += task.remaining; });
@@ -212,14 +339,28 @@
       '<span class="sep" aria-hidden="true">·</span>' +
       '<span class="event-status">' + escapeHtml(meta) + '</span>' +
     '</span>';
+    var offer = calendarLinks(event);
+    var calId = eventDomId(event) + '-calendar';
+    var calLabel = 'Add ' + event.name + ' on ' + formatLong(event.date) + ' to your calendar';
     return '<section class="event' + (event.past ? ' is-past' : '') + '" data-type="' + escapeHtml(event.name) + '" id="' + eventDomId(event) + '" aria-labelledby="' + eventDomId(event) + '-title">' +
       '<header class="event-head">' +
         '<h2 class="event-line" id="' + eventDomId(event) + '-title">' +
-          '<span class="kicker">' + escapeHtml(event.name) + '</span>' +
-          '<span class="sep" aria-hidden="true">·</span>' +
-          '<span class="event-date">' + escapeHtml(formatLong(event.date)) + '</span>' +
-          where +
+          '<button type="button" class="event-cal-toggle" aria-expanded="false" aria-controls="' + calId + '" aria-label="' + escapeHtml(calLabel) + '">' +
+            '<svg class="cal-icon" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' +
+            '<span class="event-line-text">' +
+              '<span class="kicker">' + escapeHtml(event.name) + '</span>' +
+              '<span class="sep" aria-hidden="true">·</span>' +
+              '<span class="event-date">' + escapeHtml(formatLong(event.date)) + '</span>' +
+              where +
+            '</span>' +
+          '</button>' +
         '</h2>' +
+        '<div class="cal-menu" id="' + calId + '" hidden>' +
+          '<p class="cal-menu-label">Add to calendar</p>' +
+          '<a href="' + escapeHtml(offer.google) + '" target="_blank" rel="noopener noreferrer">Google Calendar</a>' +
+          '<a href="' + escapeHtml(offer.outlook) + '" target="_blank" rel="noopener noreferrer">Outlook</a>' +
+          '<a href="data:text/calendar;charset=utf-8,' + encodeURIComponent(offer.ics) + '" download="' + escapeHtml(offer.filename) + '">Download .ics</a>' +
+        '</div>' +
         '<div class="event-progress" role="img" aria-label="' + filled + ' of ' + cap + ' spots filled"><span style="width:' + Math.min(100, pct) + '%"></span></div>' +
       '</header>' +
       '<div class="tasks">' + event.tasks.map(function (task) { return renderTask(event, task, mode); }).join('') + '</div>' +
@@ -323,6 +464,7 @@
     findTask: findTask,
     renderBanner: renderBanner,
     renderBoard: renderBoard,
+    calendarLinks: calendarLinks,
     renderManage: renderManage,
     eventDomId: eventDomId
   };

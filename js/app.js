@@ -131,6 +131,17 @@
     form.addEventListener('submit', onSubmit);
     document.getElementById('dialog-cancel').addEventListener('click', closeDialog);
     document.getElementById('dialog-close').addEventListener('click', closeDialog);
+    document.addEventListener('click', function (event) {
+      if (event.target.closest('.event-cal-toggle') || event.target.closest('.cal-menu')) return;
+      closeCalendars(false);
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Escape') return;
+      var open = board() && board().querySelector('.event-cal-toggle[aria-expanded="true"]');
+      if (!open) return;
+      event.preventDefault();
+      closeCalendars(true);
+    });
     var dialog = document.getElementById('signup-dialog');
     dialog.addEventListener('click', function (event) {
       if (event.target === dialog) closeDialog();
@@ -167,13 +178,42 @@
     }
   }
 
+  function closeCalendars(restoreFocus) {
+    var root = board();
+    if (!root) return;
+    root.querySelectorAll('.cal-menu').forEach(function (menu) {
+      if (menu.hidden) return;
+      menu.hidden = true;
+      var toggle = root.querySelector('[aria-controls="' + menu.id + '"]');
+      if (!toggle) return;
+      toggle.setAttribute('aria-expanded', 'false');
+      if (restoreFocus) toggle.focus();
+    });
+  }
+
   function onBoardClick(event) {
     var filter = event.target.closest('.type-filter');
     if (filter) {
       filterType = filter.getAttribute('data-type') || '';
       applyFilter();
+      closeCalendars(false);
       return;
     }
+    var toggle = event.target.closest('.event-cal-toggle');
+    if (toggle) {
+      var menu = document.getElementById(toggle.getAttribute('aria-controls'));
+      var wasOpen = toggle.getAttribute('aria-expanded') === 'true';
+      closeCalendars(false);
+      if (!wasOpen && menu) {
+        menu.hidden = false;
+        toggle.setAttribute('aria-expanded', 'true');
+        var first = menu.querySelector('a');
+        if (first) first.focus();
+      }
+      return;
+    }
+    if (event.target.closest('.cal-menu')) return;
+    closeCalendars(false);
     var button = event.target.closest('.claim');
     if (!button || state.mode === 'preview') return;
     openDialog(button.getAttribute('data-date'), button.getAttribute('data-event'), button.getAttribute('data-task'), button.getAttribute('data-when'), button.getAttribute('data-description'));
