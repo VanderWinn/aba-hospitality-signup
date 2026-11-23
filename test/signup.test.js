@@ -141,6 +141,18 @@ test('live board locks a full upcoming task and escapes names', () => {
   assert.match(html, /data-event="Lunch &amp; Learn"/);
   const full = html.split('id="task-2026-12-09-happy-hour-door-sign-in-table"')[1].split('</article>')[0];
   assert.match(full, /Rebecca Vandenbroek/);
+  const setup = aba.ABACatalog.renderBoard(aba.ABACatalog.toView({
+    events: [{
+      date: '2026-12-09',
+      time: '4:30–6:30 PM',
+      name: 'Happy Hour',
+      location: 'Happy Hour, Ada Hotel, 7415 River St SE, Ada',
+      tasks: [{ task: 'Set-Up', capacity: 3, names: ['Kevin Snyder'] }]
+    }]
+  }, '2026-11-22'), 'live');
+  const setupTask = setup.split('id="task-2026-12-09-happy-hour-set-up"')[1].split('</article>')[0];
+  assert.equal((setupTask.match(/Kevin Snyder/g) || []).length, 1);
+  assert.equal((setupTask.match(/class="open-spot"/g) || []).length, 2);
   assert.match(full, /Full/);
   assert.doesNotMatch(full, /class="claim"/);
 

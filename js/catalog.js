@@ -156,11 +156,14 @@
 
   function renderTask(event, task, mode) {
     var canClaim = mode !== 'preview' && !event.past && task.remaining > 0;
-    var names = task.names.length
-      ? '<ul class="who">' + task.names.map(function (name) {
-        return '<li>' + escapeHtml(name) + '</li>';
-      }).join('') + '</ul>'
-      : '<p class="who empty">No one yet</p>';
+    var spots = task.names.map(function (name) {
+      return '<li>' + escapeHtml(name) + '</li>';
+    });
+    var openSpots = task.remaining;
+    for (var s = 0; s < openSpots; s++) {
+      spots.push('<li class="open-spot">No one yet</li>');
+    }
+    var names = spots.length ? '<ul class="who">' + spots.join('') + '</ul>' : '';
     var when = task.timeLabel || event.time || '';
     var action;
     if (canClaim) {
