@@ -179,3 +179,16 @@ function backfillCalendarInvites() {
   Logger.log(summary);
   return summary;
 }
+
+/**
+ * Run once from the editor to approve Calendar access.
+ * Gets or creates the ABA Hospitality calendar and reads it.
+ * Does not invite anyone or change any event.
+ */
+function authorizeCalendar() {
+  var id = calendarClient_().getCalendarId();
+  var calendar = Calendar.Calendars.get(id);
+  var calendarId = calendar && calendar.id ? calendar.id : id;
+  Logger.log('ABA Hospitality calendar ID: ' + calendarId);
+  return calendarId;
+}

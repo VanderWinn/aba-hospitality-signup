@@ -1,4 +1,6 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 const { loadAba, stateFromSeed, memoryDeps } = require('./load-aba');
 
@@ -39,6 +41,18 @@ function fakeCalendar() {
     }
   };
 }
+
+test('authorizeCalendar only gets or creates the calendar and reads it', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../apps-script/Calendar.gs'), 'utf8');
+  const fn = source.slice(source.indexOf('function authorizeCalendar'));
+  assert.match(fn, /getCalendarId\(\)/);
+  assert.match(fn, /Calendar\.Calendars\.get\(id\)/);
+  assert.equal(fn.includes('setGuests'), false);
+  assert.equal(fn.includes('addGuest'), false);
+  assert.equal(fn.includes('createEvent'), false);
+  assert.equal(fn.includes('syncCalendarGuests_'), false);
+  assert.equal(fn.includes('backfillCalendarInvites'), false);
+});
 
 test('a slot becomes one calendar event and a signup adds the guest once', () => {
   const slot = aba.abaCatalogSlots_().find((item) => item.date === '2026-12-09' && item.task === 'Set-Up');
