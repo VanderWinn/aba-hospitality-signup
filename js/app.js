@@ -7,7 +7,9 @@
     mode: 'preview',
     view: null,
     seed: null,
-    message: ''
+    message: '',
+    adminSession: '',
+    adminPeople: null
   };
   var active = null;
   var lastFocus = null;
@@ -104,7 +106,7 @@
       board().innerHTML = '<p class="loading">The sign-up sheet could not be loaded.</p>';
       return;
     }
-    board().innerHTML = catalog.renderBoard(state.view, state.mode);
+    board().innerHTML = catalog.renderBoard(state.view, state.mode, state.adminPeople);
     applyFilter();
     var hash = window.location.hash;
     if (!scrolledToHash && /^#event-[a-z0-9-]+$/.test(hash)) {
@@ -157,6 +159,8 @@
       state.view = null;
     }
 
+    state.adminSession = window.localStorage ? (localStorage.getItem('aba-admin-session') || '') : '';
+    updateAdminChrome();
     var url = backendUrl();
     if (!url) {
       state.mode = 'preview';
@@ -175,6 +179,8 @@
       state.message = err.message || 'The live sheet could not be loaded.';
       if (!state.view) state.mode = 'stale';
     }
+    if (state.adminSession) await refreshAdmin();
+    updateAdminChrome();
     paint();
     bind();
     if (manageToken) loadManage();
@@ -193,6 +199,18 @@
     document.getElementById('cancel-keep').addEventListener('click', closeCancel);
     document.getElementById('cancel-close').addEventListener('click', closeCancel);
     document.getElementById('dialog-close').addEventListener('click', closeDialog);
+    document.getElementById('admin-open').addEventListener('click', openAdminLogin);
+    document.getElementById('admin-logout').addEventListener('click', logOutAdmin);
+    document.getElementById('admin-login-form').addEventListener('submit', onAdminLogin);
+    document.getElementById('admin-login-close').addEventListener('click', function () {
+      document.getElementById('admin-login').close();
+    });
+    document.getElementById('admin-add-form').addEventListener('submit', onAdminAdd);
+    document.getElementById('admin-add-close').addEventListener('click', function () { document.getElementById('admin-add-dialog').close(); });
+    document.getElementById('admin-add-keep').addEventListener('click', function () { document.getElementById('admin-add-dialog').close(); });
+    document.getElementById('admin-remove-form').addEventListener('submit', onAdminRemove);
+    document.getElementById('admin-remove-close').addEventListener('click', function () { document.getElementById('admin-remove-dialog').close(); });
+    document.getElementById('admin-remove-keep').addEventListener('click', function () { document.getElementById('admin-remove-dialog').close(); });
     document.addEventListener('click', function (event) {
       if (event.target.closest('.event-cal-toggle') || event.target.closest('.cal-menu')) return;
       closeCalendars(false);
@@ -272,6 +290,16 @@
         var first = menu.querySelector('a');
         if (first) first.focus();
       }
+      return;
+    }
+    var adminAdd = event.target.closest('.admin-add');
+    if (adminAdd) {
+      openAdminAdd(adminAdd);
+      return;
+    }
+    var adminRemove = event.target.closest('.admin-remove');
+    if (adminRemove) {
+      openAdminRemove(adminRemove);
       return;
     }
     var person = event.target.closest('.who-name');
@@ -535,6 +563,170 @@
       await loadManage();
     } catch (err) {
       showManageError('Could not reach the sign-up sheet. Check your connection and try again.');
+    }
+  }
+
+  var adminTarget = null;
+
+  function updateAdminChrome() {
+    var logout = document.getElementById('admin-logout');
+    if (logout) logout.hidden = !state.adminSession;
+  }
+
+  function saveAdminSession(session) {
+    state.adminSession = session || '';
+    if (window.localStorage) {
+      if (state.adminSession) localStorage.setItem('aba-admin-session', state.adminSession);
+      else localStorage.removeItem('aba-admin-session');
+    }
+    updateAdminChrome();
+  }
+
+  async function refreshAdmin() {
+    if (!state.adminSession || !backendUrl()) {
+      state.adminPeople = null;
+      return;
+    }
+    var data = await postSignup({ action: 'adminRoster', session: state.adminSession });
+    if (!data || data.ok !== true) {
+      saveAdminSession('');
+      state.adminPeople = null;
+      return;
+    }
+    state.adminPeople = data.people || [];
+  }
+
+  function openAdminLogin() {
+    var error = document.getElementById('admin-login-error');
+    error.hidden = true;
+    error.textContent = '';
+    document.getElementById('admin-login-form').reset();
+    document.getElementById('admin-login').showModal();
+    document.getElementById('admin-password').focus();
+  }
+
+  async function onAdminLogin(event) {
+    event.preventDefault();
+    var error = document.getElementById('admin-login-error');
+    error.hidden = true;
+    try {
+      var data = await postSignup({
+        action: 'adminLogin',
+        password: document.getElementById('admin-password').value
+      });
+      if (!data || data.ok !== true || !data.session) {
+        error.textContent = (data && data.error) || 'That password is not correct.';
+        error.hidden = false;
+        return;
+      }
+      saveAdminSession(data.session);
+      document.getElementById('admin-login').close();
+      await refreshAdmin();
+      paint();
+    } catch (err) {
+      error.textContent = 'Could not reach the sign-up sheet.';
+      error.hidden = false;
+    }
+  }
+
+  async function logOutAdmin() {
+    var session = state.adminSession;
+    saveAdminSession('');
+    state.adminPeople = null;
+    paint();
+    if (session && backendUrl()) {
+      try { await postSignup({ action: 'adminLogout', session: session }); } catch (err) {}
+    }
+  }
+
+  function openAdminAdd(button) {
+    adminTarget = {
+      date: button.getAttribute('data-date'),
+      event: button.getAttribute('data-event'),
+      task: button.getAttribute('data-task'),
+      startTime: button.getAttribute('data-start') || ''
+    };
+    document.getElementById('admin-add-copy').textContent = 'Add someone to ' + adminTarget.task + ' · ' + adminTarget.event + ' · ' + catalog.formatLong(adminTarget.date) + '.';
+    document.getElementById('admin-add-warn').hidden = button.getAttribute('data-full') !== '1';
+    document.getElementById('admin-add-form').reset();
+    document.getElementById('admin-send-confirm').checked = true;
+    document.getElementById('admin-add-error').hidden = true;
+    document.getElementById('admin-add-dialog').showModal();
+    document.getElementById('admin-name').focus();
+  }
+
+  async function onAdminAdd(event) {
+    event.preventDefault();
+    if (!adminTarget || !state.adminSession) return;
+    var error = document.getElementById('admin-add-error');
+    error.hidden = true;
+    try {
+      var data = await postSignup({
+        action: 'adminAdd',
+        session: state.adminSession,
+        name: document.getElementById('admin-name').value,
+        email: document.getElementById('admin-email').value,
+        event: adminTarget.event,
+        date: adminTarget.date,
+        task: adminTarget.task,
+        startTime: adminTarget.startTime,
+        sendEmail: document.getElementById('admin-send-confirm').checked
+      });
+      if (!data || data.ok !== true) {
+        error.textContent = (data && data.error) || 'Could not add the person.';
+        error.hidden = false;
+        if (data && data.error === 'Admin login expired.') logOutAdmin();
+        return;
+      }
+      document.getElementById('admin-add-dialog').close();
+      setToast((data.message || 'Added.') + (data.warning ? ' ' + data.warning : ''));
+      await refreshAdmin();
+      try { await loadLive(); } catch (err) {}
+      paint();
+    } catch (err) {
+      error.textContent = 'Could not reach the sign-up sheet.';
+      error.hidden = false;
+    }
+  }
+
+  function openAdminRemove(button) {
+    adminTarget = {
+      signupId: button.getAttribute('data-signup'),
+      name: button.getAttribute('data-name'),
+      task: button.getAttribute('data-task')
+    };
+    document.getElementById('admin-remove-copy').textContent = 'Remove ' + adminTarget.name + ' from ' + adminTarget.task + '?';
+    document.getElementById('admin-send-cancel').checked = true;
+    document.getElementById('admin-remove-error').hidden = true;
+    document.getElementById('admin-remove-dialog').showModal();
+  }
+
+  async function onAdminRemove(event) {
+    event.preventDefault();
+    if (!adminTarget || !state.adminSession) return;
+    var error = document.getElementById('admin-remove-error');
+    error.hidden = true;
+    try {
+      var data = await postSignup({
+        action: 'adminRemove',
+        session: state.adminSession,
+        signupId: adminTarget.signupId,
+        sendEmail: document.getElementById('admin-send-cancel').checked
+      });
+      if (!data || data.ok !== true) {
+        error.textContent = (data && data.error) || 'Could not remove the person.';
+        error.hidden = false;
+        if (data && data.error === 'Admin login expired.') logOutAdmin();
+        return;
+      }
+      document.getElementById('admin-remove-dialog').close();
+      setToast(data.message || 'Removed.');
+      await refreshAdmin();
+      try { await loadLive(); } catch (err) {}
+      paint();
+    } catch (err) {
+      error.textContent = 'Could not reach the sign-up sheet.';
+      error.hidden = false;
     }
   }
 

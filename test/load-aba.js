@@ -23,13 +23,17 @@ function loadAba() {
     parseFloat,
     encodeURIComponent,
     decodeURIComponent,
-    URLSearchParams
+    URLSearchParams,
+    ABA_SHA256: function (text) {
+      return require('crypto').createHash('sha256').update(String(text), 'utf8').digest('hex');
+    }
   };
   context.globalThis = context;
   context.window = context;
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(root, 'apps-script/Code.gs'), 'utf8'), context, { filename: 'Code.gs' });
   vm.runInContext(fs.readFileSync(path.join(root, 'apps-script/Calendar.gs'), 'utf8'), context, { filename: 'Calendar.gs' });
+  vm.runInContext(fs.readFileSync(path.join(root, 'apps-script/Admin.gs'), 'utf8'), context, { filename: 'Admin.gs' });
   vm.runInContext(fs.readFileSync(path.join(root, 'apps-script/Mail.gs'), 'utf8'), context, { filename: 'Mail.gs' });
   vm.runInContext(fs.readFileSync(path.join(root, 'apps-script/Templates.gs'), 'utf8'), context, { filename: 'Templates.gs' });
   vm.runInContext(fs.readFileSync(path.join(root, 'apps-script/FixFullLunch.gs'), 'utf8'), context, { filename: 'FixFullLunch.gs' });

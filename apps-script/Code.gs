@@ -380,6 +380,11 @@ function interpretPost_(raw, deps) {
     if (body.action === 'cancel') return cancelSignup_(body, deps);
     if (body.action === 'cancelByEmail') return cancelByEmail_(body, deps);
     if (body.action === 'move') return moveSignup_(body, deps);
+    if (body.action === 'adminLogin') return adminLogin_(body, deps);
+    if (body.action === 'adminLogout') return adminLogout_(body, deps);
+    if (body.action === 'adminRoster') return adminRoster_(body, deps);
+    if (body.action === 'adminAdd') return adminAdd_(body, deps);
+    if (body.action === 'adminRemove') return adminRemove_(body, deps);
     return { ok: false, error: 'Invalid request.' };
   }
   return processPost_(body, deps);

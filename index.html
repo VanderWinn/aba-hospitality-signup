@@ -47,6 +47,7 @@
   <footer class="site-footer">
     <div class="wrap">
       <p>Ada Business Association. Anyone with this link can sign up. Names are visible on the page. Email addresses are not.</p>
+      <p class="admin-links"><button type="button" class="text-button" id="admin-open">Admin</button> <button type="button" class="text-button" id="admin-logout" hidden>Log out</button></p>
     </div>
   </footer>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
@@ -75,6 +76,61 @@
       <div class="dialog-actions">
         <button type="button" class="btn ghost" id="dialog-cancel">Cancel</button>
         <button type="submit" class="btn" id="dialog-submit">Sign up</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="admin-login" aria-labelledby="admin-login-title">
+    <form id="admin-login-form" method="dialog">
+      <div class="dialog-head">
+        <h2 id="admin-login-title">Admin</h2>
+        <button type="button" class="icon-close" id="admin-login-close">Close</button>
+      </div>
+      <div class="field">
+        <label for="admin-password">Password</label>
+        <input id="admin-password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <p id="admin-login-error" class="form-error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="submit" class="btn" id="admin-login-submit">Log in</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="admin-add-dialog" aria-labelledby="admin-add-title">
+    <form id="admin-add-form" method="dialog">
+      <div class="dialog-head">
+        <h2 id="admin-add-title">Add person</h2>
+        <button type="button" class="icon-close" id="admin-add-close">Close</button>
+      </div>
+      <p id="admin-add-copy"></p>
+      <p id="admin-add-warn" class="banner warn" hidden>This role is already full. You can still add someone.</p>
+      <div class="field">
+        <label for="admin-name">Name</label>
+        <input id="admin-name" name="name" type="text" autocomplete="name" required maxlength="80">
+      </div>
+      <div class="field">
+        <label for="admin-email">Email</label>
+        <input id="admin-email" name="email" type="email" autocomplete="email" required maxlength="120">
+      </div>
+      <label class="check-line"><input id="admin-send-confirm" type="checkbox" checked> Send the confirmation email</label>
+      <p id="admin-add-error" class="form-error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn ghost" id="admin-add-keep">Cancel</button>
+        <button type="submit" class="btn">Add person</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="admin-remove-dialog" aria-labelledby="admin-remove-title">
+    <form id="admin-remove-form" method="dialog">
+      <div class="dialog-head">
+        <h2 id="admin-remove-title">Remove person</h2>
+        <button type="button" class="icon-close" id="admin-remove-close">Close</button>
+      </div>
+      <p id="admin-remove-copy"></p>
+      <label class="check-line"><input id="admin-send-cancel" type="checkbox" checked> Send the cancellation email</label>
+      <p id="admin-remove-error" class="form-error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn ghost" id="admin-remove-keep">Keep them</button>
+        <button type="submit" class="btn danger">Remove</button>
       </div>
     </form>
   </dialog>

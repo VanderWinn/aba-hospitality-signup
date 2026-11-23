@@ -160,16 +160,31 @@
     return shown + ':' + pad2(range.start.minute) + ' ' + ap;
   }
 
-  function renderTask(event, task, mode) {
+  function renderTask(event, task, mode, roster) {
     var canClaim = mode !== 'preview' && !event.past && task.remaining > 0;
     var canCancel = mode === 'live';
     var start = roleStartText(task, event);
+    var pool = (roster || []).slice();
     var spots = task.names.map(function (name) {
-      if (!canCancel) return '<li>' + escapeHtml(name) + '</li>';
+      var person = null;
+      if (pool.length) {
+        for (var i = 0; i < pool.length; i++) {
+          if (pool[i].name === name) {
+            person = pool.splice(i, 1)[0];
+            break;
+          }
+        }
+      }
+      var remove = person
+        ? '<button type="button" class="admin-remove" data-signup="' + escapeHtml(person.signupId) +
+          '" data-name="' + escapeHtml(name) + '" data-task="' + escapeHtml(task.task) + '">Remove</button>'
+        : '';
+      if (!canCancel) return '<li>' + escapeHtml(name) + remove + '</li>';
       return '<li><button type="button" class="who-name" title="Cancel this sign-up" data-name="' + escapeHtml(name) +
         '" data-date="' + escapeHtml(event.date) + '" data-event="' + escapeHtml(event.name) +
         '" data-task="' + escapeHtml(task.task) + '" data-start="' + escapeHtml(start) +
-        '" aria-label="' + escapeHtml('Cancel this sign-up for ' + name) + '">' + escapeHtml(name) + '</button></li>';
+        '" aria-label="' + escapeHtml('Cancel this sign-up for ' + name) + '">' + escapeHtml(name) + '</button>' +
+        remove + '</li>';
     });
     var openSpots = task.remaining;
     for (var s = 0; s < openSpots; s++) {
@@ -190,6 +205,12 @@
       action = '<span class="full-label">Full</span>';
     } else {
       action = '<span class="pill open">Open</span>';
+    }
+    if (roster && !event.past) {
+      action += '<button type="button" class="admin-add" data-date="' + escapeHtml(event.date) +
+        '" data-event="' + escapeHtml(event.name) + '" data-task="' + escapeHtml(task.task) +
+        '" data-start="' + escapeHtml(start) + '" data-full="' + (task.remaining === 0 ? '1' : '0') +
+        '">Add person</button>';
     }
     return '<article class="task" id="' + taskDomId(event, task) + '">' +
       '<div class="task-main">' +
@@ -393,7 +414,7 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
   }
 
-  function renderEvent(event, mode) {
+  function renderEvent(event, mode, roster) {
     var place = placeParts(event.location, event.name);
     var where = '<span class="event-where">' +
       '<span class="sep" aria-hidden="true">·</span>' +
@@ -425,7 +446,12 @@
           '<button type="button" class="cal-file">Download .ics</button>' +
         '</div>' +
       '</header>' +
-      '<div class="tasks">' + event.tasks.map(function (task) { return renderTask(event, task, mode); }).join('') + '</div>' +
+      '<div class="tasks">' + event.tasks.map(function (task) {
+        var mine = (roster || []).filter(function (person) {
+          return person.slotId === event.date + '|' + event.name + '|' + task.task;
+        });
+        return renderTask(event, task, mode, roster ? mine : null);
+      }).join('') + '</div>' +
     '</section>';
   }
 
@@ -454,15 +480,15 @@
       '</div>';
   }
 
-  function renderBoard(view, mode) {
+  function renderBoard(view, mode, roster) {
     var upcoming = view.events.filter(function (event) { return !event.past; });
     var past = view.events.filter(function (event) { return event.past; });
     var jump = renderFilters(view);
-    var upcomingHtml = '<div class="event-list">' + upcoming.map(function (event) { return renderEvent(event, mode); }).join('') + '</div>' +
+    var upcomingHtml = '<div class="event-list">' + upcoming.map(function (event) { return renderEvent(event, mode, roster); }).join('') + '</div>' +
       '<p class="filter-empty" hidden>No upcoming events of this type.</p>';
     var pastHtml = past.length
       ? '<details class="past-block"><summary>Past events (' + past.length + ')</summary><div class="event-list">' +
-        past.map(function (event) { return renderEvent(event, mode); }).join('') + '</div></details>'
+        past.map(function (event) { return renderEvent(event, mode, roster); }).join('') + '</div></details>'
       : '';
     return jump + upcomingHtml + pastHtml;
   }
