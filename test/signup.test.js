@@ -109,6 +109,12 @@ test('preview board shows seeded names, closes past events, and has no sign-up b
   assert.match(html, /Closed/);
   assert.doesNotMatch(html, /class="claim"/);
   assert.match(html, /Past events \(2\)/);
+  assert.match(html, /aria-pressed="true">[^<]*<span class="type-filter-name">All Events<\/span>/);
+  assert.match(html, /data-type="Happy Hour"/);
+  assert.match(html, /data-type="Lunch &amp; Learn"/);
+  assert.match(html, /data-type="Ribbon Cutting"/);
+  assert.equal((html.match(/class="type-filter(?: is-selected)?"/g) || []).length, 4);
+  assert.doesNotMatch(html, /class="jump"/);
   assert.match(html, />251</);
   assert.match(aba.ABACatalog.renderBanner('preview', ''), /Preview only/);
   assert.match(aba.ABACatalog.renderBanner('stale', 'Sheet missing.'), /Sheet missing\./);

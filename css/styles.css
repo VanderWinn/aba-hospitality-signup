@@ -157,36 +157,62 @@ main { padding: 1.25rem 0 3rem; }
 
 .stats span { color: var(--ink-soft); font-size: 0.92rem; }
 
-.jump ul {
-  display: flex;
-  flex-wrap: wrap;
+.type-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.5rem;
-  list-style: none;
-  padding: 0.15rem 0 0.4rem;
-  margin: 0 0 1rem;
+  margin: 0 0 0.9rem;
 }
 
-.jump a {
+.type-filter {
   display: flex;
   flex-direction: column;
-  min-height: 44px;
+  align-items: flex-start;
   justify-content: center;
-  text-decoration: none;
-  color: var(--pine-deep);
-  background: var(--card);
-  border: 1px solid var(--line);
+  gap: 0.12rem;
+  min-height: 44px;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--pine-deep);
   border-radius: 12px;
-  padding: 0.4rem 0.75rem;
-  white-space: nowrap;
-  line-height: 1.25;
+  background: var(--pine);
+  color: #fff;
+  cursor: pointer;
+  font-family: var(--serif);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: left;
 }
 
-.jump a span {
-  color: var(--gold);
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.type-filter-name { font-size: 0.92rem; }
+
+.type-filter-count {
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: 0.75rem;
+  color: #fff;
 }
+
+.type-filter.is-selected {
+  background: var(--pine-deep);
+  color: #fff;
+  box-shadow: inset 0 -3px 0 #fff;
+}
+
+.type-filter:hover {
+  background: var(--mint);
+  color: #000;
+  border-color: #5da09d;
+}
+
+.type-filter:hover .type-filter-count { color: #000; }
+
+.type-filter.is-selected:hover {
+  background: var(--pine-deep);
+  color: #fff;
+  border-color: var(--pine-deep);
+}
+
+.type-filter.is-selected:hover .type-filter-count { color: #fff; }
 
 .event {
   background: var(--card);
@@ -560,11 +586,7 @@ input[type="text"], input[type="email"] {
   .task-signup { flex-wrap: nowrap; max-width: none; }
   .header-inner { align-items: flex-start; flex-wrap: wrap; }
   .logo { width: min(180px, 70vw); }
-  .jump ul {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 0.7rem;
-  }
+  .type-filters { grid-template-columns: 1fr 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -574,7 +596,8 @@ input[type="text"], input[type="email"] {
 
 @media print {
   .site-header { background: #fff; color: #000; border-bottom: 1px solid #000; }
-  .lede, .org, .claim, .jump, .toast, .banner, dialog, .icon-close { display: none !important; }
+  .lede, .org, .claim, .type-filters, .toast, .banner, dialog, .icon-close { display: none !important; }
+  .event[hidden] { display: block !important; }
   .event, .stats p { box-shadow: none; }
   .past-block > :not(summary) { display: block !important; }
 }

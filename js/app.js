@@ -16,6 +16,7 @@
   var toastTimer = null;
   var manageToken = '';
   var manageRecord = null;
+  var filterType = '';
 
   document.addEventListener('DOMContentLoaded', init);
 
@@ -45,6 +46,7 @@
       return;
     }
     board().innerHTML = catalog.renderBoard(state.view, state.mode);
+    applyFilter();
     var hash = window.location.hash;
     if (!scrolledToHash && /^#event-[a-z0-9-]+$/.test(hash)) {
       var target = document.getElementById(hash.slice(1));
@@ -138,7 +140,40 @@
     });
   }
 
+  function applyFilter() {
+    var root = board();
+    root.querySelectorAll('.type-filter').forEach(function (button) {
+      var on = (button.getAttribute('data-type') || '') === filterType;
+      button.setAttribute('aria-pressed', on ? 'true' : 'false');
+      button.classList.toggle('is-selected', on);
+    });
+    root.querySelectorAll('.event').forEach(function (card) {
+      card.hidden = !!(filterType && card.getAttribute('data-type') !== filterType);
+    });
+    var upcoming = root.querySelector('.event-list');
+    var upcomingVisible = upcoming ? upcoming.querySelectorAll('.event:not([hidden])').length : 0;
+    var empty = root.querySelector('.filter-empty');
+    if (empty) {
+      empty.hidden = upcomingVisible > 0;
+      empty.textContent = filterType ? 'No upcoming events of this type.' : 'No upcoming events are on the sheet.';
+    }
+    var past = root.querySelector('.past-block');
+    if (past) {
+      var visiblePast = past.querySelectorAll('.event:not([hidden])').length;
+      past.hidden = visiblePast === 0;
+      var summary = past.querySelector('summary');
+      if (summary) summary.textContent = 'Past events (' + visiblePast + ')';
+      if (filterType && upcomingVisible === 0 && visiblePast > 0) past.open = true;
+    }
+  }
+
   function onBoardClick(event) {
+    var filter = event.target.closest('.type-filter');
+    if (filter) {
+      filterType = filter.getAttribute('data-type') || '';
+      applyFilter();
+      return;
+    }
     var button = event.target.closest('.claim');
     if (!button || state.mode === 'preview') return;
     openDialog(button.getAttribute('data-date'), button.getAttribute('data-event'), button.getAttribute('data-task'), button.getAttribute('data-when'), button.getAttribute('data-description'));

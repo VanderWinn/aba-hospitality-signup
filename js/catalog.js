@@ -212,7 +212,7 @@
       '<span class="sep" aria-hidden="true">·</span>' +
       '<span class="event-status">' + escapeHtml(meta) + '</span>' +
     '</span>';
-    return '<section class="event' + (event.past ? ' is-past' : '') + '" id="' + eventDomId(event) + '" aria-labelledby="' + eventDomId(event) + '-title">' +
+    return '<section class="event' + (event.past ? ' is-past' : '') + '" data-type="' + escapeHtml(event.name) + '" id="' + eventDomId(event) + '" aria-labelledby="' + eventDomId(event) + '-title">' +
       '<header class="event-head">' +
         '<h2 class="event-line" id="' + eventDomId(event) + '-title">' +
           '<span class="kicker">' + escapeHtml(event.name) + '</span>' +
@@ -226,6 +226,33 @@
     '</section>';
   }
 
+  function typeTotals(view, type) {
+    var dates = 0;
+    var open = 0;
+    view.events.forEach(function (event) {
+      if (event.past) return;
+      if (type && event.name !== type) return;
+      dates += 1;
+      event.tasks.forEach(function (task) { open += task.remaining; });
+    });
+    return { dates: dates, open: open };
+  }
+
+  function filterTile(type, label, totals, pressed) {
+    var count = totals.dates + (totals.dates === 1 ? ' date' : ' dates') + ' · ' + totals.open + ' open';
+    return '<button type="button" class="type-filter' + (pressed ? ' is-selected' : '') + '" data-type="' + escapeHtml(type) + '" aria-pressed="' + (pressed ? 'true' : 'false') + '">' +
+      '<span class="type-filter-name">' + escapeHtml(label) + '</span>' +
+      '<span class="type-filter-count">' + count + '</span></button>';
+  }
+
+  function renderFilters(view) {
+    var types = ['Happy Hour', 'Lunch & Learn', 'Ribbon Cutting'];
+    return '<div class="type-filters" role="group" aria-label="Filter by event type">' +
+      filterTile('', 'All Events', typeTotals(view, ''), true) +
+      types.map(function (type) { return filterTile(type, type, typeTotals(view, type), false); }).join('') +
+      '</div>';
+  }
+
   function renderBoard(view, mode) {
     var summary = summarize(view);
     var upcoming = view.events.filter(function (event) { return !event.past; });
@@ -235,15 +262,9 @@
       '<p><strong>' + summary.open + '</strong><span>Spots open</span></p>' +
       '<p><strong>' + summary.filled + '</strong><span>Spots filled</span></p>' +
     '</section>';
-    var jump = upcoming.length
-      ? '<nav class="jump" aria-label="Upcoming events"><ul>' + upcoming.map(function (event) {
-        return '<li><a href="#' + eventDomId(event) + '"><span>' + escapeHtml(formatNav(event.date)) + '</span>' +
-          escapeHtml(event.name) + '</a></li>';
-      }).join('') + '</ul></nav>'
-      : '';
-    var upcomingHtml = upcoming.length
-      ? '<div class="event-list">' + upcoming.map(function (event) { return renderEvent(event, mode); }).join('') + '</div>'
-      : '<p class="empty-events">No upcoming events are on the sheet.</p>';
+    var jump = renderFilters(view);
+    var upcomingHtml = '<div class="event-list">' + upcoming.map(function (event) { return renderEvent(event, mode); }).join('') + '</div>' +
+      '<p class="filter-empty" hidden>No upcoming events of this type.</p>';
     var pastHtml = past.length
       ? '<details class="past-block"><summary>Past events (' + past.length + ')</summary><div class="event-list">' +
         past.map(function (event) { return renderEvent(event, mode); }).join('') + '</div></details>'
