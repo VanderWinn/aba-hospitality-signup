@@ -18,7 +18,25 @@
   var manageRecord = null;
   var filterType = '';
 
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', function () {
+    showAppleCalendar();
+    init();
+  });
+
+  function showAppleCalendar() {
+    var event = catalog.eventFromAppleQuery(window.location.search);
+    var host = document.getElementById('apple-cal');
+    if (!event || !host) return;
+    var offer = catalog.calendarLinks(event);
+    host.innerHTML = '<div class="wrap"><p class="banner">' +
+      'Add <strong>' + catalog.escapeHtml(event.name) + '</strong> to your calendar. ' +
+      '<button type="button" class="btn" id="apple-add">Add to Apple Calendar (iPhone)</button>' +
+      '</p></div>';
+    document.getElementById('apple-add').addEventListener('click', function () {
+      catalog.deliverIcs(offer.ics, 'invite.ics');
+    });
+    catalog.deliverIcs(offer.ics, 'invite.ics');
+  }
 
   function backendUrl() {
     var config = window.ABA_CONFIG || {};

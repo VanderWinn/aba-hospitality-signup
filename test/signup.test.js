@@ -134,6 +134,16 @@ test('preview board shows seeded names, closes past events, and has no sign-up b
   assert.match(offer.ics, /LOCATION:Ada Hotel\\, 7415 River St SE\\, Ada/);
   assert.equal(offer.ics.includes('\n') && !offer.ics.includes('\r\n') ? false : true, true);
   assert.equal(html.includes('who-name'), false);
+  const fromMail = aba.ABACatalog.eventFromAppleQuery('?apple=1&title=Happy+Hour%3A+Set-Up&date=2026-12-09&start=4%3A30+PM&end=6%3A30+PM&where=Ada+Hotel%2C+7415+River+St+SE%2C+Ada');
+  assert.equal(fromMail.name, 'Happy Hour: Set-Up');
+  assert.equal(fromMail.date, '2026-12-09');
+  assert.equal(fromMail.time, '4:30 PM–6:30 PM');
+  const mailIcs = aba.ABACatalog.calendarLinks(fromMail);
+  assert.match(mailIcs.ics, /BEGIN:VTIMEZONE/);
+  assert.match(mailIcs.ics, /DTSTART;TZID=America\/New_York:20261209T163000/);
+  assert.equal(mailIcs.ics.includes('mailto:'), false);
+  assert.equal(mailIcs.ics.includes('example.com'), false);
+  assert.equal(aba.ABACatalog.eventFromAppleQuery('?apple=0&date=2026-12-09'), null);
   assert.match(html, /Apple Calendar \(iPhone\)/);
   assert.match(html, /Download \.ics/);
   assert.match(fs.readFileSync(path.join(root, 'js/catalog.js'), 'utf8'), /data:text\/calendar;charset=utf-8,/);

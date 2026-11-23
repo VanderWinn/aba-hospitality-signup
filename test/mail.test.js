@@ -52,6 +52,18 @@ test('a timed event is two hours in Eastern time and escapes calendar text', () 
   assert.equal(message.filename, 'invite.ics');
   assert.match(message.ics, /ORGANIZER;CN=Ada Business Association:mailto:donny@vanderwinn.com/);
   assert.match(message.text, /invite\.ics/);
+  assert.match(message.text, /Add to Apple Calendar \(iPhone\)/);
+  assert.match(message.html, /Add to Apple Calendar \(iPhone\)/);
+  assert.match(message.html, /Add to Google Calendar/);
+  assert.match(message.html, /Add to Outlook/);
+  const appleLine = message.text.split('Add to Apple Calendar (iPhone):')[1].split('\n')[1];
+  assert.match(appleLine, /apple=1/);
+  assert.match(appleLine, /date=2026-12-09/);
+  assert.match(appleLine, /start=4%3A30%20PM/);
+  assert.match(appleLine, /end=6%3A30%20PM/);
+  assert.equal(appleLine.includes('ada@example.com'), false);
+  assert.equal(appleLine.includes('manage='), false);
+  assert.equal(appleLine.includes(signup.token), false);
   assert.match(message.text, /\?manage=a{32}/);
   const roleFile = aba.buildMessage_(signup, {
     event: 'Lunch & Learn',
@@ -66,6 +78,9 @@ test('a timed event is two hours in Eastern time and escapes calendar text', () 
   assert.match(roleFile.ics, /DTSTART;TZID=America\/New_York:20270121T110000/);
   assert.match(roleFile.ics, /DTEND;TZID=America\/New_York:20270121T112500/);
   assert.match(roleFile.ics, /LOCATION:Amway WHQ\\, 7575 Fulton St E\\, Ada/);
+  assert.match(roleFile.text, /start=11%3A00%20AM/);
+  assert.match(roleFile.text, /end=11%3A25%20AM/);
+  assert.equal(roleFile.text.includes('ada@example.com'), false);
   assert.equal(message.ics.includes('\n') && !message.ics.includes('\r\n') ? false : true, true);
 });
 

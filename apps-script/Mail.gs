@@ -275,7 +275,44 @@ function calendarPieces_(signup, slot) {
     '&enddt=' + encodeURIComponent(outlookEnd) +
     '&body=' + encodeURIComponent(details) +
     '&location=' + encodeURIComponent(where);
-  return { lines: lines, google: google, outlook: outlook, where: where, summary: summary, manage: manage, timed: !!when };
+  var appleDate = slot.date;
+  var appleStart = '';
+  var appleEnd = '';
+  if (roleStart && roleEnd) {
+    appleDate = slot.roleDate || slot.date;
+    appleStart = clockText_(roleStart.hour, roleStart.minute);
+    appleEnd = clockText_(roleEnd.hour, roleEnd.minute);
+  } else if (when) {
+    var plus = addMinutes_(slot.date, when.hour, when.minute, ABA_EVENT_MINUTES);
+    appleStart = clockText_(when.hour, when.minute);
+    appleEnd = clockText_(plus.hour, plus.minute);
+  }
+  var apple = appleCalendarUrl_({
+    title: summary,
+    date: appleDate,
+    start: appleStart,
+    end: appleEnd,
+    where: where
+  });
+  return { lines: lines, google: google, outlook: outlook, apple: apple, where: where, summary: summary, manage: manage, timed: !!when };
+}
+
+function clockText_(hour, minute) {
+  var ap = hour >= 12 ? 'PM' : 'AM';
+  var shown = hour % 12;
+  if (shown === 0) shown = 12;
+  return shown + ':' + pad2_(minute) + ' ' + ap;
+}
+
+function appleCalendarUrl_(parts) {
+  var base = ABA_SITE_URL;
+  if (base.charAt(base.length - 1) !== '/') base += '/';
+  return base + '?apple=1' +
+    '&title=' + encodeURIComponent(parts.title || '') +
+    '&date=' + encodeURIComponent(parts.date || '') +
+    '&start=' + encodeURIComponent(parts.start || '') +
+    '&end=' + encodeURIComponent(parts.end || '') +
+    '&where=' + encodeURIComponent(parts.where || '');
 }
 
 function buildMessage_(signup, slot, kind) {
@@ -319,13 +356,16 @@ function buildMessage_(signup, slot, kind) {
     slot.description ? 'Details: ' + slot.description : '',
     'Where: ' + where,
     '',
+    'Add to Apple Calendar (iPhone):',
+    pieces.apple,
+    '',
     'Add to Google Calendar:',
     pieces.google,
     '',
     'Add to Outlook:',
     pieces.outlook,
     '',
-    'An invite.ics calendar file is attached. On an iPhone, open it to add the event to Apple Calendar.'
+    'An invite.ics calendar file is also attached.'
   ];
   if (kind !== 'cancel' && pieces.manage) {
     text.push('', 'Change or cancel:', pieces.manage);
@@ -353,8 +393,12 @@ function buildMessage_(signup, slot, kind) {
     slot.description ? row('Details', slot.description) : '',
     row('Where', where),
     '</table>',
-    '<p style="margin:0 0 8px;">' + button(pieces.google, 'Add to Google Calendar') + button(pieces.outlook, 'Add to Outlook') + '</p>',
-    '<p style="margin:0 0 8px;color:#5c5c5c;">An invite.ics calendar file is attached. On an iPhone, open it to add the event to Apple Calendar. ' + escapeHtmlMail_(whenText) + '.</p>'
+    '<p style="margin:0 0 8px;">' +
+      button(pieces.apple, 'Add to Apple Calendar (iPhone)') +
+      button(pieces.google, 'Add to Google Calendar') +
+      button(pieces.outlook, 'Add to Outlook') +
+    '</p>',
+    '<p style="margin:0 0 8px;color:#5c5c5c;">An invite.ics calendar file is also attached. ' + escapeHtmlMail_(whenText) + '.</p>'
   ];
   if (kind !== 'cancel' && pieces.manage) {
     html.push('<p style="margin:16px 0 0;">' + button(pieces.manage, 'Change or cancel') + '</p>');

@@ -358,6 +358,24 @@
     return nav.platform === 'MacIntel' && Number(nav.maxTouchPoints) > 1;
   }
 
+  function eventFromAppleQuery(search) {
+    var text = String(search || '');
+    if (text.charAt(0) === '?') text = text.slice(1);
+    var params = new URLSearchParams(text);
+    if (params.get('apple') !== '1') return null;
+    var date = params.get('date') || '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+    var start = params.get('start') || '';
+    var end = params.get('end') || '';
+    var time = start && end ? start + '–' + end : start;
+    return {
+      name: (params.get('title') || 'ABA hospitality event').slice(0, 180),
+      date: date,
+      time: time,
+      location: (params.get('where') || '').slice(0, 300)
+    };
+  }
+
   function deliverIcs(ics, filename) {
     var name = filename || 'invite.ics';
     if (isAppleMobile()) {
@@ -502,6 +520,7 @@
     renderBoard: renderBoard,
     calendarLinks: calendarLinks,
     deliverIcs: deliverIcs,
+    eventFromAppleQuery: eventFromAppleQuery,
     renderManage: renderManage,
     eventDomId: eventDomId
   };

@@ -22,7 +22,8 @@ function loadAba() {
     parseInt,
     parseFloat,
     encodeURIComponent,
-    decodeURIComponent
+    decodeURIComponent,
+    URLSearchParams
   };
   context.globalThis = context;
   context.window = context;
