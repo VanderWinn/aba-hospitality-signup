@@ -12,19 +12,19 @@ function abaTemplates_() {
       { task: 'Ribbon Holders', capacity: 2, relative: true, startOffset: -15, endOffset: 15 }
     ],
     'Lunch & Learn': [
-      { task: 'Drink Delivery', capacity: 1, dayOffset: -1, start: '2:00 PM', end: '3:00 PM', description: 'Picks up the drinks and delivers them to the venue.' },
-      { task: 'Set-Up', capacity: 3, start: '11:00 AM', end: '11:25 AM', description: 'Arranges tables, chairs, signage, and the room before guests arrive, places items on the tables, and helps the table sponsors get set up.' },
-      { task: 'Door Greeter', capacity: 1, start: '11:15 AM', end: '11:35 AM', description: 'Welcomes guests at the entrance and directs them to sign-in.' },
-      { task: 'Sign-In Table', capacity: 3, start: '11:00 AM', end: '11:35 AM', description: 'Checks guests in, hands out name tags, and collects contact details.' },
-      { task: 'Food Table Host', capacity: 1, start: '11:00 AM', end: '1:15 PM', description: 'Manages the catered lunch table: setting up with the caterer, keeping it stocked and tidy, guiding guests through the line, and handling trash during the event.' },
-      { task: 'Clean-Up', capacity: 2, start: '1:00 PM', end: '1:20 PM', description: 'Clears tables, takes out the trash, packs up supplies, and resets the room after the event.' }
+      { task: 'Drink Delivery', capacity: 1, dayOffset: -1, start: '2:00 PM', end: '3:00 PM', description: 'Pick up the drinks and deliver them to the venue.' },
+      { task: 'Set-Up', capacity: 3, start: '11:00 AM', end: '11:25 AM', description: 'Arrange tables, chairs, signage, and the room before guests arrive, place items on the tables, and help the table sponsors get set up.' },
+      { task: 'Door Greeter', capacity: 1, start: '11:15 AM', end: '11:35 AM', description: 'Welcome guests at the entrance and direct them to sign-in.' },
+      { task: 'Sign-In Table', capacity: 3, start: '11:00 AM', end: '11:35 AM', description: 'Check guests in, hand out name tags, and collect contact details.' },
+      { task: 'Food Table Host', capacity: 1, start: '11:00 AM', end: '1:15 PM', description: 'Manage the catered lunch table: set up with the caterer, keep it stocked and tidy, guide guests through the line, and handle trash during the event.' },
+      { task: 'Clean-Up', capacity: 2, start: '1:00 PM', end: '1:20 PM', description: 'Clear tables, take out the trash, pack up supplies, and reset the room after the event.' }
     ],
     'Happy Hour': [
-      { task: 'Set-Up', capacity: 3, start: '4:00 PM', end: '4:30 PM', description: 'Arranges the room, signage, and tables before guests arrive.' },
-      { task: 'Door Greeter', capacity: 1, start: '4:00 PM', end: '4:30 PM', description: 'Welcomes guests at the entrance and directs them to sign-in.' },
-      { task: 'Sign-In Table', capacity: 1, start: '4:00 PM', end: '6:00 PM', description: 'Checks guests in, hands out name tags, and collects contact details.' },
-      { task: 'Networking Ambassador', capacity: 3, start: '4:30 PM', end: '6:30 PM', description: 'Mingles with guests, makes introductions, and helps new attendees feel welcome.' },
-      { task: 'Clean-Up', capacity: 2, start: '6:30 PM', end: '7:00 PM', description: 'Clears tables, takes out the trash, packs up supplies, and resets the room after the event.' }
+      { task: 'Set-Up', capacity: 3, start: '4:00 PM', end: '4:30 PM', description: 'Arrange the room, signage, and tables before guests arrive.' },
+      { task: 'Door Greeter', capacity: 1, start: '4:00 PM', end: '4:30 PM', description: 'Welcome guests at the entrance and direct them to sign-in.' },
+      { task: 'Sign-In Table', capacity: 1, start: '4:00 PM', end: '6:00 PM', description: 'Check guests in, hand out name tags, and collect contact details.' },
+      { task: 'Networking Ambassador', capacity: 3, start: '4:30 PM', end: '6:30 PM', description: 'Mingle with guests, make introductions, and help new attendees feel welcome.' },
+      { task: 'Clean-Up', capacity: 2, start: '6:30 PM', end: '7:00 PM', description: 'Clear tables, take out the trash, pack up supplies, and reset the room after the event.' }
     ]
   };
 }

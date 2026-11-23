@@ -79,7 +79,7 @@ test('templates cover the 11 events in role order with absolute and relative tim
   const drinks = lunch[0];
   assert.equal(drinks.roleDate, '2027-01-20');
   assert.equal(drinks.timeLabel, 'Jan 20, 2:00–3:00 PM');
-  assert.match(drinks.description, /Picks up the drinks/);
+  assert.match(drinks.description, /Pick up the drinks/);
   const hour = slots.filter((slot) => slot.date === '2026-12-09').map((slot) => slot.task);
   assert.equal(JSON.stringify(hour), JSON.stringify(['Set-Up', 'Door Greeter', 'Sign-In Table', 'Networking Ambassador', 'Clean-Up']));
   assert.equal(slots.filter((slot) => slot.date === '2026-11-17')[0].description, '');
@@ -97,7 +97,7 @@ test('role hours are the calendar start and end', () => {
   assert.match(message.ics, /DTSTART;TZID=America\/New_York:20261209T160000/);
   assert.match(message.ics, /DTEND;TZID=America\/New_York:20261209T163000/);
   assert.match(message.text, /4:00–4:30 PM Eastern/);
-  assert.match(message.text, /Arranges the room/);
+  assert.match(message.text, /Arrange the room/);
   const drinks = aba.abaCatalogSlots_().find((item) => item.date === '2026-11-19' && item.task === 'Drink Delivery');
   const delivery = aba.buildMessage_({
     name: 'Claire Larson',
