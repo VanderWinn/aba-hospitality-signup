@@ -18,12 +18,15 @@ function claim(extra) {
 }
 
 function fakeCalendar() {
-  const store = { events: {}, guests: {}, created: 0, patches: [], plans: [] };
+  const store = { events: {}, guests: {}, created: 0, patches: [], quiet: [], deleted: [], plans: [], shared: {} };
   return {
     store,
     getCalendarId() { return 'cal-aba'; },
-    eventId(slotId) { return store.events[slotId] || ''; },
-    saveEventId(slotId, id) { store.events[slotId] = id; },
+    eventId(signupId) { return store.events[signupId] || ''; },
+    saveEventId(signupId, id) { store.events[signupId] = id; },
+    clearEventId(signupId) { delete store.events[signupId]; },
+    sharedEventMap() { return store.shared; },
+    clearSharedEvent(slotId) { delete store.shared[slotId]; },
     eventExists(calendarId, eventId) { return Object.prototype.hasOwnProperty.call(store.guests, eventId); },
     createEvent(calendarId, plan) {
       store.created += 1;
@@ -38,6 +41,18 @@ function fakeCalendar() {
     setGuests(calendarId, eventId, attendees) {
       store.patches.push({ eventId: eventId, attendees: attendees });
       store.guests[eventId] = attendees.map((guest) => guest.email);
+    },
+    setGuestsQuiet(calendarId, eventId, attendees) {
+      store.quiet.push({ eventId: eventId, attendees: attendees });
+      store.guests[eventId] = attendees.map((guest) => guest.email);
+    },
+    deleteEvent(calendarId, eventId) {
+      store.deleted.push({ eventId: eventId, notify: true });
+      delete store.guests[eventId];
+    },
+    deleteEventQuiet(calendarId, eventId) {
+      store.deleted.push({ eventId: eventId, notify: false });
+      delete store.guests[eventId];
     }
   };
 }
@@ -56,28 +71,31 @@ test('authorizeCalendar only gets or creates the calendar and reads it', () => {
 
 test('a slot becomes one calendar event and a signup adds the guest once', () => {
   const slot = aba.abaCatalogSlots_().find((item) => item.date === '2026-12-09' && item.task === 'Set-Up');
-  const plan = aba.planCalendarEvent_(slot);
-  assert.equal(plan.title, 'ABA Hospitality: Set-Up – Happy Hour');
+  const plan = aba.planCalendarEvent_(slot, { signupId: 'signup-1', token: 't'.repeat(32) });
+  assert.equal(plan.title, 'ABA Hospitality: Set-Up - Happy Hour');
   assert.equal(plan.location, 'Ada Hotel, 7415 River St SE, Ada');
-  assert.match(plan.description, /vanderwinn\.github\.io\/aba-hospitality-signup/);
-  assert.match(plan.description, /cancel link in your confirmation email/);
-  assert.equal(plan.description.includes('@'), false);
-  assert.equal(plan.description.includes('cancel='), false);
+  assert.match(plan.description, /Venue: Ada Hotel/);
+  assert.match(plan.description, /Address: 7415 River St SE, Ada/);
+  assert.match(plan.description, /Sign-up sheet: https:\/\/vanderwinn\.github\.io\/aba-hospitality-signup\//);
+  assert.match(plan.description, /Cancel this sign-up: https:\/\/vanderwinn\.github\.io\/aba-hospitality-signup\/\?cancel=/);
+  assert.equal(plan.description.includes('ada.volunteer@example.com'), false);
   assert.equal(plan.start.getHours(), 16);
   assert.equal(plan.end.getHours(), 16);
   assert.equal(plan.end.getMinutes(), 30);
   const client = fakeCalendar();
   const email = 'ada.volunteer@example.com';
-  assert.equal(aba.syncCalendarGuests_([{ action: 'add', email: email, slot: slot }], client), true);
+  const add = { action: 'add', email: email, signupId: 'signup-1', token: 't'.repeat(32), slot: slot };
+  assert.equal(aba.syncCalendarGuests_([add], client), true);
   assert.equal(client.store.created, 1);
   assert.equal(client.store.patches.length, 1);
   assert.equal(JSON.stringify(client.store.patches[0].attendees), JSON.stringify([{ email: email }]));
-  assert.equal(aba.syncCalendarGuests_([{ action: 'add', email: 'Ada.Volunteer@Example.com', slot: slot }], client), true);
+  assert.equal(aba.syncCalendarGuests_([Object.assign({}, add, { email: 'Ada.Volunteer@Example.com' })], client), true);
   assert.equal(client.store.created, 1);
   assert.equal(client.store.patches.length, 1);
-  assert.equal(aba.syncCalendarGuests_([{ action: 'remove', email: email, slot: slot }], client), true);
-  assert.equal(JSON.stringify(client.store.patches[1].attendees), '[]');
-  assert.equal(client.store.events[slot.slotId], 'evt-1');
+  assert.equal(aba.syncCalendarGuests_([{ action: 'remove', email: email, signupId: 'signup-1', slot: slot }], client), true);
+  assert.equal(client.store.deleted.length, 1);
+  assert.equal(client.store.deleted[0].notify, true);
+  assert.equal(client.store.events['signup-1'], undefined);
 });
 
 function freshState() {
@@ -123,4 +141,37 @@ test('a successful calendar invite omits the ics attachment and a move transfers
   const cancelled = aba.cancelSignup_({ token: row.token }, deps);
   assert.equal(cancelled.ok, true);
   assert.equal(JSON.stringify(seen[2]), JSON.stringify(['remove Clean-Up']));
+});
+
+test('migrateSharedEventsToPerPerson gives each guest their own event and drops the empty shared event quietly', () => {
+  const slot = aba.abaCatalogSlots_().find((item) => item.date === '2026-12-09' && item.task === 'Set-Up');
+  const client = fakeCalendar();
+  client.store.shared[slot.slotId] = 'shared-1';
+  client.store.guests['shared-1'] = ['ada.volunteer@example.com'];
+  const state = {
+    slots: aba.abaCatalogSlots_(),
+    signups: [{
+      signupId: 'signup-1',
+      slotId: slot.slotId,
+      email: 'ada.volunteer@example.com',
+      token: 't'.repeat(32),
+      status: 'active',
+      task: 'Set-Up',
+      event: 'Happy Hour'
+    }]
+  };
+  const summary = aba.migrateSharedEventsToPerPerson(client, state);
+  assert.match(summary, /ensured 1/);
+  assert.match(summary, /removed 1/);
+  assert.match(summary, /deleted 1/);
+  assert.equal(client.store.created, 1);
+  assert.equal(client.store.patches.length, 1);
+  assert.equal(client.store.quiet.length, 1);
+  assert.equal(JSON.stringify(client.store.quiet[0].attendees), '[]');
+  assert.equal(client.store.deleted.length, 1);
+  assert.equal(client.store.deleted[0].notify, false);
+  assert.equal(client.store.shared[slot.slotId], undefined);
+  const again = aba.migrateSharedEventsToPerPerson(client, state);
+  assert.match(again, /ensured 0/);
+  assert.equal(client.store.created, 1);
 });

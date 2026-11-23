@@ -413,7 +413,7 @@ function processPost_(body, deps) {
       var record = signupRecord_(decision, deps);
       if (record.email) {
         mail = buildMessage_(record, decision.slot, 'confirm');
-        calendarChanges.push({ action: 'add', email: record.email, slot: decision.slot });
+        calendarChanges.push({ action: 'add', email: record.email, signupId: record.signupId, token: record.token, slot: decision.slot });
       }
       deps.appendSignup(record);
       result = { ok: true, message: decision.message };
@@ -1214,7 +1214,7 @@ function cancelByEmail_(body, deps) {
       var mailSlot = slot || slotForRow_(state, match);
       if (match.email) {
         mail = buildMessage_(copyFields_(match, fields), mailSlot, 'cancel');
-        calendarChanges.push({ action: 'remove', email: match.email, slot: mailSlot });
+        calendarChanges.push({ action: 'remove', email: match.email, signupId: match.signupId, token: match.token, slot: mailSlot });
       }
       result = { ok: true, message: 'Your sign-up is cancelled.' };
     });
@@ -1255,7 +1255,7 @@ function cancelSignup_(body, deps) {
       deps.updateSignup(row.rowNumber, fields);
       if (row.email) {
         mail = buildMessage_(copyFields_(row, fields), slot, 'cancel');
-        calendarChanges.push({ action: 'remove', email: row.email, slot: slot });
+        calendarChanges.push({ action: 'remove', email: row.email, signupId: row.signupId, token: row.token, slot: slot });
       }
       result = {
         ok: true,
@@ -1324,8 +1324,8 @@ function moveSignup_(body, deps) {
       deps.updateSignup(row.rowNumber, fields);
       if (row.email) {
         mail = buildMessage_(copyFields_(row, fields), slot, 'move');
-        calendarChanges.push({ action: 'remove', email: row.email, slot: oldSlot });
-        calendarChanges.push({ action: 'add', email: row.email, slot: slot });
+        calendarChanges.push({ action: 'remove', email: row.email, signupId: row.signupId, token: row.token, slot: oldSlot });
+        calendarChanges.push({ action: 'add', email: row.email, signupId: row.signupId, token: row.token, slot: slot });
       }
       result = { ok: true, message: 'You are now signed up for ' + slot.task + '.' };
     });
