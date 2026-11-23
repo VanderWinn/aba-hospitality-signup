@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
   pages: write
   id-token: write
@@ -42,6 +43,9 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+
+      - name: Wait for the Pages artifact
+        run: sleep 15
 
       - name: Deploy
         id: deployment

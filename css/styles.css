@@ -193,7 +193,7 @@ main { padding: 1.25rem 0 3rem; }
   border: 1px solid var(--line);
   border-radius: 12px;
   box-shadow: var(--shadow);
-  margin: 0 0 0.45rem;
+  margin: 0 0 0.9rem;
   overflow: hidden;
 }
 
