@@ -441,3 +441,91 @@ test('auto mode applies the mirror and a removed sign-up stays on the sheet', ()
   assert.equal(aba.ABA_RULES.isActive({ status: 'cancelled-by-event-removal' }), false);
   assert.equal(aba.ABA_RULES.isActive({ status: '' }), true);
 });
+
+test('sheet dates, blank ends, and odd listing times do not stop the sync', () => {
+  const fourThirty = new Date(Date.UTC(1899, 11, 30, 21, 30, 0));
+  assert.equal(aba.normalizeEventClock_(fourThirty), '4:30 PM');
+  assert.equal(aba.normalizeEventClock_(16.5 / 24), '4:30 PM');
+  assert.equal(aba.normalizeEventClock_(''), '');
+  assert.equal(aba.parseClock_('1PM').hour, 13);
+  const ribbon = aba.expandEventSlots_({
+    type: 'Ribbon Cutting',
+    date: '2026-12-15',
+    start: fourThirty,
+    end: '',
+    location: 'Ribbon Cutting, Ada Books'
+  });
+  assert.equal(ribbon.find((slot) => slot.task === 'Photographer').roleStart, '4:15 PM');
+  const messy = aba.expandEventSlots_({
+    type: 'Ribbon Cutting',
+    date: '2026-12-16',
+    start: 'not a time',
+    end: '',
+    location: 'Ribbon Cutting, Nowhere'
+  });
+  assert.equal(Array.isArray(messy), true);
+  const text = [
+    '2026',
+    'December',
+    '9 - ABA Happy Hour - Ada Hotel, 4:30-6:30 PM',
+    '15 - Ada Books Ribbon Cutting, 1PM - 5PM',
+    '20 – ABA Member Lunch & Learn – Amway, 11:30-1:00',
+    '21 - ABA Happy Hour - TBD'
+  ].join('\n');
+  const plan = aba.planEventSync_(text, [{
+    type: 'Happy Hour',
+    date: '2026-12-09',
+    start: fourThirty,
+    end: '',
+    location: 'Happy Hour, Ada Hotel, 7415 River St SE, Ada'
+  }], TODAY);
+  assert.equal(plan.unchanged, 1);
+  assert.equal(plan.changed, 0);
+  assert.equal(plan.addedEvents.find((event) => event.date === '2026-12-15').start, '1:00 PM');
+  assert.equal(plan.addedEvents.find((event) => event.date === '2026-12-15').end, '5:00 PM');
+  assert.equal(plan.addedEvents.find((event) => event.date === '2026-12-20').start, '11:30 AM');
+  assert.equal(plan.addedEvents.find((event) => event.date === '2026-12-20').end, '1:00 PM');
+  assert.equal(plan.warnings.some((line) => /skipped line \(no time\): 21 - ABA Happy Hour - TBD/.test(line)), true);
+  const original = aba.eventKind_;
+  aba.eventKind_ = function (value) {
+    if (String(value).includes('EXPLODE')) throw new TypeError("Cannot read properties of null (reading 'hour')");
+    return original(value);
+  };
+  try {
+    const survived = aba.planEventSync_('2026\nDecember\n9 - ABA Happy Hour EXPLODE, 4:30 PM\n15 - Ada Books Ribbon Cutting, 4:00pm', [], TODAY);
+    assert.equal(survived.added, 1);
+    assert.equal(survived.warnings.some((line) => /EXPLODE/.test(line) && /reading 'hour'/.test(line) && /planEventSync_/.test(line)), true);
+  } finally {
+    aba.eventKind_ = original;
+  }
+});
+
+test('the old seeded Events tab migrates in place and keeps every event', () => {
+  const headers = ['TYPE', 'DATE', 'START', 'END', 'LOCATION', 'SOURCE', 'ADDED AT'];
+  const fourThirty = new Date(Date.UTC(1899, 11, 30, 21, 30, 0));
+  const rows = aba.abaFallbackEvents_().map((event) => [
+    event.type,
+    event.date,
+    event.type === 'Ribbon Cutting' ? (16.5 / 24) : (event.date === '2026-12-09' ? fourThirty : event.start),
+    event.date === '2026-12-09' ? '' : (event.end || ''),
+    event.location,
+    'seed',
+    '2026-11-24 14:54:00'
+  ]);
+  const first = aba.planEventsTabMigration_(headers, rows);
+  assert.equal(first.kept, 11);
+  assert.equal(first.rows.length, 11);
+  assert.equal(first.changed, true);
+  assert.equal(first.headers[7], 'REMOVED AT');
+  const dec9 = first.rows.find((row) => row[1] === '2026-12-09');
+  assert.equal(dec9[0], 'Happy Hour');
+  assert.equal(dec9[2], '4:30 PM');
+  assert.equal(dec9[3], '6:30 PM');
+  assert.equal(first.rows[0][0], 'Ribbon Cutting');
+  assert.equal(first.rows[0][1], '2026-11-17');
+  assert.equal(first.rows[0][2], '4:30 PM');
+  const second = aba.planEventsTabMigration_(first.headers, first.rows);
+  assert.equal(second.changed, false);
+  assert.equal(second.kept, 11);
+  assert.equal(second.rows.length, 11);
+});

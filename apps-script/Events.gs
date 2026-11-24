@@ -29,6 +29,23 @@ function eventHeaderCol_(headers, name) {
   return -1;
 }
 
+function logEventProblem_(where, text, err) {
+  var stack = err && err.stack ? '\n' + err.stack : '';
+  var message = 'syncEventsFromDoc skipped ' + where + ': ' + text + (err ? ' ' + err : '') + stack;
+  try { Logger.log(message); } catch (ignore) {}
+  return message;
+}
+
+function normalizeEventClock_(value) {
+  if (value == null || value === '') return '';
+  var parsed = parseClock_(value);
+  if (!parsed) {
+    var text = value instanceof Date && typeof ABA_RULES !== 'undefined' ? ABA_RULES.formatSheetTime(value) : value;
+    return String(text == null ? '' : text).trim();
+  }
+  return formatClock_(parsed.hour, parsed.minute);
+}
+
 function readEventsTab_() {
   if (typeof SpreadsheetApp === 'undefined') return [];
   var sheet = openSheet_().getSheetByName('Events');
@@ -44,20 +61,95 @@ function readEventsTab_() {
   if (typeCol < 0 || dateCol < 0) return [];
   var out = [];
   for (var r = 1; r < values.length; r++) {
-    var type = String(values[r][typeCol] || '').trim();
-    var date = ABA_RULES.formatSheetDate(values[r][dateCol]);
-    if (!type || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
-    out.push({
-      rowNumber: r + 1,
-      type: type,
-      date: date,
-      start: startCol < 0 ? '' : String(values[r][startCol] || '').trim(),
-      end: endCol < 0 ? '' : String(values[r][endCol] || '').trim(),
-      location: locationCol < 0 ? '' : String(values[r][locationCol] || '').trim(),
-      removedAt: removedCol < 0 ? '' : String(values[r][removedCol] || '').trim()
-    });
+    try {
+      var type = String(values[r][typeCol] || '').trim();
+      var date = ABA_RULES.formatSheetDate(values[r][dateCol]);
+      if (!type || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      out.push({
+        rowNumber: r + 1,
+        type: type,
+        date: date,
+        start: startCol < 0 ? '' : normalizeEventClock_(values[r][startCol]),
+        end: endCol < 0 ? '' : normalizeEventClock_(values[r][endCol]),
+        location: locationCol < 0 ? '' : String(values[r][locationCol] || '').trim(),
+        removedAt: removedCol < 0 ? '' : String(values[r][removedCol] || '').trim()
+      });
+    } catch (err) {
+      logEventProblem_('Events row ' + (r + 1), String(values[r]), err);
+    }
   }
   return out;
+}
+
+function cellSame_(before, after) {
+  if (before instanceof Date || typeof before === 'number') return false;
+  return String(before == null ? '' : before).trim() === String(after == null ? '' : after);
+}
+
+function planEventsTabMigration_(headerRow, dataRows) {
+  var headers = (headerRow || []).map(function (cell) { return String(cell || '').trim(); });
+  while (headers.length && !headers[headers.length - 1]) headers.pop();
+  var changed = false;
+  if (eventHeaderCol_(headers, 'type') < 0 || eventHeaderCol_(headers, 'date') < 0) {
+    return { headers: headers, rows: dataRows || [], changed: false, kept: 0 };
+  }
+  if (eventHeaderCol_(headers, 'removedat') < 0) {
+    headers.push('REMOVED AT');
+    changed = true;
+  }
+  var dateCol = eventHeaderCol_(headers, 'date');
+  var startCol = eventHeaderCol_(headers, 'start');
+  var endCol = eventHeaderCol_(headers, 'end');
+  var typeCol = eventHeaderCol_(headers, 'type');
+  var kept = 0;
+  var rows = (dataRows || []).map(function (source) {
+    var row = [];
+    for (var c = 0; c < headers.length; c++) row.push(c < source.length ? source[c] : '');
+    var type = typeCol >= 0 ? String(row[typeCol] || '').trim() : '';
+    if (type) kept += 1;
+    if (dateCol >= 0) {
+      var date = ABA_RULES.formatSheetDate(row[dateCol]);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date) && !cellSame_(row[dateCol], date)) {
+        row[dateCol] = date;
+        changed = true;
+      }
+    }
+    function putClock(col, fallback) {
+      if (col < 0) return;
+      var next = normalizeEventClock_(row[col]);
+      if (!next && fallback) next = fallback;
+      if (!next || cellSame_(row[col], next)) return;
+      row[col] = next;
+      changed = true;
+    }
+    putClock(startCol, '');
+    var standard = standardEventWindow_(type);
+    var startText = startCol >= 0 ? normalizeEventClock_(row[startCol]) : '';
+    var endFallback = standard && startText === standard.start && endCol >= 0 && !normalizeEventClock_(row[endCol]) ? standard.end : '';
+    putClock(endCol, endFallback);
+    return row;
+  });
+  return { headers: headers, rows: rows, changed: changed, kept: kept };
+}
+
+function migrateEventsTab() {
+  if (typeof SpreadsheetApp === 'undefined') return { changed: false, kept: 0 };
+  var sheet = openSheet_().getSheetByName('Events');
+  if (!sheet || sheet.getLastRow() < 1) return { changed: false, kept: 0 };
+  var values = sheet.getDataRange().getValues();
+  var plan = planEventsTabMigration_(values[0], values.slice(1));
+  if (!plan.changed) {
+    try { Logger.log('Events tab already matches. Kept ' + plan.kept + ' events.'); } catch (err) {}
+    return plan;
+  }
+  sheet.getRange(1, 1, 1, plan.headers.length).setValues([plan.headers]);
+  sheet.getRange(1, 1, 1, plan.headers.length).setFontWeight('bold').setBackground('#407589').setFontColor('#ffffff');
+  if (plan.rows.length) {
+    sheet.getRange(2, 1, plan.rows.length, plan.headers.length).setValues(plan.rows);
+    sheet.getRange(2, 1, plan.rows.length, plan.headers.length).setNumberFormat('@');
+  }
+  try { Logger.log('Events tab migrated in place. Kept ' + plan.kept + ' events.'); } catch (err) {}
+  return plan;
 }
 
 function ensureEventsSheet_() {
@@ -135,20 +227,40 @@ function eventClock_(hour, minute, ap) {
   return h + ':' + m + ' ' + ap.toUpperCase();
 }
 
+function inferMeridiem_(startHour, startMinute, endHour, endMinute) {
+  var start = Number(startHour);
+  var end = Number(endHour);
+  var startMin = start * 60 + Number(startMinute || 0);
+  var endMin = end * 60 + Number(endMinute || 0);
+  if (endMin < startMin) return { start: start === 12 ? 'PM' : 'AM', end: 'PM' };
+  var ap = start >= 8 && start <= 11 ? 'AM' : 'PM';
+  return { start: ap, end: ap };
+}
+
 function pullEventClock_(text) {
-  var range = String(text || '').match(/(\d{1,2})(?::(\d{2}))?\s*([ap]m)?\s*[-–—]\s*(\d{1,2})(?::(\d{2}))?\s*([ap]m)?/i);
-  if (range && (range[3] || range[6])) {
-    var endAp = range[6] || range[3];
-    var startAp = range[3] || endAp;
-    return {
-      raw: range[0],
-      start: eventClock_(range[1], range[2], startAp),
-      end: eventClock_(range[4], range[5], endAp)
-    };
+  var range = String(text || '').match(/(\d{1,2})(?::(\d{2}))?\s*([ap]\.?m\.?)?\s*[-–—]\s*(\d{1,2})(?::(\d{2}))?\s*([ap]\.?m\.?)?/i);
+  if (range && (range[1] && range[4])) {
+    var startAp = range[3] ? range[3].replace(/\./g, '') : '';
+    var endAp = range[6] ? range[6].replace(/\./g, '') : '';
+    if (!startAp && !endAp) {
+      var inferred = inferMeridiem_(range[1], range[2], range[4], range[5]);
+      startAp = inferred.start;
+      endAp = inferred.end;
+    } else {
+      endAp = endAp || startAp;
+      startAp = startAp || endAp;
+    }
+    if (startAp && endAp) {
+      return {
+        raw: range[0],
+        start: eventClock_(range[1], range[2], startAp),
+        end: eventClock_(range[4], range[5], endAp)
+      };
+    }
   }
-  var one = String(text || '').match(/(\d{1,2})(?::(\d{2}))?\s*([ap]m)/i);
+  var one = String(text || '').match(/(\d{1,2})(?::(\d{2}))?\s*([ap]\.?m\.?)/i);
   if (!one) return { raw: '', start: '', end: '' };
-  return { raw: one[0], start: eventClock_(one[1], one[2], one[3]), end: '' };
+  return { raw: one[0], start: eventClock_(one[1], one[2], one[3].replace(/\./g, '')), end: '' };
 }
 
 function eventKind_(text) {
@@ -246,6 +358,7 @@ function planEventSync_(text, existing, today) {
   String(text || '').split(/\r?\n/).forEach(function (raw) {
     var line = String(raw || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
     if (!line) return;
+    try {
     var heading = line.match(/^(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)\.?(?:\s+(20\d\d))?$/i);
     if (heading) {
       month = EVENT_MONTHS_[heading[1].toLowerCase()];
@@ -280,6 +393,7 @@ function planEventSync_(text, existing, today) {
     var clock = pullEventClock_(rest);
     if (!clock.start) {
       skipped.ambiguous += 1;
+      warnings.push('skipped line (no time): ' + line);
       return;
     }
     var date = year + '-' + (lineMonth < 10 ? '0' : '') + lineMonth + '-' + (day < 10 ? '0' : '') + day;
@@ -313,13 +427,23 @@ function planEventSync_(text, existing, today) {
     }
     var current = same[0];
     seen[key] = event;
-    var sameTime = eventClockKey_(current.start) === eventClockKey_(event.start) && eventClockKey_(current.end) === eventClockKey_(event.end);
+    var storedStart = normalizeEventClock_(current.start);
+    var storedEnd = normalizeEventClock_(current.end);
+    var nextStart = normalizeEventClock_(event.start);
+    var nextEnd = normalizeEventClock_(event.end);
+    var standard = standardEventWindow_(kind.type);
+    var blankStandardEnd = !storedEnd && standard && storedStart === standard.start && nextEnd === standard.end;
+    var sameTime = storedStart === nextStart && (storedEnd === nextEnd || blankStandardEnd);
     var samePlace = eventVenueMatches_(current.location, kind.type, venue);
     if (sameTime && samePlace) {
       unchanged += 1;
       return;
     }
     changed.push({ before: current, after: event });
+    } catch (err) {
+      skipped.bad = (skipped.bad || 0) + 1;
+      warnings.push(logEventProblem_('line', line, err));
+    }
   });
   var removed = [];
   rows.forEach(function (row) {
@@ -628,7 +752,12 @@ function liveEventSyncDeps_() {
     text: (yearInName ? yearInName[0] + '\n' : '') + docxPlainText_(file.getBlob()),
     today: ABA_RULES.todayKeyIn(new Date(), 'America/New_York'),
     existing: existing,
-    signups: readState_().signups,
+    signups: (function () {
+      try { return readState_().signups; } catch (err) {
+        logEventProblem_('sign-ups', 'Signups tab', err);
+        return [];
+      }
+    })(),
     modifiedTime: modified,
     docHash: eventDocHash_(modified),
     webAppUrl: web,
@@ -687,9 +816,10 @@ function syncEventsFromDoc(dryRun, deps) {
   var preview = dryRun === true || String(dryRun).toLowerCase() === 'true';
   if (!deps) {
     try {
+      if (!preview) migrateEventsTab();
       deps = liveEventSyncDeps_();
     } catch (err) {
-      var failure = 'syncEventsFromDoc error: could not read the event listing. Nothing was changed. ' + err;
+      var failure = 'syncEventsFromDoc error: could not read the event listing. Nothing was changed. ' + err + (err && err.stack ? '\n' + err.stack : '');
       try { Logger.log(failure); } catch (ignore) {}
       if (!preview) {
         try { MailApp.sendEmail('donny@vanderwinn.com', 'ABA event sync failed', failure); } catch (mailErr) {}

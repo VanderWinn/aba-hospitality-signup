@@ -63,6 +63,7 @@ function formatClock_(hour, minute) {
 
 function shiftClock_(dateKey, clock, minutes) {
   var parsed = parseClock_(clock);
+  if (!parsed) return null;
   var moved = addMinutes_(dateKey, parsed.hour, parsed.minute, minutes);
   return { date: moved.date, clock: formatClock_(moved.hour, moved.minute) };
 }
@@ -99,6 +100,7 @@ function clockMinutes_(clock) {
 
 function shiftClockLabel_(dateKey, clock, delta) {
   var parsed = parseClock_(clock);
+  if (!parsed) return '';
   var moved = addMinutes_(dateKey, parsed.hour, parsed.minute, delta);
   return formatClock_(moved.hour, moved.minute);
 }
@@ -112,6 +114,15 @@ function standardEventWindow_(type) {
 function expandEventSlots_(event) {
   var roles = abaTemplates_()[event.type];
   if (!roles) throw new Error('Unknown event type: ' + event.type);
+  if (typeof normalizeEventClock_ === 'function') {
+    event = {
+      type: event.type,
+      date: event.date,
+      start: normalizeEventClock_(event.start),
+      end: normalizeEventClock_(event.end),
+      location: event.location || ''
+    };
+  }
   var standard = standardEventWindow_(event.type);
   var delta = 0;
   var eventEnd = event.end || '';
@@ -126,18 +137,27 @@ function expandEventSlots_(event) {
     var end = role.end;
     if (role.relative) {
       var startShift = shiftClock_(event.date, event.start, role.startOffset);
-      var endShift = role.throughEventEnd
-        ? (event.end ? { date: event.date, clock: event.end } : shiftClock_(event.date, event.start, 60))
-        : shiftClock_(event.date, event.start, role.endOffset);
-      start = startShift.clock;
-      end = endShift.clock;
-      roleDate = startShift.date;
+      if (!startShift) {
+        start = '';
+        end = '';
+      } else {
+        var endShift = role.throughEventEnd
+          ? (event.end ? { date: event.date, clock: event.end } : shiftClock_(event.date, event.start, 60))
+          : shiftClock_(event.date, event.start, role.endOffset);
+        if (!endShift || !endShift.clock) endShift = { date: startShift.date, clock: startShift.clock };
+        start = startShift.clock;
+        end = endShift.clock;
+        roleDate = startShift.date;
+      }
     } else if (role.dayOffset) {
       roleDate = addDays_(event.date, role.dayOffset);
     } else if (standard && role.task === 'Clean-Up' && eventEnd) {
-      start = eventEnd;
-      var cleaned = addMinutes_(event.date, parseClock_(eventEnd).hour, parseClock_(eventEnd).minute, standard.cleanup);
-      end = formatClock_(cleaned.hour, cleaned.minute);
+      var endClock = parseClock_(eventEnd);
+      if (endClock) {
+        start = formatClock_(endClock.hour, endClock.minute);
+        var cleaned = addMinutes_(event.date, endClock.hour, endClock.minute, standard.cleanup);
+        end = formatClock_(cleaned.hour, cleaned.minute);
+      }
     } else if (standard && role.task === 'Networking Ambassador') {
       start = event.start;
       end = eventEnd;
@@ -169,7 +189,13 @@ function expandEventSlots_(event) {
 function abaExpandEvents_() {
   var slots = [];
   abaEvents_().forEach(function (event) {
-    expandEventSlots_(event).forEach(function (slot) { slots.push(slot); });
+    try {
+      expandEventSlots_(event).forEach(function (slot) { slots.push(slot); });
+    } catch (err) {
+      if (typeof logEventProblem_ === 'function') {
+        logEventProblem_('event row', (event && event.date) + ' ' + (event && event.type) + ' ' + (event && event.start), err);
+      }
+    }
   });
   return slots;
 }
