@@ -565,6 +565,7 @@
         showManageError('Choose an open spot.');
         return;
       }
+      if (!window.confirm('Move this sign-up? You will leave the current role. To keep it and add another, use Sign up on the list instead.')) return;
       payload.date = option.getAttribute('data-date');
       payload.event = option.getAttribute('data-event');
       payload.task = option.getAttribute('data-task');

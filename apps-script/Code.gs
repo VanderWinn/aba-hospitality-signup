@@ -1460,7 +1460,7 @@ function moveSignup_(body, deps) {
         calendarChanges.push({ action: 'remove', email: row.email, signupId: row.signupId, token: row.token, slot: oldSlot });
         calendarChanges.push({ action: 'add', email: row.email, signupId: row.signupId, token: row.token, slot: slot });
       }
-      result = { ok: true, message: 'You are now signed up for ' + slot.task + '.' };
+      result = { ok: true, message: 'Moved from ' + (row.task || 'the previous role') + ' to ' + slot.task + '. This did not add a second sign-up.' };
     });
   } catch (err) {
     return { ok: false, error: 'Could not update the sign-up.' };

@@ -518,9 +518,10 @@
       });
     });
     var move = count
-      ? '<label for="manage-target">Move to another open spot</label><select id="manage-target"><option value="">Choose a spot</option>' +
+      ? '<p class="task-desc">To take an additional role, use Sign up on that role below. This sign-up stays.</p>' +
+        '<label for="manage-target">Move this sign-up off the current role</label><select id="manage-target"><option value="">Choose a spot</option>' +
         options + '</select><button type="button" class="btn" id="manage-move">Move</button>'
-      : '<p>Every other spot is full or closed.</p>';
+      : '<p>Every other spot is full or closed. Use Sign up on the list to add another role.</p>';
     return '<section class="manage" aria-labelledby="manage-title">' +
       '<h2 id="manage-title">Your sign-up</h2>' +
       '<p>' + escapeHtml(record.name) + (record.email ? ' · ' + escapeHtml(record.email) : '') + '</p>' +

@@ -376,7 +376,7 @@ function buildMessage_(signup, slot, kind) {
     text.push('', 'Cancel this sign-up:', pieces.cancel);
   }
   if (kind !== 'cancel' && pieces.manage) {
-    text.push('', 'Change your sign-up:', pieces.manage);
+    text.push('', 'Move or cancel this sign-up (this does not add another role):', pieces.manage);
   }
   text.push('', 'Ada Business Association', ABA_SITE_URL.replace(/\/$/, ''));
   var row = function (label, value) {
@@ -420,7 +420,7 @@ function buildMessage_(signup, slot, kind) {
     html.push('<p style="margin:16px 0 0;">' + button(pieces.cancel, 'Cancel this sign-up') + '</p>');
   }
   if (kind !== 'cancel' && pieces.manage) {
-    html.push('<p style="margin:8px 0 0;"><a href="' + escapeHtmlMail_(pieces.manage) + '" style="color:#407589;font-weight:700;">Change your sign-up</a></p>');
+    html.push('<p style="margin:8px 0 0;"><a href="' + escapeHtmlMail_(pieces.manage) + '" style="color:#407589;font-weight:700;">Move or cancel this sign-up</a></p>');
   }
   html.push('<p style="margin:24px 0 0;color:#5c5c5c;">Ada Business Association</p>', '</div></div>');
   return {
