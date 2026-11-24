@@ -59,11 +59,11 @@ test('the portal password is a hash and the sign-up page does not link to it', (
   assert.match(page, /sessionStorage/);
   assert.equal(page.includes('localStorage'), false);
   assert.match(page, /action: 'dashboard'/);
-  const html = portal.renderDashboard({
+  const model = {
     note: 'Example note',
     participation: {
-      quarter: { label: 'Q4 2026', volunteers: 2, shifts: 3, people: [{ name: 'Example Volunteer A', shifts: 2 }, { name: 'Example Volunteer B', shifts: 1 }] },
-      year: { label: '2026', volunteers: 2, shifts: 3, people: [] }
+      quarter: { label: 'Q4 2026', volunteers: 2, shifts: 3, people: [] },
+      year: { label: '2026', volunteers: 2, shifts: 4, people: [] }
     },
     capacity: {
       filled: 1,
@@ -76,12 +76,35 @@ test('the portal password is a hash and the sign-up page does not link to it', (
         venue: 'Ada Hotel',
         roles: [{ task: 'Set-Up', filled: 1, capacity: 2, open: true, names: ['Example Volunteer A'] }]
       }]
+    },
+    chart: {
+      months: [
+        { key: '2026-10', label: 'October', short: 'Oct', shifts: 1 },
+        { key: '2026-11', label: 'November', short: 'Nov', shifts: 3 }
+      ],
+      people: [
+        { id: 'p1', name: 'Example Volunteer A', total: 3, counts: { '2026-10': 0, '2026-11': 3 }, events: [{ date: '2026-11-19', month: '2026-11', name: 'Lunch & Learn', task: 'Door Greeter', venue: 'Amway' }] },
+        { id: 'p2', name: 'Example Volunteer B', total: 1, counts: { '2026-10': 1, '2026-11': 0 }, events: [{ date: '2026-10-14', month: '2026-10', name: 'Happy Hour', task: 'Set-Up', venue: 'Ada Hotel' }] }
+      ]
     }
-  });
+  };
+  const story = portal.dashboardStory(model);
+  assert.match(story.headline, /rose in November/);
+  assert.match(story.headline, /half of all shifts/);
+  const html = portal.renderDashboard(model);
+  assert.match(html, /3 of 4/);
   assert.match(html, /2 of 2/);
   assert.match(html, /1 of 2/);
-  assert.match(html, /Open/);
+  assert.match(html, /data-person="p1"/);
   assert.match(html, /Coming soon \/ example layout/);
   assert.match(html, /Example data/);
-  assert.equal(html.includes('@'), false);
+  const person = portal.renderDashboard(model, null, { level: 'person', id: 'p1' });
+  assert.match(person, /Overview/);
+  assert.match(person, /Door Greeter/);
+  const month = portal.renderDashboard(model, null, { level: 'month', key: '2026-11' });
+  assert.match(month, /November had 3 shifts/);
+  const event = portal.renderDashboard(model, null, { level: 'event', key: '2026-12-09|Happy Hour' });
+  assert.match(event, /Set-Up/);
+  assert.match(event, /Open/);
+  assert.equal((html + person + month + event).includes('@'), false);
 });

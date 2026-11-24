@@ -10,7 +10,9 @@
     year: 0,
     month: 0,
     today: '',
-    notice: ''
+    notice: '',
+    dashboard: null,
+    view: { level: 'overview' }
   };
 
   document.addEventListener('DOMContentLoaded', start);
@@ -61,6 +63,7 @@
     document.getElementById('portal-lock').addEventListener('click', lock);
     document.getElementById('portal-prev').addEventListener('click', function () { shiftMonth(-1); });
     document.getElementById('portal-next').addEventListener('click', function () { shiftMonth(1); });
+    document.getElementById('portal-dashboard-body').addEventListener('click', onDashClick);
     var saved = readPassword();
     if (saved) {
       sha256(saved).then(function (digest) {
@@ -135,10 +138,29 @@
         root.innerHTML = portal.renderDashboard(null, { error: (data && data.error) || 'The dashboard could not be loaded.' });
         return;
       }
-      root.innerHTML = portal.renderDashboard(data.dashboard);
+      state.dashboard = data.dashboard;
+      state.view = { level: 'overview' };
+      paintDash();
     } catch (err) {
       root.innerHTML = portal.renderDashboard(null, { error: err.message || 'The dashboard could not be loaded.' });
     }
+  }
+
+  function paintDash() {
+    var root = document.getElementById('portal-dashboard-body');
+    if (root) root.innerHTML = portal.renderDashboard(state.dashboard, null, state.view);
+  }
+
+  function onDashClick(event) {
+    var node = event.target.closest('[data-person], [data-month], [data-event], [data-dash]');
+    if (!node || !state.dashboard) return;
+    if (node.getAttribute('data-dash') === 'overview') state.view = { level: 'overview' };
+    else if (node.hasAttribute('data-event')) state.view = { level: 'event', key: node.getAttribute('data-event') };
+    else if (node.classList.contains('shift-seg')) state.view = { level: 'month', key: node.getAttribute('data-month') };
+    else if (node.hasAttribute('data-person')) state.view = { level: 'person', id: node.getAttribute('data-person') };
+    else if (node.hasAttribute('data-month')) state.view = { level: 'month', key: node.getAttribute('data-month') };
+    else return;
+    paintDash();
   }
 
   async function postDashboard(password) {
