@@ -39,6 +39,21 @@ function invitePlan_(row, slot) {
   return planCalendarEvent_(slot, { signupId: row.signupId, token: row.token });
 }
 
+function locatePersonEvent_(api, calendarId, signupId) {
+  var stored = String(api.eventId(signupId) || '');
+  var bare = calendarApiEventId_(stored);
+  if (bare && api.eventExists(calendarId, bare)) return { id: bare, missing: false };
+  if (stored && stored !== bare && api.eventExists(calendarId, stored)) {
+    return { id: bare || stored, missing: false };
+  }
+  if (api.findBySignupId) {
+    var found = String(api.findBySignupId(calendarId, signupId) || '');
+    var foundId = calendarApiEventId_(found) || found;
+    if (foundId && api.eventExists(calendarId, foundId)) return { id: foundId, missing: false };
+  }
+  return { id: '', missing: !!stored };
+}
+
 function quietEventPatch_(calendarId, eventId, plan) {
   var zone = Session.getScriptTimeZone();
   var body = {
@@ -59,7 +74,16 @@ function quietEventPatch_(calendarId, eventId, plan) {
       timeZone: zone
     };
   }
-  Calendar.Events.patch(body, calendarId, eventId, { sendUpdates: 'none' });
+  if (plan.signupId) body.extendedProperties = { private: { signupId: String(plan.signupId) } };
+  Calendar.Events.patch(body, calendarId, calendarApiEventId_(eventId), { sendUpdates: 'none' });
+}
+
+function refreshInviteDescriptionsDryRun() {
+  return refreshInviteDescriptions(true);
+}
+
+function sendMissingInvitesDryRun() {
+  return sendMissingInvites(true);
 }
 
 function refreshInviteDeps_() {
@@ -70,7 +94,7 @@ function refreshInviteDeps_() {
     client: api,
     log: function (message) { Logger.log(message); },
     getEvent: function (calendarId, eventId) {
-      var event = Calendar.Events.get(calendarId, eventId);
+      var event = Calendar.Events.get(calendarId, calendarApiEventId_(eventId));
       return { summary: event.summary || '', description: event.description || '' };
     },
     patchQuiet: quietEventPatch_
@@ -107,14 +131,15 @@ function refreshInviteDescriptions(dryRun, deps) {
       skipped.past += 1;
       return;
     }
-    var eventId = api.eventId(row.signupId);
+    var located = locatePersonEvent_(api, calendarId, row.signupId);
+    var eventId = located.id;
     if (!eventId) {
-      skipped.noEvent += 1;
-      return;
-    }
-    if (!api.eventExists(calendarId, eventId)) {
-      skipped.missing += 1;
-      deps.log('refreshInviteDescriptions missing event for ' + row.signupId + ' ' + (row.name || '') + ' ' + inviteWhen_(slot) + ' ' + (slot.task || ''));
+      if (located.missing) {
+        skipped.missing += 1;
+        deps.log('refreshInviteDescriptions missing event for ' + row.signupId + ' ' + (row.name || '') + ' ' + inviteWhen_(slot) + ' ' + (slot.task || ''));
+      } else {
+        skipped.noEvent += 1;
+      }
       return;
     }
     var plan = invitePlan_(row, slot);
@@ -165,8 +190,8 @@ function sendMissingInvites(dryRun, sendConfirmation, deps) {
       skipped.noEmail += 1;
       return;
     }
-    var eventId = row.signupId ? api.eventId(row.signupId) : '';
-    if (eventId && api.eventExists(calendarId, eventId)) {
+    var located = row.signupId ? locatePersonEvent_(api, calendarId, row.signupId) : { id: '', missing: false };
+    if (located.id) {
       skipped.invited += 1;
       return;
     }

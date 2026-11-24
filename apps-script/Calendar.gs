@@ -110,12 +110,40 @@ function calendarClient_() {
       props.setProperty(ABA_CALENDAR_EVENTS_KEY, JSON.stringify(map));
     },
     eventExists: function (calendarId, eventId) {
+      var id = calendarApiEventId_(eventId);
+      if (!id) return false;
       try {
-        Calendar.Events.get(calendarId, eventId);
+        Calendar.Events.get(calendarId, id);
         return true;
       } catch (err) {
         return false;
       }
+    },
+    findBySignupId: function (calendarId, signupId) {
+      var wanted = String(signupId || '');
+      if (!wanted) return '';
+      try {
+        var listed = Calendar.Events.list(calendarId, {
+          privateExtendedProperty: 'signupId=' + wanted,
+          maxResults: 2,
+          showDeleted: false,
+          singleEvents: true
+        });
+        var items = listed && listed.items ? listed.items : [];
+        if (items.length && items[0].id) return items[0].id;
+      } catch (err) {}
+      var stored = '';
+      try {
+        stored = PropertiesService.getScriptProperties().getProperty(calendarSignupKey_(wanted)) || '';
+      } catch (ignore) {}
+      if (stored && stored.indexOf('@') !== -1) {
+        try {
+          var byUid = Calendar.Events.list(calendarId, { iCalUID: stored, maxResults: 2, showDeleted: false });
+          var found = byUid && byUid.items ? byUid.items : [];
+          if (found.length && found[0].id) return found[0].id;
+        } catch (err2) {}
+      }
+      return '';
     },
     createEvent: function (calendarId, plan) {
       var calendar = CalendarApp.getCalendarById(calendarId);
@@ -125,29 +153,36 @@ function calendarClient_() {
       return created.getId();
     },
     listGuests: function (calendarId, eventId) {
-      var event = Calendar.Events.get(calendarId, eventId);
+      var event = Calendar.Events.get(calendarId, calendarApiEventId_(eventId));
       return event.attendees || [];
     },
     setGuests: function (calendarId, eventId, attendees) {
-      Calendar.Events.patch({ attendees: attendees }, calendarId, eventId, { sendUpdates: 'all' });
+      Calendar.Events.patch({ attendees: attendees }, calendarId, calendarApiEventId_(eventId), { sendUpdates: 'all' });
     },
     setGuestsQuiet: function (calendarId, eventId, attendees) {
-      Calendar.Events.patch({ attendees: attendees }, calendarId, eventId, { sendUpdates: 'none' });
+      Calendar.Events.patch({ attendees: attendees }, calendarId, calendarApiEventId_(eventId), { sendUpdates: 'none' });
     },
     deleteEvent: function (calendarId, eventId) {
-      Calendar.Events.remove(calendarId, eventId, { sendUpdates: 'all' });
+      Calendar.Events.remove(calendarId, calendarApiEventId_(eventId), { sendUpdates: 'all' });
     },
     deleteEventQuiet: function (calendarId, eventId) {
-      Calendar.Events.remove(calendarId, eventId, { sendUpdates: 'none' });
+      Calendar.Events.remove(calendarId, calendarApiEventId_(eventId), { sendUpdates: 'none' });
     },
     updateDescription: function (calendarId, eventId, description) {
-      Calendar.Events.patch({ description: description }, calendarId, eventId, { sendUpdates: 'none' });
+      Calendar.Events.patch({ description: description }, calendarId, calendarApiEventId_(eventId), { sendUpdates: 'none' });
     }
   };
 }
 
 function calendarSignupKey_(signupId) {
   return 'ABA_CAL_SIGNUP_' + String(signupId || '');
+}
+
+function calendarApiEventId_(eventId) {
+  var id = String(eventId || '').trim();
+  var at = id.indexOf('@');
+  if (at > 0) id = id.substring(0, at);
+  return id;
 }
 
 function guestAddress_(guest) {

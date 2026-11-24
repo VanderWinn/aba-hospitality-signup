@@ -67,7 +67,7 @@ test('refreshInviteDescriptions rewrites future events quietly and skips the res
   const future = slot('2026-12-09', 'Set-Up');
   const past = slot('2026-11-17', 'Photographer');
   const client = fakeClient();
-  client.store.events['live'] = 'evt-live';
+  client.store.events['live'] = 'evt-live@google.com';
   client.store.guests['evt-live'] = ['ada@example.com'];
   client.store.bodies['evt-live'] = { summary: 'Old title', description: 'Cancel this sign-up only' };
   client.store.events['gone'] = 'evt-gone';
@@ -105,7 +105,7 @@ test('sendMissingInvites creates one future invite and leaves existing events al
   const future = slot('2026-12-09', 'Set-Up');
   const past = slot('2026-11-17', 'Photographer');
   const client = fakeClient();
-  client.store.events['has'] = 'evt-has';
+  client.store.events['has'] = 'evt-has@google.com';
   client.store.guests['evt-has'] = ['has@example.com'];
   const rows = [
     { signupId: 'new', name: 'New Person', email: 'new@example.com', status: 'active', token: 'n'.repeat(32), slotId: future.slotId, date: future.date, event: future.event, task: future.task },
@@ -128,7 +128,7 @@ test('sendMissingInvites creates one future invite and leaves existing events al
   assert.equal(client.store.patches[0].sendUpdates, 'all');
   assert.equal(client.store.patches[0].attendees[0].email, 'new@example.com');
   assert.equal(client.store.mails.length, 0);
-  assert.equal(client.store.events['has'], 'evt-has');
+  assert.equal(client.store.events['has'], 'evt-has@google.com');
   const second = aba.sendMissingInvites(false, false, deps);
   assert.match(second, /created 0/);
   assert.match(second, /already invited: 2/);
@@ -144,4 +144,34 @@ test('sendMissingInvites creates one future invite and leaves existing events al
   assert.equal(only.store.mails.length, 1);
   assert.match(only.store.mails[0].html, />Change my spot</);
   assert.match(only.store.mails[0].html, />Cancel my sign-up</);
+  assert.match(only.store.mails[0].html, /padding:0 0 12px 0/);
+});
+
+test('a CalendarApp id and a signupId property both count as the existing invite', () => {
+  const future = slot('2026-12-09', 'Set-Up');
+  const client = fakeClient();
+  client.store.guests['evt-tagged'] = ['tagged@example.com'];
+  client.store.bodies['evt-tagged'] = { summary: 'Old', description: 'Old' };
+  client.findBySignupId = function () { return 'evt-tagged@google.com'; };
+  const row = {
+    signupId: 'tagged',
+    name: 'Tagged',
+    email: 'tagged@example.com',
+    status: 'active',
+    token: 't'.repeat(32),
+    slotId: future.slotId,
+    date: future.date,
+    event: future.event,
+    task: future.task
+  };
+  const deps = depsFor([row], client);
+  const preview = aba.refreshInviteDescriptions(true, deps);
+  assert.match(preview, /would update 1/);
+  assert.match(preview, /no event: 0/);
+  const invites = aba.sendMissingInvites(true, false, deps);
+  assert.match(invites, /would invite 0/);
+  assert.match(invites, /already invited: 1/);
+  const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '../apps-script/RefreshInvites.gs'), 'utf8');
+  assert.match(source, /function refreshInviteDescriptionsDryRun\(\)/);
+  assert.match(source, /function sendMissingInvitesDryRun\(\)/);
 });

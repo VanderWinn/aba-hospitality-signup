@@ -59,7 +59,7 @@ test('a timed event is two hours in Eastern time and escapes calendar text', () 
   assert.match(message.text, /Add to your calendar:/);
   assert.match(message.html, /Add to your calendar:/);
   assert.match(message.html, /background:#ffffff;color:#407589;border:1px solid #407589;border-radius:8px/);
-  assert.equal((message.html.match(/padding:0 0 12px 0/g) || []).length, 2);
+  assert.equal((message.html.match(/padding:0 0 12px 0/g) || []).length, 3);
   const appleLine = message.text.split('Add to Apple Calendar (iPhone):')[1].split('\n')[1];
   assert.match(appleLine, /apple=1/);
   assert.match(appleLine, /date=2026-12-09/);

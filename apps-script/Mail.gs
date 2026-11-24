@@ -418,10 +418,10 @@ function buildMessage_(signup, slot, kind) {
     '<p style="margin:0 0 8px;color:#5c5c5c;">An invite.ics calendar file is also attached. ' + escapeHtmlMail_(whenText) + '.</p>'
   ];
   if (kind !== 'cancel' && (pieces.manage || pieces.cancel)) {
-    html.push('<p style="margin:16px 0 0;">');
-    if (pieces.manage) html.push(button(pieces.manage, 'Change my spot'));
-    if (pieces.cancel) html.push(' ' + button(pieces.cancel, 'Cancel my sign-up'));
-    html.push('</p>');
+    html.push('<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;margin:16px 0 0;">');
+    if (pieces.manage) html.push('<tr><td style="padding:0 0 12px 0;">' + button(pieces.manage, 'Change my spot') + '</td></tr>');
+    if (pieces.cancel) html.push('<tr><td style="padding:0;">' + button(pieces.cancel, 'Cancel my sign-up') + '</td></tr>');
+    html.push('</table>');
   }
   html.push('<p style="margin:24px 0 0;color:#5c5c5c;">Ada Business Association</p>', '</div></div>');
   return {
