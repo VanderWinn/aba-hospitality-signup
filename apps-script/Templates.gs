@@ -30,6 +30,17 @@ function abaTemplates_() {
 }
 
 function abaEvents_() {
+  var saved = [];
+  try {
+    if (typeof readEventsTab_ === 'function') saved = readEventsTab_() || [];
+  } catch (err) {
+    saved = [];
+  }
+  if (saved.length) return saved;
+  return abaFallbackEvents_();
+}
+
+function abaFallbackEvents_() {
   return [
     { type: 'Ribbon Cutting', date: '2026-11-17', start: '4:30 PM', location: 'Ribbon Cutting, Riverside Links Indoor Golf & Lounge - 396 Pettis Ave SE, Ada, MI 49301-8713' },
     { type: 'Lunch & Learn', date: '2026-11-19', start: '11:30 AM', location: 'Lunch & Learn, Amway WHQ, 7575 Fulton St E, Ada' },
