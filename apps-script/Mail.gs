@@ -518,3 +518,149 @@ function migrateSignupTable_(values, catalog, headers, tokenFactory) {
   }
   return { values: out, kept: kept, tokensFilled: tokensFilled, capacitiesFilled: capacitiesFilled };
 }
+
+function scheduleButton_(href, label) {
+  return '<a href="' + escapeHtmlMail_(href) + '" style="display:inline-block;padding:10px 14px;background:#407589;color:#ffffff;text-decoration:none;border-radius:999px;font-weight:700;">' +
+    escapeHtmlMail_(label) + '</a>';
+}
+
+function buildScheduleNotice_(signup, change) {
+  var removed = change.kind === 'removed';
+  var eventName = change.eventName || 'Event';
+  var subject = removed ? 'This event was cancelled' : ('Event changed: ' + eventName);
+  var intro = removed
+    ? 'This event was cancelled/removed from the schedule. Your sign-up is cancelled.'
+    : 'The event you signed up for has a new time or place. Your sign-up is still active. No action is needed to keep your spot.';
+  var keep = ABA_SITE_URL;
+  var changeUrl = signup.token ? manageUrl_(signup.token) : '';
+  var cancel = signup.token ? cancelUrl_(signup.token) : '';
+  var text = [
+    'Hello ' + (signup.name || '') + ',',
+    '',
+    intro,
+    '',
+    'Event: ' + eventName,
+    removed ? ('Was: ' + (change.oldWhen || '')) : ('Was: ' + (change.oldWhen || '')),
+    removed ? '' : ('Now: ' + (change.newWhen || '')),
+    removed ? '' : ('Your role\'s new time: ' + (change.roleTime || '')),
+    ''
+  ];
+  if (removed) text.push('Choose another event:', keep);
+  else {
+    text.push('Keep my spot:', keep, '', 'Change my spot:', changeUrl, '', 'Cancel my sign-up:', cancel);
+  }
+  text.push('', 'Ada Business Association');
+  var row = function (label, value) {
+    if (!value) return '';
+    return '<tr><td style="padding:6px 12px 6px 0;color:#5c5c5c;font-weight:600;">' + label +
+      '</td><td style="padding:6px 0;color:#39393a;">' + escapeHtmlMail_(value) + '</td></tr>';
+  };
+  var html = [
+    '<div style="font-family:Montserrat,Raleway,Segoe UI,sans-serif;color:#39393a;background:#f2f2f2;padding:24px;">',
+    '<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e6e6e6;border-top:6px solid #407589;padding:24px;">',
+    '<p style="margin:0 0 8px;font-size:18px;">Hello ' + escapeHtmlMail_(signup.name || '') + ',</p>',
+    '<p style="margin:0 0 16px;">' + escapeHtmlMail_(intro) + '</p>',
+    '<table style="border-collapse:collapse;margin:0 0 16px;">',
+    row('Event', eventName),
+    row('Was', change.oldWhen || ''),
+    removed ? '' : row('Now', change.newWhen || ''),
+    removed ? '' : row('Your role\'s new time', change.roleTime || ''),
+    '</table>'
+  ];
+  html.push('<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;margin:16px 0 0;">');
+  if (removed) {
+    html.push('<tr><td style="padding:0;">' + scheduleButton_(keep, 'Choose another event') + '</td></tr>');
+  } else {
+    html.push('<tr><td style="padding:0 0 12px 0;">' + scheduleButton_(keep, 'Keep my spot') + '</td></tr>');
+    if (changeUrl) html.push('<tr><td style="padding:0 0 12px 0;">' + scheduleButton_(changeUrl, 'Change my spot') + '</td></tr>');
+    if (cancel) html.push('<tr><td style="padding:0;">' + scheduleButton_(cancel, 'Cancel my sign-up') + '</td></tr>');
+  }
+  html.push('</table>');
+  html.push('<p style="margin:24px 0 0;color:#5c5c5c;">Ada Business Association</p>', '</div></div>');
+  return {
+    to: signup.email,
+    subject: subject,
+    text: text.filter(function (line) { return line !== ''; }).join('\n'),
+    html: html.join(''),
+    name: ABA_MAIL_NAME,
+    replyTo: ABA_MAIL_REPLY_TO
+  };
+}
+
+function eventReviewLine_(event) {
+  return (event.date || '') + ' ' + (event.type || '') + ' — ' + (event.location || '') + ' ' + (event.start || '') + (event.end ? '–' + event.end : '');
+}
+
+function buildEventReviewMessage_(model, pending) {
+  var base = String(pending.webAppUrl || '').replace(/\/$/, '');
+  var approve = base ? (base + '?eventSync=approve&token=' + encodeURIComponent(pending.token || '')) : '';
+  var reject = base ? (base + '?eventSync=reject&token=' + encodeURIComponent(pending.token || '')) : '';
+  var lines = ['Review ABA event schedule changes.', '', 'Plan ' + (pending.id || '') + '.'];
+  function section(title, items, lineFor) {
+    if (!items.length) return;
+    lines.push('', title);
+    items.forEach(function (item) { lines.push(lineFor(item)); });
+  }
+  section('Added', model.added || [], function (item) { return '- ' + eventReviewLine_(item.event); });
+  section('Changed', model.changed || [], function (item) {
+    var people = (item.people || []).map(function (person) {
+      return person.name + ' <' + (person.email || '') + '> ' + person.task;
+    }).join('; ');
+    var flags = (item.flags || []).join(' ');
+    return '- Was: ' + eventReviewLine_(item.before) + '\n  Now: ' + eventReviewLine_(item.after) +
+      (people ? '\n  Volunteers: ' + people : '') + (flags ? '\n  Flag: ' + flags : '');
+  });
+  section('Removed', model.removed || [], function (item) {
+    var people = (item.people || []).map(function (person) {
+      return person.name + ' <' + (person.email || '') + '> ' + person.task;
+    }).join('; ');
+    return '- ' + eventReviewLine_(item.event) + (people ? '\n  Volunteers: ' + people : '');
+  });
+  if (approve) lines.push('', 'Approve all changes:', approve, '', 'Reject:', reject);
+  else lines.push('', 'Run approvePendingEventChanges or rejectPendingEventChanges in the script editor.');
+  lines.push('', 'Ada Business Association');
+  var blocks = [];
+  (model.added || []).forEach(function (item) {
+    blocks.push('<p><strong>Add</strong><br>' + escapeHtmlMail_(eventReviewLine_(item.event)) + '</p>');
+  });
+  (model.changed || []).forEach(function (item) {
+    var people = (item.people || []).map(function (person) {
+      return escapeHtmlMail_(person.name + ' <' + (person.email || '') + '> ' + person.task);
+    }).join('<br>');
+    var flags = (item.flags || []).map(function (flag) { return escapeHtmlMail_(flag); }).join('<br>');
+    blocks.push('<p><strong>Change</strong><br>Was: ' + escapeHtmlMail_(eventReviewLine_(item.before)) +
+      '<br>Now: ' + escapeHtmlMail_(eventReviewLine_(item.after)) +
+      (people ? '<br>Volunteers:<br>' + people : '') +
+      (flags ? '<br>Flag: ' + flags : '') + '</p>');
+  });
+  (model.removed || []).forEach(function (item) {
+    var people = (item.people || []).map(function (person) {
+      return escapeHtmlMail_(person.name + ' <' + (person.email || '') + '> ' + person.task);
+    }).join('<br>');
+    blocks.push('<p><strong>Remove</strong><br>' + escapeHtmlMail_(eventReviewLine_(item.event)) +
+      (people ? '<br>Volunteers:<br>' + people : '') + '</p>');
+  });
+  var html = [
+    '<div style="font-family:Montserrat,Raleway,Segoe UI,sans-serif;color:#39393a;background:#f2f2f2;padding:24px;">',
+    '<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e6e6e6;border-top:6px solid #407589;padding:24px;">',
+    '<p style="margin:0 0 8px;font-size:18px;">Review ABA event schedule changes</p>',
+    '<p style="margin:0 0 16px;">Plan ' + escapeHtmlMail_(pending.id || '') + '. Nothing has been written yet.</p>',
+    blocks.join(''),
+    '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;margin:16px 0 0;">'
+  ];
+  if (approve) {
+    html.push('<tr><td style="padding:0 0 12px 0;">' + scheduleButton_(approve, 'Approve all changes') + '</td></tr>');
+    html.push('<tr><td style="padding:0;">' + scheduleButton_(reject, 'Reject') + '</td></tr>');
+  } else {
+    html.push('<tr><td>Run approvePendingEventChanges or rejectPendingEventChanges in the script editor.</td></tr>');
+  }
+  html.push('</table><p style="margin:24px 0 0;color:#5c5c5c;">Ada Business Association</p></div></div>');
+  return {
+    to: 'donny@vanderwinn.com',
+    subject: 'Review ABA event schedule changes',
+    text: lines.join('\n'),
+    html: html.join(''),
+    name: ABA_MAIL_NAME,
+    replyTo: ABA_MAIL_REPLY_TO
+  };
+}

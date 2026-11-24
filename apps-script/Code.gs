@@ -87,7 +87,7 @@ var ABA_RULES = (function () {
 
   function isActive(row) {
     var status = String(row && row.status || '').trim().toLowerCase();
-    return status !== 'cancelled' && status !== 'needs-review' && status !== 'superseded';
+    return status.indexOf('cancelled') !== 0 && status !== 'needs-review' && status !== 'superseded';
   }
 
   function stamp(date) {
@@ -346,13 +346,28 @@ function jsonOut_(obj) {
 
 function doGet(e) {
   try {
+    var page = eventSyncGet_(e && e.parameter);
+    if (page) return htmlOut_(page);
     return jsonOut_(handleGet_(scriptDeps_()));
   } catch (err) {
     return jsonOut_({ ok: false, error: 'Could not read the sign-up sheet.' });
   }
 }
 
+function htmlOut_(html) {
+  return HtmlService.createHtmlOutput(String(html || '')).setTitle('ABA event review');
+}
+
 function doPost(e) {
+  var params = e && e.parameter ? e.parameter : {};
+  if (params.action === 'approveEventSync' || params.action === 'rejectEventSync') {
+    try {
+      var decision = params.action === 'approveEventSync' ? 'approve' : 'reject';
+      return htmlOut_(eventSyncResultPage_(finishEventSyncReview_(decision, params.token)));
+    } catch (err) {
+      return htmlOut_(eventSyncResultPage_({ ok: false, message: 'Could not update the event schedule.' }));
+    }
+  }
   var raw = '';
   try {
     raw = e && e.postData && e.postData.contents ? String(e.postData.contents) : '';

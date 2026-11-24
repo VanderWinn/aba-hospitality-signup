@@ -30,13 +30,11 @@ function abaTemplates_() {
 }
 
 function abaEvents_() {
-  var saved = [];
   try {
-    if (typeof readEventsTab_ === 'function') saved = readEventsTab_() || [];
-  } catch (err) {
-    saved = [];
-  }
-  if (saved.length) return saved;
+    if (typeof eventsTabPresent_ === 'function' && eventsTabPresent_()) {
+      return (readEventsTab_() || []).filter(function (row) { return !row.removedAt; });
+    }
+  } catch (err) {}
   return abaFallbackEvents_();
 }
 
