@@ -113,7 +113,12 @@
       board().innerHTML = '<p class="loading">The sign-up sheet could not be loaded.</p>';
       return;
     }
-    board().innerHTML = catalog.renderBoard(state.view, state.mode, state.adminPeople);
+    var changing = null;
+    if (manageToken && manageRecord && manageRecord.status !== 'cancelled' && manageRecord.status !== 'superseded') {
+      changing = { date: manageRecord.date, event: manageRecord.event, task: manageRecord.task };
+    }
+    board().classList.toggle('is-changing', !!changing);
+    board().innerHTML = catalog.renderBoard(state.view, state.mode, state.adminPeople, changing);
     applyFilter();
     var hash = window.location.hash;
     if (!scrolledToHash && /^#event-[a-z0-9-]+$/.test(hash)) {
@@ -318,6 +323,11 @@
     var adminRemove = event.target.closest('.admin-remove');
     if (adminRemove) {
       openAdminRemove(adminRemove);
+      return;
+    }
+    var changeSpot = event.target.closest('.change-spot');
+    if (changeSpot) {
+      onChangeSpot(changeSpot);
       return;
     }
     var person = event.target.closest('.who-name');
@@ -540,6 +550,7 @@
       }
       manageRecord = data.signup;
       paintManage();
+      paint();
     } catch (err) {
       document.getElementById('manage').innerHTML = '<p class="banner warn" role="alert">The sign-up link could not be opened. The sheet below still works.</p>';
     }
@@ -552,39 +563,51 @@
     node.hidden = false;
   }
 
-  async function onManageClick(event) {
-    var cancel = event.target.closest('#manage-cancel');
-    var move = event.target.closest('#manage-move');
-    if (!cancel && !move) return;
-    if (cancel && !window.confirm('Cancel this sign-up?')) return;
-    var payload = { action: cancel ? 'cancel' : 'move', token: manageToken };
-    if (move) {
-      var select = document.getElementById('manage-target');
-      var option = select && select.options[select.selectedIndex];
-      if (!option || !option.getAttribute('data-date')) {
-        showManageError('Choose an open spot.');
-        return;
-      }
-      if (!manageRecord || !manageRecord.signupId) {
-        showManageError('That link is not valid.');
-        return;
-      }
-      if (!window.confirm('Change this sign-up to the selected role? The current role will be removed. This does not create a new sign-up.')) return;
-      payload.signupId = manageRecord.signupId;
-      payload.date = option.getAttribute('data-date');
-      payload.event = option.getAttribute('data-event');
-      payload.task = option.getAttribute('data-task');
+  function exitChangeMode() {
+    manageToken = '';
+    manageRecord = null;
+    if (window.history && history.replaceState) {
+      var url = new URL(window.location.href);
+      url.searchParams.delete('manage');
+      history.replaceState({}, '', url.pathname + url.search + url.hash);
     }
+    var node = document.getElementById('manage');
+    if (node) node.innerHTML = '';
+  }
+
+  function onManageClick(event) {
+    if (!event.target.closest('#manage-keep')) return;
+    exitChangeMode();
+    paint();
+  }
+
+  async function onChangeSpot(button) {
+    if (!manageToken || !manageRecord || !manageRecord.signupId) {
+      showManageError('That link is not valid.');
+      return;
+    }
+    var task = button.getAttribute('data-task');
+    var eventName = button.getAttribute('data-event');
+    var date = button.getAttribute('data-date');
+    var from = manageRecord.task || 'your current spot';
+    if (!window.confirm('Move your sign-up from ' + from + ' to ' + task + '?')) return;
     try {
-      var data = await postSignup(payload);
+      var data = await postSignup({
+        action: 'move',
+        token: manageToken,
+        signupId: manageRecord.signupId,
+        date: date,
+        event: eventName,
+        task: task
+      });
       if (!data || data.ok !== true) {
         showManageError((data && data.error) || 'Could not update the sign-up.');
         return;
       }
-      setToast(data.message || 'Updated.');
+      exitChangeMode();
+      setToast('You are now in ' + task + ' on ' + catalog.formatLong(date) + '. Your old spot was released.');
       try { await loadLive(); } catch (err) {}
       paint();
-      await loadManage();
     } catch (err) {
       showManageError('Could not reach the sign-up sheet. Check your connection and try again.');
     }

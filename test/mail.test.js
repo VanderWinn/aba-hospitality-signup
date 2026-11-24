@@ -69,10 +69,21 @@ test('a timed event is two hours in Eastern time and escapes calendar text', () 
   assert.equal(appleLine.includes('manage='), false);
   assert.equal(appleLine.includes(signup.token), false);
   assert.match(message.text, /\?manage=a{32}/);
-  assert.match(message.text, /Cancel this sign-up:/);
-  assert.match(message.html, /Cancel this sign-up/);
+  assert.match(message.text, /Change my spot:/);
+  assert.match(message.text, /Cancel my sign-up:/);
+  assert.match(message.html, />Change my spot</);
+  assert.match(message.html, />Cancel my sign-up</);
+  assert.equal(message.text.includes('Move or cancel'), false);
+  assert.equal(message.html.includes('Move or cancel'), false);
   const unfolded = message.ics.replace(/\r\n /g, '');
-  assert.match(unfolded, /Cancel this sign-up: https:\/\/vanderwinn\.github\.io\/aba-hospitality-signup\/\?cancel=/);
+  assert.match(unfolded, /Change my spot: https:\/\/vanderwinn\.github\.io\/aba-hospitality-signup\/\?manage=/);
+  assert.match(unfolded, /Cancel my sign-up: https:\/\/vanderwinn\.github\.io\/aba-hospitality-signup\/\?cancel=/);
+  ['move', 'reminder'].forEach((kind) => {
+    const note = aba.buildMessage_(signup, slot, kind);
+    assert.match(note.html, />Change my spot</);
+    assert.match(note.html, />Cancel my sign-up</);
+    assert.equal(note.text.includes('Move or cancel'), false);
+  });
   assert.match(unfolded, /URL:https:\/\/vanderwinn\.github\.io\/aba-hospitality-signup\/\?cancel=/);
   const roleFile = aba.buildMessage_(signup, {
     event: 'Lunch & Learn',
@@ -306,7 +317,7 @@ test('migration keeps every sign-up, backfills capacity and tokens, and is idemp
 
 test('the manage panel does not print the token and offers another open spot', () => {
   const view = aba.ABACatalog.toView(aba.abaSeedData(), TODAY);
-  const html = aba.ABACatalog.renderManage({
+  const record = {
     name: 'Ada Volunteer',
     email: 'ada@example.com',
     status: 'active',
@@ -315,11 +326,19 @@ test('the manage panel does not print the token and offers another open spot', (
     time: '4:30 PM',
     task: 'Mixer Host',
     location: 'Ada Hotel'
-  }, view);
-  assert.match(html, /Cancel this sign-up|manage-cancel/);
-  assert.match(html, /id="manage-cancel"/);
-  assert.match(html, /data-task="Ambassadors Clean up"/);
+  };
+  const html = aba.ABACatalog.renderManage(record);
+  assert.match(html, /Changing your sign-up/);
+  assert.match(html, /Mixer Host/);
+  assert.match(html, /id="manage-keep"/);
+  assert.equal(html.includes('<select'), false);
+  assert.equal(html.includes('manage-cancel'), false);
   assert.equal(html.includes('secret-token'), false);
+  const changing = aba.ABACatalog.renderBoard(view, 'live', null, { date: '2026-12-09', event: 'Happy Hour', task: 'Mixer Host' });
+  assert.match(changing, /Change to this spot/);
+  assert.match(changing, /Your current spot/);
+  assert.match(changing, /disabled>Your current spot/);
+  assert.equal(changing.includes('>Sign up<'), false);
   const board = aba.ABACatalog.renderBoard(view, 'live');
   assert.match(board, /type-filter/);
   assert.equal(/\d+ open/.test(board), false);

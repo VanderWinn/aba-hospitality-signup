@@ -26,7 +26,8 @@ function planCalendarEvent_(slot, signup) {
     'Venue: ' + venue + '\n' +
     'Address: ' + address + '\n\n' +
     'Sign-up sheet: ' + ABA_SITE_URL +
-    (cancel ? '\n\nCancel this sign-up: ' + cancel : '');
+    (signup && signup.token ? '\n\nChange my spot: ' + manageUrl_(signup.token) : '') +
+    (cancel ? '\n\nCancel my sign-up: ' + cancel : '');
   var plan = {
     slotId: slot && slot.slotId ? String(slot.slotId) : '',
     signupId: signup && signup.signupId ? String(signup.signupId) : '',

@@ -530,6 +530,25 @@ h2 { margin: 0; font-size: 1rem; line-height: 1.35; }
 .icon-close { min-height: 44px; border-radius: 999px; padding: 0.3rem 0.8rem; cursor: pointer; }
 
 .claim:hover, .btn:hover { background: var(--mint); color: #000; border-color: #5da09d; }
+
+.claim:disabled,
+.claim.current-spot {
+  background: #f0f0f0;
+  color: #757575;
+  border-color: #e0e0e0;
+  cursor: default;
+}
+
+.claim:disabled:hover,
+.claim.current-spot:hover {
+  background: #f0f0f0;
+  color: #757575;
+  border-color: #e0e0e0;
+}
+
+#board.is-changing .task { grid-template-columns: minmax(0, 1fr) 12rem 10.5rem; }
+#board.is-changing .task-action { width: 10.5rem; }
+#board.is-changing .claim { white-space: normal; line-height: 1.15; min-height: 44px; }
 .btn.danger { background: var(--clay); border-color: #6d221c; }
 .btn.danger:hover { background: #6d221c; color: #fff; border-color: #6d221c; }
 .btn.ghost:hover, .icon-close:hover { background: #f2f2f2; }
@@ -770,6 +789,8 @@ input[type="text"], input[type="email"], input[type="password"] {
     grid-template-columns: minmax(0, 1fr) 5.6rem;
     grid-template-rows: auto auto;
   }
+  #board.is-changing .task { grid-template-columns: minmax(0, 1fr) 8.4rem; }
+  #board.is-changing .task-action { width: 8.4rem; }
   .task-main { grid-column: 1; grid-row: 1; }
   .who { grid-column: 1; grid-row: 2; width: 100%; }
   .task-action { grid-column: 2; grid-row: 1 / span 2; }

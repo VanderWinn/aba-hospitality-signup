@@ -77,7 +77,9 @@ test('a slot becomes one calendar event and a signup adds the guest once', () =>
   assert.match(plan.description, /Venue: Ada Hotel/);
   assert.match(plan.description, /Address: 7415 River St SE, Ada/);
   assert.match(plan.description, /Sign-up sheet: https:\/\/vanderwinn\.github\.io\/aba-hospitality-signup\//);
-  assert.match(plan.description, /Cancel this sign-up: https:\/\/vanderwinn\.github\.io\/aba-hospitality-signup\/\?cancel=/);
+  assert.match(plan.description, /Change my spot: https:\/\/vanderwinn\.github\.io\/aba-hospitality-signup\/\?manage=/);
+  assert.match(plan.description, /Cancel my sign-up: https:\/\/vanderwinn\.github\.io\/aba-hospitality-signup\/\?cancel=/);
+  assert.equal(plan.description.includes('Move or cancel'), false);
   assert.equal(plan.description.includes('ada.volunteer@example.com'), false);
   assert.equal(plan.start.getHours(), 16);
   assert.equal(plan.end.getHours(), 16);

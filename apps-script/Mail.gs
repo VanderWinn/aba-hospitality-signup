@@ -170,7 +170,8 @@ function calendarPieces_(signup, slot) {
   var cancel = cancelUrl_(signup.token);
   var details = 'Task: ' + slot.task + '\nEvent: ' + slot.event + '\nWhen: ' + longDate_(slot.date) +
     (when ? ', ' + String(slot.time).trim() + ' Eastern' : ', all day');
-  if (cancel) details += '\n\nCancel this sign-up: ' + cancel;
+  if (manage) details += '\n\nChange my spot: ' + manage;
+  if (cancel) details += '\n\nCancel my sign-up: ' + cancel;
   var uid = String(signup.signupId || 'signup') + '@aba-hospitality.ada';
   var sequence = Math.floor(Number(signup.sequence || 0)) || 0;
   var stamp = formatUtcBasic_(signup._now ? new Date(signup._now) : new Date());
@@ -372,11 +373,11 @@ function buildMessage_(signup, slot, kind) {
     '',
     'An invite.ics calendar file is also attached.'
   ];
-  if (kind !== 'cancel' && pieces.cancel) {
-    text.push('', 'Cancel this sign-up:', pieces.cancel);
-  }
   if (kind !== 'cancel' && pieces.manage) {
-    text.push('', 'Move or cancel this sign-up (this does not add another role):', pieces.manage);
+    text.push('', 'Change my spot:', pieces.manage);
+  }
+  if (kind !== 'cancel' && pieces.cancel) {
+    text.push('', 'Cancel my sign-up:', pieces.cancel);
   }
   text.push('', 'Ada Business Association', ABA_SITE_URL.replace(/\/$/, ''));
   var row = function (label, value) {
@@ -416,11 +417,11 @@ function buildMessage_(signup, slot, kind) {
     '</table>',
     '<p style="margin:0 0 8px;color:#5c5c5c;">An invite.ics calendar file is also attached. ' + escapeHtmlMail_(whenText) + '.</p>'
   ];
-  if (kind !== 'cancel' && pieces.cancel) {
-    html.push('<p style="margin:16px 0 0;">' + button(pieces.cancel, 'Cancel this sign-up') + '</p>');
-  }
-  if (kind !== 'cancel' && pieces.manage) {
-    html.push('<p style="margin:8px 0 0;"><a href="' + escapeHtmlMail_(pieces.manage) + '" style="color:#407589;font-weight:700;">Move or cancel this sign-up</a></p>');
+  if (kind !== 'cancel' && (pieces.manage || pieces.cancel)) {
+    html.push('<p style="margin:16px 0 0;">');
+    if (pieces.manage) html.push(button(pieces.manage, 'Change my spot'));
+    if (pieces.cancel) html.push(' ' + button(pieces.cancel, 'Cancel my sign-up'));
+    html.push('</p>');
   }
   html.push('<p style="margin:24px 0 0;color:#5c5c5c;">Ada Business Association</p>', '</div></div>');
   return {

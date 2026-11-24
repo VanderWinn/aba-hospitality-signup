@@ -160,7 +160,7 @@
     return shown + ':' + pad2(range.start.minute) + ' ' + ap;
   }
 
-  function renderTask(event, task, mode, roster) {
+  function renderTask(event, task, mode, roster, changing) {
     var canClaim = mode !== 'preview' && !event.past && task.remaining > 0;
     var canCancel = mode === 'live';
     var start = roleStartText(task, event);
@@ -192,8 +192,18 @@
     }
     var names = spots.length ? '<ul class="who">' + spots.join('') + '</ul>' : '';
     var when = task.timeLabel || event.time || '';
+    var isCurrent = !!(changing && event.date === changing.date && event.name === changing.event && task.task === changing.task);
     var action;
-    if (canClaim) {
+    if (changing && !event.past && isCurrent) {
+      action = '<button type="button" class="claim current-spot" disabled>Your current spot</button>';
+    } else if (changing && !event.past && task.remaining > 0) {
+      var changeLabel = 'Change to ' + task.task + ', ' + event.name + ', ' + formatLong(event.date);
+      action = '<button type="button" class="claim change-spot" data-date="' + escapeHtml(event.date) +
+        '" data-event="' + escapeHtml(event.name) + '" data-task="' + escapeHtml(task.task) +
+        '" aria-label="' + escapeHtml(changeLabel) + '">Change to this spot</button>';
+    } else if (changing && !event.past && task.remaining === 0) {
+      action = '<span class="full-label">Full</span>';
+    } else if (canClaim) {
       var label = 'Sign up for ' + task.task + ', ' + event.name + ', ' + formatLong(event.date) + (when ? ', ' + when : '');
       action = '<button type="button" class="claim" data-date="' + escapeHtml(event.date) +
         '" data-event="' + escapeHtml(event.name) + '" data-task="' + escapeHtml(task.task) +
@@ -414,7 +424,7 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
   }
 
-  function renderEvent(event, mode, roster) {
+  function renderEvent(event, mode, roster, changing) {
     var place = placeParts(event.location, event.name);
     var where = '<span class="event-where">' +
       '<span class="sep" aria-hidden="true">·</span>' +
@@ -450,7 +460,7 @@
         var mine = (roster || []).filter(function (person) {
           return person.slotId === event.date + '|' + event.name + '|' + task.task;
         });
-        return renderTask(event, task, mode, roster ? mine : null);
+        return renderTask(event, task, mode, roster ? mine : null, changing);
       }).join('') + '</div>' +
     '</section>';
   }
@@ -480,20 +490,20 @@
       '</div>';
   }
 
-  function renderBoard(view, mode, roster) {
+  function renderBoard(view, mode, roster, changing) {
     var upcoming = view.events.filter(function (event) { return !event.past; });
     var past = view.events.filter(function (event) { return event.past; });
     var jump = renderFilters(view);
-    var upcomingHtml = '<div class="event-list">' + upcoming.map(function (event) { return renderEvent(event, mode, roster); }).join('') + '</div>' +
+    var upcomingHtml = '<div class="event-list">' + upcoming.map(function (event) { return renderEvent(event, mode, roster, changing); }).join('') + '</div>' +
       '<p class="filter-empty" hidden>No upcoming events of this type.</p>';
     var pastHtml = past.length
       ? '<details class="past-block"><summary>Past events (' + past.length + ')</summary><div class="event-list">' +
-        past.map(function (event) { return renderEvent(event, mode, roster); }).join('') + '</div></details>'
+        past.map(function (event) { return renderEvent(event, mode, roster, changing); }).join('') + '</div></details>'
       : '';
     return jump + upcomingHtml + pastHtml;
   }
 
-  function renderManage(record, view) {
+  function renderManage(record) {
     if (!record) return '';
     if (record.status === 'cancelled' || record.status === 'superseded') {
       var heading = record.status === 'superseded' ? 'Sign-up replaced' : 'Sign-up cancelled';
@@ -503,35 +513,12 @@
       return '<section class="manage" aria-labelledby="manage-title"><h2 id="manage-title">' + heading + '</h2><p>' +
         escapeHtml(record.name) + escapeHtml(detail) + '</p></section>';
     }
-    var options = '';
-    var count = 0;
-    (view && view.events || []).forEach(function (event) {
-      if (event.past) return;
-      event.tasks.forEach(function (task) {
-        var same = event.date === record.date && event.name === record.event && task.task === record.task;
-        if (same || task.remaining < 1) return;
-        count += 1;
-        options += '<option data-date="' + escapeHtml(event.date) + '" data-event="' + escapeHtml(event.name) +
-          '" data-task="' + escapeHtml(task.task) + '">' +
-          escapeHtml(formatNav(event.date) + ' · ' + event.name + ' · ' + task.task + ' (' + task.remaining + ' open)') +
-          '</option>';
-      });
-    });
-    var move = count
-      ? '<p class="task-desc">Choose a new role to change this sign-up. The current role is removed. This does not create another sign-up.</p>' +
-        '<label for="manage-target">New role</label><select id="manage-target"><option value="">Choose a spot</option>' +
-        options + '</select><button type="button" class="btn" id="manage-move">Change</button>'
-      : '<p>Every other spot is full or closed.</p>';
     return '<section class="manage" aria-labelledby="manage-title">' +
-      '<h2 id="manage-title">Change this sign-up</h2>' +
-      '<p>' + escapeHtml(record.name) + (record.email ? ' · ' + escapeHtml(record.email) : '') + '</p>' +
-      '<p><strong>' + escapeHtml(record.task) + '</strong><br>' + escapeHtml(record.event || '') + ' · ' +
-      escapeHtml(formatLong(record.date)) + ((record.timeLabel || record.time) ? ' · ' + escapeHtml(record.timeLabel || record.time) : '') + '</p>' +
-      (record.description ? '<p class="task-desc">' + escapeHtml(record.description) + '</p>' : '') +
-      (record.status === 'needs-review' ? '<p>This task is not on the current list. You can cancel it or move to an open role.</p>' : '') +
-      '<p>' + escapeHtml(record.location || '') + '</p>' +
-      '<div class="manage-actions"><button type="button" class="btn danger" id="manage-cancel">Cancel this sign-up</button></div>' +
-      '<div class="manage-move">' + move + '</div>' +
+      '<h2 id="manage-title">Changing your sign-up</h2>' +
+      '<p>You are changing <strong>' + escapeHtml(record.task || 'this role') + '</strong>' +
+      (record.event ? ' · ' + escapeHtml(record.event) : '') +
+      (record.date ? ' · ' + escapeHtml(formatLong(record.date)) : '') + '.</p>' +
+      '<p><button type="button" class="btn ghost" id="manage-keep">Back / keep my current spot</button></p>' +
       '<p id="manage-error" class="form-error" role="alert" hidden></p></section>';
   }
 
