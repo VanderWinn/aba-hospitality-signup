@@ -62,14 +62,33 @@ test('cancelling one role leaves the other, and moving one does not change the o
   assert.equal(cancelled.ok, true);
   assert.equal(state.signups.some((row) => row.signupId === roleA.signupId), false);
   assert.equal(state.signups.some((row) => row.signupId === idB && row.task === 'Ambassadors Clean up'), true);
+  const before = state.signups.length;
   const moved = aba.moveSignup_({
     token: tokenB,
+    signupId: idB,
+    email: 'someone.else@example.com',
     event: 'Happy Hour',
     date: '2026-12-09',
     task: 'Mixer Host'
   }, deps);
   assert.equal(moved.ok, true);
-  assert.match(moved.message, /did not add a second sign-up/);
+  assert.match(moved.message, /previous role was removed/);
+  assert.equal(state.signups.length, before);
+  assert.equal(roleB.email, 'grant.volunteer@example.com');
+  assert.equal(roleB.previousSlotId.endsWith('|Ambassadors Clean up'), true);
+  assert.equal(roleB.sequence, 1);
+  const failed = aba.moveSignup_({
+    token: tokenB,
+    signupId: idB,
+    email: 'someone.else@example.com',
+    event: 'Happy Hour',
+    date: '2026-12-09',
+    task: 'Not A Real Role'
+  }, deps);
+  assert.equal(failed.ok, false);
+  assert.equal(failed.error, 'That event or task is not on the sheet.');
+  assert.equal(state.signups.length, before);
+  assert.equal(roleB.task, 'Mixer Host');
   const kept = state.signups.filter((row) => row.email === 'grant.volunteer@example.com');
   assert.equal(kept.length, 1);
   assert.equal(kept[0].signupId, idB);

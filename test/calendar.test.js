@@ -132,6 +132,7 @@ test('a successful calendar invite omits the ics attachment and a move transfers
   const row = state.signups.find((item) => item.email === 'ada.volunteer@example.com');
   const moved = aba.moveSignup_({
     token: row.token,
+    signupId: row.signupId,
     event: 'Happy Hour',
     date: '2026-12-09',
     task: 'Clean-Up'

@@ -565,7 +565,12 @@
         showManageError('Choose an open spot.');
         return;
       }
-      if (!window.confirm('Move this sign-up? You will leave the current role. To keep it and add another, use Sign up on the list instead.')) return;
+      if (!manageRecord || !manageRecord.signupId) {
+        showManageError('That link is not valid.');
+        return;
+      }
+      if (!window.confirm('Change this sign-up to the selected role? The current role will be removed. This does not create a new sign-up.')) return;
+      payload.signupId = manageRecord.signupId;
       payload.date = option.getAttribute('data-date');
       payload.event = option.getAttribute('data-event');
       payload.task = option.getAttribute('data-task');

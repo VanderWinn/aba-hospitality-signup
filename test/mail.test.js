@@ -216,6 +216,7 @@ test('a move checks capacity and past dates, then updates the same row', () => {
   const row = state.signups[state.signups.length - 1];
   const past = aba.moveSignup_({
     token: row.token,
+    signupId: row.signupId,
     event: 'Ribbon Cutting',
     date: '2026-11-17',
     task: 'Ribbon Holders'
@@ -223,6 +224,7 @@ test('a move checks capacity and past dates, then updates the same row', () => {
   assert.equal(past.error, 'This event is closed.');
   const full = aba.moveSignup_({
     token: row.token,
+    signupId: row.signupId,
     event: 'Happy Hour',
     date: '2026-12-09',
     task: 'Door/Sign in Table'
@@ -230,6 +232,7 @@ test('a move checks capacity and past dates, then updates the same row', () => {
   assert.equal(full.error, 'That task is full.');
   const moved = aba.moveSignup_({
     token: row.token,
+    signupId: row.signupId,
     event: 'Happy Hour',
     date: '2026-12-09',
     task: 'Ambassadors Clean up'

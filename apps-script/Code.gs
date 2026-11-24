@@ -1175,6 +1175,7 @@ function lookupSignup_(body, deps) {
       description: slot.description || '',
       roleDate: slot.roleDate || '',
       task: slot.task,
+      signupId: row.signupId,
       location: fullPlace_(slot.venue, slot.address) || slot.location || ''
     }
   };
@@ -1405,7 +1406,8 @@ function deleteCancelledRows(dryRun, deps) {
 
 function moveSignup_(body, deps) {
   var token = cleanToken_(body.token);
-  if (!token) return { ok: false, error: 'That link is not valid.' };
+  var signupId = String(body && body.signupId || '').trim();
+  if (!token || !signupId) return { ok: false, error: 'That link is not valid.' };
   var eventName = String(body.event || '').trim();
   var date = String(body.date || '').trim();
   var task = String(body.task || '').trim();
@@ -1421,7 +1423,7 @@ function moveSignup_(body, deps) {
     outcome = deps.withLock(function () {
       var state = deps.readState();
       var row = findToken_(state.signups, token);
-      if (!row) { result = { ok: false, error: 'That link is not valid.' }; return; }
+      if (!row || row.signupId !== signupId) { result = { ok: false, error: 'That link is not valid.' }; return; }
       if (!ABA_RULES.isActive(row)) { result = { ok: false, error: 'This sign-up is already cancelled.' }; return; }
       var slot = findSlotLocal_(state.slots, slotId);
       if (!slot) { result = { ok: false, error: 'That event or task is not on the sheet.' }; return; }
@@ -1460,7 +1462,7 @@ function moveSignup_(body, deps) {
         calendarChanges.push({ action: 'remove', email: row.email, signupId: row.signupId, token: row.token, slot: oldSlot });
         calendarChanges.push({ action: 'add', email: row.email, signupId: row.signupId, token: row.token, slot: slot });
       }
-      result = { ok: true, message: 'Moved from ' + (row.task || 'the previous role') + ' to ' + slot.task + '. This did not add a second sign-up.' };
+      result = { ok: true, message: 'Changed this sign-up from ' + (row.task || 'the previous role') + ' to ' + slot.task + '. The previous role was removed.' };
     });
   } catch (err) {
     return { ok: false, error: 'Could not update the sign-up.' };

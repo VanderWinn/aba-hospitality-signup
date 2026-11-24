@@ -518,12 +518,12 @@
       });
     });
     var move = count
-      ? '<p class="task-desc">To take an additional role, use Sign up on that role below. This sign-up stays.</p>' +
-        '<label for="manage-target">Move this sign-up off the current role</label><select id="manage-target"><option value="">Choose a spot</option>' +
-        options + '</select><button type="button" class="btn" id="manage-move">Move</button>'
-      : '<p>Every other spot is full or closed. Use Sign up on the list to add another role.</p>';
+      ? '<p class="task-desc">Choose a new role to change this sign-up. The current role is removed. This does not create another sign-up.</p>' +
+        '<label for="manage-target">New role</label><select id="manage-target"><option value="">Choose a spot</option>' +
+        options + '</select><button type="button" class="btn" id="manage-move">Change</button>'
+      : '<p>Every other spot is full or closed.</p>';
     return '<section class="manage" aria-labelledby="manage-title">' +
-      '<h2 id="manage-title">Your sign-up</h2>' +
+      '<h2 id="manage-title">Change this sign-up</h2>' +
       '<p>' + escapeHtml(record.name) + (record.email ? ' · ' + escapeHtml(record.email) : '') + '</p>' +
       '<p><strong>' + escapeHtml(record.task) + '</strong><br>' + escapeHtml(record.event || '') + ' · ' +
       escapeHtml(formatLong(record.date)) + ((record.timeLabel || record.time) ? ' · ' + escapeHtml(record.timeLabel || record.time) : '') + '</p>' +

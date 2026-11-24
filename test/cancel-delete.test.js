@@ -19,6 +19,7 @@ test('a cancel deletes the row by sign-up id and a move keeps the row', () => {
   const row = state.signups[state.signups.length - 1];
   const moved = aba.moveSignup_({
     token: row.token,
+    signupId: row.signupId,
     event: 'Happy Hour',
     date: '2026-12-09',
     task: 'Ambassadors Clean up'
