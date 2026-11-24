@@ -4,6 +4,7 @@
 
   var portal = window.ABAPortal;
   var PASSWORD_KEY = 'aba-board-portal-password';
+  var VIEW_KEY = 'aba-board-portal-view';
   var state = {
     hash: '',
     events: [],
@@ -12,7 +13,7 @@
     today: '',
     notice: '',
     dashboard: null,
-    view: { level: 'overview', lens: 'person' }
+    view: readView()
   };
 
   document.addEventListener('DOMContentLoaded', start);
@@ -70,6 +71,25 @@
         if (digest === state.hash) openPortal();
       });
     }
+  }
+
+  function readView() {
+    var view = { level: 'overview', lens: 'person', source: 'internal' };
+    try {
+      var saved = JSON.parse(sessionStorage.getItem(VIEW_KEY) || '{}');
+      if (saved.lens === 'event') view.lens = 'event';
+      if (saved.source === 'external') view.source = 'external';
+    } catch (err) {}
+    return view;
+  }
+
+  function saveView() {
+    try {
+      sessionStorage.setItem(VIEW_KEY, JSON.stringify({
+        lens: state.view.lens === 'event' ? 'event' : 'person',
+        source: state.view.source === 'external' ? 'external' : 'internal'
+      }));
+    } catch (err) {}
   }
 
   function readPassword() {
@@ -139,7 +159,11 @@
         return;
       }
       state.dashboard = data.dashboard;
-      state.view = { level: 'overview', lens: 'person' };
+      state.view = {
+        level: 'overview',
+        lens: state.view.lens === 'event' ? 'event' : 'person',
+        source: state.view.source === 'external' ? 'external' : 'internal'
+      };
       paintDash();
     } catch (err) {
       root.innerHTML = portal.renderDashboard(null, { error: err.message || 'The dashboard could not be loaded.' });
@@ -149,18 +173,21 @@
   function paintDash() {
     var root = document.getElementById('portal-dashboard-body');
     if (root) root.innerHTML = portal.renderDashboard(state.dashboard, null, state.view);
+    saveView();
   }
 
   function onDashClick(event) {
-    var node = event.target.closest('[data-person], [data-month], [data-event], [data-dash]');
+    var node = event.target.closest('[data-person], [data-month], [data-event], [data-dash], [data-lens], [data-source]');
     if (!node || !state.dashboard) return;
     var lens = (state.view && state.view.lens) || 'person';
-    if (node.hasAttribute('data-lens')) state.view = { level: 'overview', lens: node.getAttribute('data-lens') };
-    else if (node.getAttribute('data-dash') === 'overview') state.view = { level: 'overview', lens: lens };
-    else if (node.hasAttribute('data-event')) state.view = { level: 'event', key: node.getAttribute('data-event'), lens: lens };
-    else if (node.classList.contains('vbar-col') || (node.hasAttribute('data-month') && !node.hasAttribute('data-person'))) state.view = { level: 'month', key: node.getAttribute('data-month'), lens: lens };
-    else if (node.hasAttribute('data-person')) state.view = { level: 'person', id: node.getAttribute('data-person'), lens: lens };
-    else if (node.hasAttribute('data-month')) state.view = { level: 'month', key: node.getAttribute('data-month'), lens: lens };
+    var source = (state.view && state.view.source) || 'internal';
+    if (node.hasAttribute('data-source')) state.view = { level: 'overview', lens: lens, source: node.getAttribute('data-source') };
+    else if (node.hasAttribute('data-lens')) state.view = { level: 'overview', lens: node.getAttribute('data-lens'), source: source };
+    else if (node.getAttribute('data-dash') === 'overview') state.view = { level: 'overview', lens: lens, source: source };
+    else if (node.hasAttribute('data-event')) state.view = { level: 'event', key: node.getAttribute('data-event'), lens: lens, source: source };
+    else if (node.classList.contains('vbar-col') || (node.hasAttribute('data-month') && !node.hasAttribute('data-person'))) state.view = { level: 'month', key: node.getAttribute('data-month'), lens: lens, source: source };
+    else if (node.hasAttribute('data-person')) state.view = { level: 'person', id: node.getAttribute('data-person'), lens: lens, source: source };
+    else if (node.hasAttribute('data-month')) state.view = { level: 'month', key: node.getAttribute('data-month'), lens: lens, source: source };
     else return;
     paintDash();
   }

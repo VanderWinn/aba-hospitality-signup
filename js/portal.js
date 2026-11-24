@@ -311,13 +311,21 @@
   }
 
   function lensTabs(lens) {
-    return '<div class="lens-tabs" role="tablist">' +
+    return '<div class="lens-tabs" role="tablist" aria-label="Lens">' +
       '<button type="button" role="tab" data-lens="person" class="' + (lens === 'person' ? 'is-on' : '') + '" aria-selected="' + (lens === 'person') + '">By person</button>' +
       '<button type="button" role="tab" data-lens="event" class="' + (lens === 'event' ? 'is-on' : '') + '" aria-selected="' + (lens === 'event') + '">By event</button>' +
       '</div>';
   }
 
-  function personLens(model) {
+  function sourceTabs(source) {
+    var external = source === 'external';
+    return '<div class="lens-tabs source-tabs" role="tablist" aria-label="Source">' +
+      '<button type="button" role="tab" data-source="internal" class="' + (external ? '' : 'is-on') + '" aria-selected="' + (!external) + '">Internal</button>' +
+      '<button type="button" role="tab" data-source="external" class="' + (external ? 'is-on' : '') + '" aria-selected="' + external + '">External</button>' +
+      '</div>';
+  }
+
+  function personLens(model, source) {
     var people = (model.chart && model.chart.people) || [];
     var opportunities = (model.chart && model.chart.opportunities) || 0;
     var companyReady = model.chart && model.chart.companyAvailable;
@@ -351,17 +359,19 @@
     var note = companyReady
       ? 'Grouped by company when a company is on the sign-up.'
       : 'Company is not on the sign-up sheet yet. People are listed until a company field is added.';
-    return '<p class="portal-dash-note">' + note + '</p><div class="lens-pair">' +
-      '<section class="panel"><p class="panel-kicker">Internal</p><h3 class="action-title">Shifts by Person</h3>' + rankTable(absolute) +
+    if (source === 'external') {
+      return '<section class="panel"><p class="portal-soon">Coming soon / example layout</p>' +
+        '<h3 class="action-title">Attendance by Person</h3>' + rankTable(guestAbsolute) +
+        '<h3 class="action-title">Attendance by Opportunity</h3><p class="portal-dash-note">Example data. Events attended, of events offered.</p>' + rankTable(guestRates) +
+        '</section>';
+    }
+    return '<p class="portal-dash-note">' + note + '</p><section class="panel">' +
+      '<h3 class="action-title">Shifts by Person</h3>' + rankTable(absolute) +
       '<h3 class="action-title">Opportunity by Person</h3><p class="portal-dash-note">Shifts filled, of role seats offered this year.</p>' + rankTable(rates) +
-      '<h3 class="action-title">Shifts by Month</h3>' + verticalChart(monthItems(model, dashboardStory(model))) + '</section>' +
-      '<section class="panel"><p class="panel-kicker">External</p><p class="portal-soon">Coming soon / example layout</p>' +
-      '<h3 class="action-title">Attendance by Person</h3>' + rankTable(guestAbsolute) +
-      '<h3 class="action-title">Attendance by Opportunity</h3><p class="portal-dash-note">Example data. Events attended, of events offered.</p>' + rankTable(guestRates) +
-      '</section></div>';
+      '<h3 class="action-title">Shifts by Month</h3>' + verticalChart(monthItems(model, dashboardStory(model))) + '</section>';
   }
 
-  function eventLens(model) {
+  function eventLens(model, source) {
     var capacity = model.capacity || { events: [] };
     var internal = (capacity.events || []).map(function (event) {
       var filled = 0;
@@ -396,19 +406,22 @@
         attrs: ''
       };
     });
-    return '<div class="lens-pair">' +
-      '<section class="panel"><p class="panel-kicker">Internal</p><h3 class="action-title">Opportunity by Event</h3>' +
+    if (source === 'external') {
+      return '<section class="panel"><p class="portal-soon">Coming soon / example layout</p>' +
+        '<h3 class="action-title">Attendance by Event</h3>' +
+        '<p class="portal-dash-note">Example data, until an attendance source is connected.</p>' +
+        progressTable(external) + '</section>';
+    }
+    return '<section class="panel"><h3 class="action-title">Opportunity by Event</h3>' +
       '<p class="portal-dash-note">Roles filled, of roles open. ' + countLine(capacity.filled, capacity.seats) + ' <span class="portal-context">' + percentOf(capacity.filled, capacity.seats) + '</span></p>' +
-      progressTable(internal) + '</section>' +
-      '<section class="panel"><p class="panel-kicker">External</p><p class="portal-soon">Coming soon / example layout</p>' +
-      '<h3 class="action-title">Attendance by Event</h3>' +
-      '<p class="portal-dash-note">Example data, until an attendance source is connected.</p>' +
-      progressTable(external) + '</section></div>';
+      progressTable(internal) + '</section>';
   }
 
-  function overview(model, lens) {
+  function overview(model, lens, source) {
     var mode = lens === 'event' ? 'event' : 'person';
-    return lensTabs(mode) + (mode === 'event' ? eventLens(model) : personLens(model));
+    var side = source === 'external' ? 'external' : 'internal';
+    var body = mode === 'event' ? eventLens(model, side) : personLens(model, side);
+    return '<div class="dash-toggles">' + sourceTabs(side) + lensTabs(mode) + '</div>' + body;
   }
 
   function personView(model, id) {
@@ -514,7 +527,7 @@
     if (level === 'person') return personView(model, view.id);
     if (level === 'month') return monthView(model, view.key);
     if (level === 'event') return eventView(model, view.key);
-    return overview(model, view && view.lens);
+    return overview(model, view && view.lens, view && view.source);
   }
 
   root.ABAPortal = {
