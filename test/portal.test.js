@@ -88,23 +88,28 @@ test('the portal password is a hash and the sign-up page does not link to it', (
       ]
     }
   };
-  const story = portal.dashboardStory(model);
-  assert.match(story.headline, /rose in November/);
-  assert.match(story.headline, /half of all shifts/);
+  model.chart.opportunities = 4;
   const html = portal.renderDashboard(model);
+  assert.match(html, /Shifts by Person/);
+  assert.match(html, /Opportunity by Person/);
+  assert.match(html, /Attendance by Person/);
   assert.match(html, /3 of 4/);
-  assert.match(html, /2 of 2/);
-  assert.match(html, /1 of 2/);
   assert.match(html, /data-person="p1"/);
+  assert.match(html, /data-lens="event"/);
   assert.match(html, /Coming soon \/ example layout/);
   assert.match(html, /Example data/);
+  const byEvent = portal.renderDashboard(model, null, { level: 'overview', lens: 'event' });
+  assert.match(byEvent, /Opportunity by Event/);
+  assert.match(byEvent, /Attendance by Event/);
+  assert.match(byEvent, /1 of 2/);
   const person = portal.renderDashboard(model, null, { level: 'person', id: 'p1' });
   assert.match(person, /Overview/);
   assert.match(person, /Door Greeter/);
   const month = portal.renderDashboard(model, null, { level: 'month', key: '2026-11' });
-  assert.match(month, /November had 3 shifts/);
+  assert.match(month, /November/);
   const event = portal.renderDashboard(model, null, { level: 'event', key: '2026-12-09|Happy Hour' });
   assert.match(event, /Set-Up/);
   assert.match(event, /Open/);
-  assert.equal((html + person + month + event).includes('@'), false);
+  assert.equal((html + byEvent + person + month + event).includes('@'), false);
+  assert.equal(/rose in November|half of all shifts/.test(html), false);
 });

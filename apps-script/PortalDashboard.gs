@@ -55,6 +55,10 @@ function portalQuarter_(today) {
   return { label: 'Q' + (quarter + 1) + ' ' + year, start: iso(startMonth, 1), end: iso(endMonth, endDay) };
 }
 
+function portalCompany_(row) {
+  return String((row && (row.company || row.organization || row.business)) || '').trim();
+}
+
 function portalPersonKey_(row) {
   var email = String(row.email || '').trim().toLowerCase();
   if (email) return 'e:' + email;
@@ -116,10 +120,11 @@ function portalChart_(rows, slots) {
     monthMap[month] += 1;
     var key = portalPersonKey_(row);
     if (!peopleMap[key]) {
-      peopleMap[key] = { name: String(row.name || '').trim(), total: 0, counts: {}, events: [] };
+      peopleMap[key] = { name: String(row.name || '').trim(), company: portalCompany_(row), total: 0, counts: {}, events: [] };
       order.push(key);
     }
     var person = peopleMap[key];
+    if (!person.company) person.company = portalCompany_(row);
     person.total += 1;
     person.counts[month] = (person.counts[month] || 0) + 1;
     person.events.push({
@@ -147,8 +152,12 @@ function portalChart_(rows, slots) {
     if (b.total !== a.total) return b.total - a.total;
     return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
   });
-  people.forEach(function (person, index) { person.id = 'p' + (index + 1); });
-  return { months: months, people: people };
+  var companyAvailable = false;
+  people.forEach(function (person, index) {
+    person.id = 'p' + (index + 1);
+    if (person.company) companyAvailable = true;
+  });
+  return { months: months, people: people, companyAvailable: companyAvailable };
 }
 
 function portalSameRole_(row, slot) {
@@ -241,7 +250,17 @@ function portalDashboard_(signups, slots, today) {
       openRoles: openRoles,
       events: upcoming
     },
-    chart: portalChart_(yearRows, slots)
+    chart: (function () {
+      var chart = portalChart_(yearRows, slots);
+      var opportunities = 0;
+      (slots || []).forEach(function (slot) {
+        if (!slot || !slot.date || String(slot.date).slice(0, 4) !== year) return;
+        var seats = Number(slot.capacity);
+        if (isFinite(seats) && seats > 0) opportunities += seats;
+      });
+      chart.opportunities = opportunities;
+      return chart;
+    })()
   };
 }
 

@@ -63,6 +63,9 @@ test('the dashboard returns names and counts without emails or phones', () => {
   assert.equal(dash.chart.people[0].counts['2026-12'], 1);
   assert.equal(dash.chart.people[0].events.length, 2);
   assert.equal(dash.chart.months.length, 3);
+  assert.equal(dash.chart.companyAvailable, false);
+  assert.equal(dash.chart.opportunities, 3);
+  assert.equal(dash.chart.people[0].company, '');
   const routed = aba.interpretPost_(JSON.stringify({ action: 'dashboard', password: 'nope' }), {
     dashboard: function (body) { return ask(body.password, hash); }
   });

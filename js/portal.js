@@ -253,76 +253,162 @@
     return items;
   }
 
-  function overview(model) {
-    var story = dashboardStory(model);
-    var quarter = model.participation.quarter;
-    var year = model.participation.year;
-    var capacity = model.capacity;
-    var people = (model.chart && model.chart.people) || [];
-    var months = (model.chart && model.chart.months) || [];
-    var series = months.map(function (month) { return month.shifts; });
-    var latest = months.length ? months[months.length - 1] : null;
-    var top = people.slice(0, 4).map(function (person, index) {
-      return '<li><button type="button" data-person="' + escapeHtml(person.id) + '"><span>' + escapeHtml(person.name) +
-        '</span><strong>' + person.total + '</strong></button></li>';
-    }).join('');
-    var personRows = people.map(function (person, index) {
-      var pct = story && people.length ? Math.round((person.total / ((model.chart.months || []).reduce(function (sum, month) { return sum + month.shifts; }, 0) || 1)) * 100) : 0;
+  function rankedRows(rows) {
+    var max = 1;
+    rows.forEach(function (row) { if (row.value > max) max = row.value; });
+    return rows.map(function (row, index) {
+      var width = Math.round((row.value / max) * 100);
       return {
-        title: person.name,
-        sub: person.total === 1 ? '1 shift' : person.total + ' shifts',
-        count: String(person.total),
-        pct: pct,
-        pctLabel: pct + '%',
-        accent: index < story.halfCount,
-        attrs: 'data-person="' + escapeHtml(person.id) + '"'
+        title: row.title,
+        sub: (row.sub || '') + (index === 0 ? '' : ''),
+        count: String(row.value),
+        pct: width,
+        pctLabel: '',
+        accent: index === 0,
+        attrs: row.attrs || '',
+        rank: index + 1
       };
     });
-    var yearShifts = (model.chart && model.chart.months || []).reduce(function (sum, month) { return sum + month.shifts; }, 0) || year.shifts;
-    personRows.forEach(function (row, index) {
-      var pct = yearShifts ? Math.round((people[index].total / yearShifts) * 100) : 0;
-      row.pct = pct;
-      row.pctLabel = pct + '%';
+  }
+
+  function rateRows(rows) {
+    return rows.map(function (row, index) {
+      var pct = row.whole ? Math.round((row.value / row.whole) * 100) : 0;
+      return {
+        title: row.title,
+        sub: row.sub || '',
+        count: countLine(row.value, row.whole),
+        pct: pct,
+        pctLabel: pct + '%',
+        accent: index === 0,
+        attrs: row.attrs || '',
+        rank: index + 1
+      };
     });
-    var eventRows = (capacity.events || []).map(function (event) {
+  }
+
+  function rankTable(rows) {
+    return '<div class="progress-table">' + rows.map(function (row) {
+      var width = Math.max(0, Math.min(100, row.pct));
+      var inside = width >= 18 && row.pctLabel ? row.pctLabel : '';
+      var outside = row.pctLabel && width < 18 ? '<span class="progress-pct">' + row.pctLabel + '</span>' : '';
+      return '<button type="button" class="progress-row rank-row" ' + row.attrs + '>' +
+        '<span class="rank-num">' + row.rank + '</span>' +
+        '<span class="progress-copy"><span class="progress-title">' + escapeHtml(row.title) + '</span>' +
+        (row.sub ? '<span class="progress-sub">' + escapeHtml(row.sub) + '</span>' : '') + '</span>' +
+        '<span class="progress-count">' + escapeHtml(row.count) + '</span>' +
+        '<span class="progress-track"><span class="progress-fill' + (row.accent ? ' is-focus' : '') + '" style="width:' + width + '%">' + inside + '</span></span>' +
+        outside + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function exampleGuests() {
+    return [
+      { name: 'Example Guest A', attended: 6, offered: 12 },
+      { name: 'Example Guest B', attended: 4, offered: 12 },
+      { name: 'Example Guest C', attended: 2, offered: 12 }
+    ];
+  }
+
+  function lensTabs(lens) {
+    return '<div class="lens-tabs" role="tablist">' +
+      '<button type="button" role="tab" data-lens="person" class="' + (lens === 'person' ? 'is-on' : '') + '" aria-selected="' + (lens === 'person') + '">By person</button>' +
+      '<button type="button" role="tab" data-lens="event" class="' + (lens === 'event' ? 'is-on' : '') + '" aria-selected="' + (lens === 'event') + '">By event</button>' +
+      '</div>';
+  }
+
+  function personLens(model) {
+    var people = (model.chart && model.chart.people) || [];
+    var opportunities = (model.chart && model.chart.opportunities) || 0;
+    var companyReady = model.chart && model.chart.companyAvailable;
+    var absolute = rankedRows(people.map(function (person) {
+      return {
+        title: person.name,
+        sub: person.company || 'Person',
+        value: person.total,
+        attrs: 'data-person="' + escapeHtml(person.id) + '"'
+      };
+    }));
+    absolute.forEach(function (row, index) { row.rank = index + 1; });
+    var rates = rateRows(people.map(function (person) {
+      return {
+        title: person.name,
+        sub: person.company || 'Person',
+        value: person.total,
+        whole: opportunities,
+        attrs: 'data-person="' + escapeHtml(person.id) + '"'
+      };
+    }));
+    var guests = exampleGuests();
+    var guestAbsolute = rankedRows(guests.map(function (guest) {
+      return { title: guest.name, sub: 'Example data', value: guest.attended, attrs: '' };
+    }));
+    guestAbsolute.forEach(function (row, index) { row.rank = index + 1; row.accent = false; });
+    var guestRates = rateRows(guests.map(function (guest) {
+      return { title: guest.name, sub: 'Example data', value: guest.attended, whole: guest.offered, attrs: '' };
+    }));
+    guestRates.forEach(function (row) { row.accent = false; });
+    var note = companyReady
+      ? 'Grouped by company when a company is on the sign-up.'
+      : 'Company is not on the sign-up sheet yet. People are listed until a company field is added.';
+    return '<p class="portal-dash-note">' + note + '</p><div class="lens-pair">' +
+      '<section class="panel"><p class="panel-kicker">Internal</p><h3 class="action-title">Shifts by Person</h3>' + rankTable(absolute) +
+      '<h3 class="action-title">Opportunity by Person</h3><p class="portal-dash-note">Shifts filled, of role seats offered this year.</p>' + rankTable(rates) +
+      '<h3 class="action-title">Shifts by Month</h3>' + verticalChart(monthItems(model, dashboardStory(model))) + '</section>' +
+      '<section class="panel"><p class="panel-kicker">External</p><p class="portal-soon">Coming soon / example layout</p>' +
+      '<h3 class="action-title">Attendance by Person</h3>' + rankTable(guestAbsolute) +
+      '<h3 class="action-title">Attendance by Opportunity</h3><p class="portal-dash-note">Example data. Events attended, of events offered.</p>' + rankTable(guestRates) +
+      '</section></div>';
+  }
+
+  function eventLens(model) {
+    var capacity = model.capacity || { events: [] };
+    var internal = (capacity.events || []).map(function (event) {
       var filled = 0;
       var seats = 0;
       (event.roles || []).forEach(function (role) {
         filled += Math.min(role.filled, role.capacity);
         seats += Number(role.capacity) || 0;
       });
+      var open = (event.roles || []).some(function (role) { return role.open; });
       var pct = seats ? Math.round((filled / seats) * 100) : 0;
-      var open = (event.roles || []).filter(function (role) { return role.open; }).length;
       return {
         title: event.name,
-        sub: formatLong(event.date) + (event.venue ? ' · ' + event.venue : '') + (open ? ' · ' + open + ' open' : ''),
+        sub: formatLong(event.date) + (event.venue ? ' · ' + event.venue : ''),
         count: countLine(filled, seats),
         pct: pct,
         pctLabel: pct + '%',
-        accent: open > 0,
+        accent: open,
+        rank: 0,
         attrs: 'data-event="' + escapeHtml(eventKey(event)) + '"'
       };
     });
-    return '<div class="exec-band"><div class="exec-bar"><span>Hospitality dashboard</span><span>' + escapeHtml(model.asOf || '') + '</span></div>' +
-      '<p class="portal-headline">' + escapeHtml(story.headline) + '</p>' +
-      '<p class="portal-dash-note">' + escapeHtml(model.note || '') + '</p>' +
-      '<div class="exec-top">' +
-      '<div class="ring-row">' +
-      ring(quarter.shifts, year.shifts, quarter.label + ' shifts') +
-      ring(quarter.volunteers, year.volunteers, quarter.label + ' volunteers') +
-      ring(capacity.filled, capacity.seats, 'Seats filled') +
-      '</div>' +
-      '<div class="top-card"><p class="panel-kicker">Top by shifts</p><ol class="top-list">' + (top || '<li>No volunteers yet.</li>') + '</ol></div>' +
-      '<div class="spark-card"><p class="panel-kicker">Month trend</p><p class="spark-value">' + (latest ? latest.shifts : 0) + '</p>' +
-      '<p class="spark-label">' + escapeHtml(latest ? latest.label : 'No months') + '</p>' + sparkline(series) + '</div>' +
-      '</div></div>' +
-      panel('Shifts by month', '<h3 class="action-title">' + escapeHtml(story.chartTitle) + '</h3>' + verticalChart(monthItems(model, story)) +
-        '<p class="portal-chart-note">Gray bars are context. Pine marks ' + escapeHtml((months[months.length - 1] || {}).label || 'the latest month') + '.</p>') +
-      panel('Participation by volunteer', '<h3 class="action-title">' + escapeHtml(story.chartTitle) + '</h3>' + progressTable(personRows)) +
-      panel('Capacity by event', '<h3 class="action-title">' + (capacity.openRoles || 0) + ' upcoming ' + ((capacity.openRoles === 1) ? 'role is' : 'roles are') + ' still open</h3>' +
-        '<p class="portal-dash-note">' + countLine(capacity.filled, capacity.seats) + ' seats filled <span class="portal-context">' + percentOf(capacity.filled, capacity.seats) + '</span></p>' +
-        progressTable(eventRows)) +
-      externalCard();
+    var external = externalExample().map(function (row) {
+      var pct = row.capacity ? Math.round((row.attended / row.capacity) * 100) : 0;
+      return {
+        title: row.name,
+        sub: 'Example data',
+        count: countLine(row.attended, row.capacity),
+        pct: pct,
+        pctLabel: pct + '%',
+        accent: false,
+        rank: 0,
+        attrs: ''
+      };
+    });
+    return '<div class="lens-pair">' +
+      '<section class="panel"><p class="panel-kicker">Internal</p><h3 class="action-title">Opportunity by Event</h3>' +
+      '<p class="portal-dash-note">Roles filled, of roles open. ' + countLine(capacity.filled, capacity.seats) + ' <span class="portal-context">' + percentOf(capacity.filled, capacity.seats) + '</span></p>' +
+      progressTable(internal) + '</section>' +
+      '<section class="panel"><p class="panel-kicker">External</p><p class="portal-soon">Coming soon / example layout</p>' +
+      '<h3 class="action-title">Attendance by Event</h3>' +
+      '<p class="portal-dash-note">Example data, until an attendance source is connected.</p>' +
+      progressTable(external) + '</section></div>';
+  }
+
+  function overview(model, lens) {
+    var mode = lens === 'event' ? 'event' : 'person';
+    return lensTabs(mode) + (mode === 'event' ? eventLens(model) : personLens(model));
   }
 
   function personView(model, id) {
@@ -342,8 +428,9 @@
     }).join('');
     if (!rows) rows = '<tr><td colspan="4">No shifts in this list.</td></tr>';
     return '<div class="panel">' + crumb(person.name) +
-      '<p class="panel-kicker">Volunteer</p>' +
-      '<p class="portal-headline">' + escapeHtml(person.name) + ' covered ' + person.total + ' of ' + total + ' shifts.</p>' +
+      '<p class="panel-kicker">Shifts by Month</p>' +
+      '<h3 class="action-title">' + escapeHtml(person.name) + '</h3>' +
+      '<p class="portal-metric-main">' + person.total + ' <span class="portal-context">of ' + total + ' · ' + percentOf(person.total, total) + '</span></p>' +
       '<div class="exec-top exec-top-drill"><div class="ring-row">' + ring(person.total, total, 'Shifts') + '</div>' +
       sparkline(months.map(function (month) { return month.value; })) + '</div>' +
       verticalChart(months.map(function (month) {
@@ -373,8 +460,9 @@
     var yearShifts = 0;
     ((model.chart && model.chart.months) || []).forEach(function (item) { yearShifts += item.shifts; });
     return '<div class="panel">' + crumb(month.label) +
-      '<p class="panel-kicker">Month</p>' +
-      '<p class="portal-headline">' + escapeHtml(month.label) + ' had ' + month.shifts + ' shifts from ' + people.length + ' volunteers.</p>' +
+      '<p class="panel-kicker">Shifts by Person</p>' +
+      '<h3 class="action-title">' + escapeHtml(month.label) + '</h3>' +
+      '<p class="portal-metric-main">' + month.shifts + ' <span class="portal-context">shifts · ' + people.length + ' volunteers</span></p>' +
       '<div class="ring-row">' + ring(month.shifts, yearShifts || month.shifts, 'Shifts this month') + '</div>' +
       verticalChart(people.map(function (person, index) {
         return { label: person.name, value: person.shifts, accent: index === 0 };
@@ -409,8 +497,9 @@
         (role.open ? '<span class="portal-open">Open</span>' : 'Filled') + '</td><td>' + (names || '') + '</td></tr>';
     }).join('');
     return '<div class="panel">' + crumb(event.name) +
-      '<p class="panel-kicker">Capacity</p>' +
-      '<p class="portal-headline">' + escapeHtml(event.name) + ' on ' + escapeHtml(formatLong(event.date)) + ' has ' + countLine(filled, seats) + ' seats filled.</p>' +
+      '<p class="panel-kicker">Opportunity by Event</p>' +
+      '<h3 class="action-title">' + escapeHtml(event.name) + '</h3>' +
+      '<p class="portal-metric-main">' + countLine(filled, seats) + ' <span class="portal-context">' + percentOf(filled, seats) + '</span></p>' +
       '<p class="portal-where">' + escapeHtml(event.venue || '') + (event.time ? ' · ' + escapeHtml(event.time) : '') + '</p>' +
       '<div class="ring-row">' + ring(filled, seats, 'Seats filled') + '</div>' +
       progressTable(roleRows) +
@@ -425,7 +514,7 @@
     if (level === 'person') return personView(model, view.id);
     if (level === 'month') return monthView(model, view.key);
     if (level === 'event') return eventView(model, view.key);
-    return overview(model);
+    return overview(model, view && view.lens);
   }
 
   root.ABAPortal = {

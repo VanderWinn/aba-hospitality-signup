@@ -12,7 +12,7 @@
     today: '',
     notice: '',
     dashboard: null,
-    view: { level: 'overview' }
+    view: { level: 'overview', lens: 'person' }
   };
 
   document.addEventListener('DOMContentLoaded', start);
@@ -139,7 +139,7 @@
         return;
       }
       state.dashboard = data.dashboard;
-      state.view = { level: 'overview' };
+      state.view = { level: 'overview', lens: 'person' };
       paintDash();
     } catch (err) {
       root.innerHTML = portal.renderDashboard(null, { error: err.message || 'The dashboard could not be loaded.' });
@@ -154,11 +154,13 @@
   function onDashClick(event) {
     var node = event.target.closest('[data-person], [data-month], [data-event], [data-dash]');
     if (!node || !state.dashboard) return;
-    if (node.getAttribute('data-dash') === 'overview') state.view = { level: 'overview' };
-    else if (node.hasAttribute('data-event')) state.view = { level: 'event', key: node.getAttribute('data-event') };
-    else if (node.classList.contains('shift-seg')) state.view = { level: 'month', key: node.getAttribute('data-month') };
-    else if (node.hasAttribute('data-person')) state.view = { level: 'person', id: node.getAttribute('data-person') };
-    else if (node.hasAttribute('data-month')) state.view = { level: 'month', key: node.getAttribute('data-month') };
+    var lens = (state.view && state.view.lens) || 'person';
+    if (node.hasAttribute('data-lens')) state.view = { level: 'overview', lens: node.getAttribute('data-lens') };
+    else if (node.getAttribute('data-dash') === 'overview') state.view = { level: 'overview', lens: lens };
+    else if (node.hasAttribute('data-event')) state.view = { level: 'event', key: node.getAttribute('data-event'), lens: lens };
+    else if (node.classList.contains('vbar-col') || (node.hasAttribute('data-month') && !node.hasAttribute('data-person'))) state.view = { level: 'month', key: node.getAttribute('data-month'), lens: lens };
+    else if (node.hasAttribute('data-person')) state.view = { level: 'person', id: node.getAttribute('data-person'), lens: lens };
+    else if (node.hasAttribute('data-month')) state.view = { level: 'month', key: node.getAttribute('data-month'), lens: lens };
     else return;
     paintDash();
   }
