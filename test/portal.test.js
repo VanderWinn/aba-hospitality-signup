@@ -3,7 +3,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const test = require('node:test');
-const { createHash } = require('node:crypto');
 
 const root = path.join(__dirname, '..');
 
@@ -36,8 +35,7 @@ test('the catalog becomes calendar events with venue, time, and category', () =>
 
 test('the portal password is a hash and the sign-up page does not link to it', () => {
   const config = JSON.parse(fs.readFileSync(path.join(root, 'home/portal.json'), 'utf8'));
-  const hash = createHash('sha256').update('change-me', 'utf8').digest('hex');
-  assert.equal(config.passwordSha256, hash);
+  assert.equal(config.passwordSha256, '7b85d87fd6d1af2728dee2eafc499539311143474fe851018ebe0e2fca999df6');
   const signup = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   assert.equal(signup.includes('Board & Committee'), false);
   assert.equal(signup.includes('home/'), false);
