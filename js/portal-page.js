@@ -3,7 +3,7 @@
   'use strict';
 
   var portal = window.ABAPortal;
-  var STORAGE_KEY = 'aba-board-portal';
+  var PASSWORD_KEY = 'aba-board-portal-password';
   var state = {
     hash: '',
     events: [],
@@ -61,9 +61,24 @@
     document.getElementById('portal-lock').addEventListener('click', lock);
     document.getElementById('portal-prev').addEventListener('click', function () { shiftMonth(-1); });
     document.getElementById('portal-next').addEventListener('click', function () { shiftMonth(1); });
-    var saved = '';
-    try { saved = localStorage.getItem(STORAGE_KEY) || ''; } catch (err) { saved = ''; }
-    if (saved && saved === state.hash) openPortal();
+    var saved = readPassword();
+    if (saved) {
+      sha256(saved).then(function (digest) {
+        if (digest === state.hash) openPortal();
+      });
+    }
+  }
+
+  function readPassword() {
+    try { return sessionStorage.getItem(PASSWORD_KEY) || ''; } catch (err) { return ''; }
+  }
+
+  function savePassword(password) {
+    try { sessionStorage.setItem(PASSWORD_KEY, password); } catch (err) {}
+  }
+
+  function clearPassword() {
+    try { sessionStorage.removeItem(PASSWORD_KEY); } catch (err) {}
   }
 
   async function onUnlock(event) {
@@ -79,14 +94,14 @@
       setError('That password is not correct.');
       return;
     }
-    try { localStorage.setItem(STORAGE_KEY, digest); } catch (err) {}
+    savePassword(password);
     setError('');
     if (input) input.value = '';
     openPortal();
   }
 
   function lock() {
-    try { localStorage.removeItem(STORAGE_KEY); } catch (err) {}
+    clearPassword();
     show('portal-gate', true);
     show('portal-app', false);
     var input = document.getElementById('portal-password');
@@ -102,6 +117,46 @@
     state.month = Number(parts[1]);
     loadDocuments();
     loadCalendar();
+    loadDashboard();
+  }
+
+  async function loadDashboard() {
+    var root = document.getElementById('portal-dashboard-body');
+    if (!root) return;
+    var password = readPassword();
+    if (!password) {
+      root.innerHTML = portal.renderDashboard(null, { error: 'Enter the portal password again to load the dashboard.' });
+      return;
+    }
+    try {
+      var data = await postDashboard(password);
+      if (!data || data.ok !== true) {
+        if (data && data.status === 401 && /not correct/i.test(data.error || '')) clearPassword();
+        root.innerHTML = portal.renderDashboard(null, { error: (data && data.error) || 'The dashboard could not be loaded.' });
+        return;
+      }
+      root.innerHTML = portal.renderDashboard(data.dashboard);
+    } catch (err) {
+      root.innerHTML = portal.renderDashboard(null, { error: err.message || 'The dashboard could not be loaded.' });
+    }
+  }
+
+  async function postDashboard(password) {
+    var url = backendUrl();
+    if (!url) throw new Error('The dashboard service is not connected.');
+    var response = await fetch(url, {
+      method: 'POST',
+      redirect: 'follow',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'dashboard', password: password })
+    });
+    var text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch (err) {
+      throw new Error('Unexpected response from the dashboard service.');
+    }
   }
 
   async function loadDocuments() {

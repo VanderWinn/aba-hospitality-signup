@@ -1,6 +1,7 @@
 .portal-card,
 .portal-calendar,
 .portal-docs,
+.portal-dashboard,
 .portal-gate {
   background: var(--card);
   border: 1px solid var(--line);
@@ -13,6 +14,7 @@
 .portal-card h2,
 .portal-calendar h2,
 .portal-docs h2,
+.portal-dashboard h2,
 .portal-gate h2 {
   margin: 0 0 0.4rem;
   font-size: 1.35rem;
@@ -20,7 +22,87 @@
 
 .portal-card p,
 .portal-docs p,
+.portal-dashboard > p,
 .portal-gate p { margin: 0 0 0.85rem; color: var(--ink-soft); }
+
+.portal-metric {
+  border-top: 1px solid var(--line);
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+}
+
+.portal-metric h3 { margin: 0 0 0.35rem; font-size: 1.12rem; }
+
+.portal-metric h4 { margin: 0.85rem 0 0.35rem; font-size: 0.98rem; }
+
+.portal-metric-label,
+.portal-metric-sub,
+.portal-dash-note { margin: 0; color: var(--ink-soft); }
+
+.portal-metric-main {
+  margin: 0.15rem 0;
+  font-family: var(--serif);
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.portal-context {
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.portal-people,
+.portal-event-roles { list-style: none; margin: 0.4rem 0 0; padding: 0; }
+
+.portal-people li,
+.portal-event-roles > li {
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.portal-person { font-weight: 700; }
+
+.portal-shift-count,
+.portal-role-names { color: var(--ink-soft); }
+
+.portal-role-names { display: block; }
+
+.portal-open {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: #f8e6e3;
+  color: #6d221c;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.portal-soon {
+  display: inline-block;
+  margin: 0 0 0.55rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #e7f2f1;
+  color: var(--pine-deep);
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.portal-example-tag {
+  display: inline-block;
+  margin-left: 0.35rem;
+  color: var(--pine-deep);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 
 .portal-gate form { max-width: 28rem; }
 

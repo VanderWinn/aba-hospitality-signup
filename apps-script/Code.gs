@@ -401,6 +401,10 @@ function interpretPost_(raw, deps) {
     if (body.action === 'adminRoster') return adminRoster_(body, deps);
     if (body.action === 'adminAdd') return adminAdd_(body, deps);
     if (body.action === 'adminRemove') return adminRemove_(body, deps);
+    if (body.action === 'dashboard') {
+      if (deps && deps.dashboard) return deps.dashboard(body);
+      return dashboardAction_(body);
+    }
     return { ok: false, error: 'Invalid request.' };
   }
   return processPost_(body, deps);

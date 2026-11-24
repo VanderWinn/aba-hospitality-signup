@@ -52,6 +52,36 @@ test('the portal password is a hash and the sign-up page does not link to it', (
   assert.match(workflow, /home\/docs\.json/);
   const page = fs.readFileSync(path.join(root, 'js/portal-page.js'), 'utf8');
   const css = fs.readFileSync(path.join(root, 'css/portal.css'), 'utf8');
-  const bundle = home + page + css;
+  const logic = fs.readFileSync(path.join(root, 'js/portal.js'), 'utf8');
+  const bundle = home + page + css + logic;
   assert.equal(/\blands?\b|\blanded\b|\blanding\b/i.test(bundle), false);
+  assert.match(home, /id="portal-dashboard-body"/);
+  assert.match(page, /sessionStorage/);
+  assert.equal(page.includes('localStorage'), false);
+  assert.match(page, /action: 'dashboard'/);
+  const html = portal.renderDashboard({
+    note: 'Example note',
+    participation: {
+      quarter: { label: 'Q4 2026', volunteers: 2, shifts: 3, people: [{ name: 'Example Volunteer A', shifts: 2 }, { name: 'Example Volunteer B', shifts: 1 }] },
+      year: { label: '2026', volunteers: 2, shifts: 3, people: [] }
+    },
+    capacity: {
+      filled: 1,
+      seats: 2,
+      openRoles: 1,
+      events: [{
+        date: '2026-12-09',
+        time: '4:30 PM',
+        name: 'Happy Hour',
+        venue: 'Ada Hotel',
+        roles: [{ task: 'Set-Up', filled: 1, capacity: 2, open: true, names: ['Example Volunteer A'] }]
+      }]
+    }
+  });
+  assert.match(html, /2 of 2/);
+  assert.match(html, /1 of 2/);
+  assert.match(html, /Open/);
+  assert.match(html, /Coming soon \/ example layout/);
+  assert.match(html, /Example data/);
+  assert.equal(html.includes('@'), false);
 });
