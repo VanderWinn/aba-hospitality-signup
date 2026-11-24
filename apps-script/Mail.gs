@@ -45,12 +45,12 @@ function parseClock_(text) {
     raw = ABA_RULES.formatSheetTime(raw);
   }
   raw = String(raw || '').trim().replace(/\./g, '').replace(/\s+/g, ' ');
-  var match = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*([AaPp][Mm])$/);
+  var match = raw.match(/^(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?\s*([AaPp][Mm])$/);
   if (!match) return null;
   var hour = Number(match[1]);
   var minute = match[2] == null || match[2] === '' ? 0 : Number(match[2]);
   if (hour < 1 || hour > 12 || minute > 59) return null;
-  var ap = match[3].toUpperCase();
+  var ap = match[4].toUpperCase();
   if (ap === 'AM') hour = hour === 12 ? 0 : hour;
   else hour = hour === 12 ? 12 : hour + 12;
   return { hour: hour, minute: minute };

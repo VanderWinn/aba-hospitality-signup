@@ -443,7 +443,7 @@ test('auto mode applies the mirror and a removed sign-up stays on the sheet', ()
 });
 
 test('sheet dates, blank ends, and odd listing times do not stop the sync', () => {
-  const fourThirty = new Date(Date.UTC(1899, 11, 30, 21, 30, 0));
+  const fourThirty = new Date('1899-12-30T22:02:11.000Z');
   assert.equal(aba.normalizeEventClock_(fourThirty), '4:30 PM');
   assert.equal(aba.normalizeEventClock_(16.5 / 24), '4:30 PM');
   assert.equal(aba.normalizeEventClock_(''), '');
@@ -502,7 +502,7 @@ test('sheet dates, blank ends, and odd listing times do not stop the sync', () =
 
 test('the old seeded Events tab migrates in place and keeps every event', () => {
   const headers = ['TYPE', 'DATE', 'START', 'END', 'LOCATION', 'SOURCE', 'ADDED AT'];
-  const fourThirty = new Date(Date.UTC(1899, 11, 30, 21, 30, 0));
+  const fourThirty = new Date('1899-12-30T22:02:11.000Z');
   const rows = aba.abaFallbackEvents_().map((event) => [
     event.type,
     event.date,
@@ -528,4 +528,50 @@ test('the old seeded Events tab migrates in place and keeps every event', () => 
   assert.equal(second.changed, false);
   assert.equal(second.kept, 11);
   assert.equal(second.rows.length, 11);
+});
+
+test('Detroit local mean time on an 1899 cell is not a 5:02 PM change', () => {
+  const sheetsTime = new Date('1899-12-30T22:02:11.000Z');
+  assert.equal(aba.ABA_RULES.formatSheetTime(sheetsTime), '5:02 PM');
+  assert.equal(aba.eventClockFromSheet_(sheetsTime, '4:30 PM'), '4:30 PM');
+  assert.equal(aba.eventClockFromSheet_(sheetsTime, '4:30:00 PM'), '4:30 PM');
+  assert.equal(aba.eventClockFromSheet_(sheetsTime, ''), '4:30 PM');
+  const text = [
+    '2026',
+    'November',
+    '24 - Lunch and Learn (test) - Test Location, 1PM - 5PM.',
+    'December',
+    '9 - ABA Happy Hour - Ada Hotel, 4:30-6:30pm'
+  ].join('\n');
+  const stored = {
+    type: 'Happy Hour',
+    date: '2026-12-09',
+    start: sheetsTime,
+    end: '',
+    location: 'Happy Hour, Ada Hotel, 7415 River St SE, Ada'
+  };
+  const plan = aba.planEventSync_(text, [stored], TODAY);
+  assert.equal(plan.added, 1);
+  assert.equal(plan.addedEvents[0].date, '2026-11-24');
+  assert.equal(plan.changed, 0);
+  assert.equal(plan.removed, 0);
+  assert.equal(plan.unchanged, 1);
+  const headers = ['TYPE', 'DATE', 'START', 'END', 'LOCATION', 'SOURCE', 'ADDED AT'];
+  const migrated = aba.planEventsTabMigration_(headers, [[
+    'Happy Hour', '2026-12-09', sheetsTime, '', stored.location, 'seed', ''
+  ]], [[
+    'Happy Hour', '12/9/2026', '4:30 PM', '', stored.location, 'seed', ''
+  ]]);
+  assert.equal(migrated.rows[0][2], '4:30 PM');
+  assert.equal(migrated.rows[0][3], '6:30 PM');
+  assert.equal(migrated.rows[0][4], stored.location);
+  const renamed = aba.planEventSync_('2026\nDecember\n9 - ABA Happy Hour - Schnitz, 4:30-6:30pm', [{
+    type: 'Happy Hour',
+    date: '2026-12-09',
+    start: '4:30 PM',
+    end: '6:30 PM',
+    location: stored.location
+  }], TODAY);
+  assert.equal(renamed.changed, 1);
+  assert.equal(renamed.changedEvents[0].after.location, 'Happy Hour, Schnitz');
 });

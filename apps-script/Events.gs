@@ -36,21 +36,52 @@ function logEventProblem_(where, text, err) {
   return message;
 }
 
-function normalizeEventClock_(value) {
-  if (value == null || value === '') return '';
-  var parsed = parseClock_(value);
-  if (!parsed) {
-    var text = value instanceof Date && typeof ABA_RULES !== 'undefined' ? ABA_RULES.formatSheetTime(value) : value;
-    return String(text == null ? '' : text).trim();
+function formatClockInZone_(value, zone) {
+  var parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: zone,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }).formatToParts(value);
+  var hour = '';
+  var minute = '';
+  var ap = '';
+  parts.forEach(function (part) {
+    if (part.type === 'hour') hour = String(Number(part.value));
+    if (part.type === 'minute') minute = part.value;
+    if (part.type === 'dayPeriod') ap = part.value.toUpperCase();
+  });
+  return (hour + ':' + minute + ' ' + ap).replace(/\s+/g, ' ').trim();
+}
+
+function eventClockFromSheet_(value, display) {
+  var shown = String(display == null ? '' : display).trim();
+  var parsed = parseClock_(shown);
+  if (parsed) return formatClock_(parsed.hour, parsed.minute);
+  // A time-only Sheets cell is a Date on 1899-12-30. America/Detroit's local
+  // mean time that year is about 32 minutes from modern Eastern time, so
+  // formatting the Date in America/New_York turns 4:30 PM into 5:02 PM.
+  if (value instanceof Date && !isNaN(value.getTime()) && value.getUTCFullYear() < 1905) {
+    parsed = parseClock_(formatClockInZone_(value, 'America/Detroit'));
+    if (parsed) return formatClock_(parsed.hour, parsed.minute);
   }
+  if (value == null || value === '') return '';
+  parsed = parseClock_(value);
+  if (!parsed) return String(value instanceof Date ? '' : value).trim();
   return formatClock_(parsed.hour, parsed.minute);
+}
+
+function normalizeEventClock_(value, display) {
+  return eventClockFromSheet_(value, display);
 }
 
 function readEventsTab_() {
   if (typeof SpreadsheetApp === 'undefined') return [];
   var sheet = openSheet_().getSheetByName('Events');
   if (!sheet || sheet.getLastRow() < 2) return [];
-  var values = sheet.getDataRange().getValues();
+  var range = sheet.getDataRange();
+  var values = range.getValues();
+  var display = range.getDisplayValues ? range.getDisplayValues() : values;
   var headers = values[0];
   var typeCol = eventHeaderCol_(headers, 'type');
   var dateCol = eventHeaderCol_(headers, 'date');
@@ -69,8 +100,8 @@ function readEventsTab_() {
         rowNumber: r + 1,
         type: type,
         date: date,
-        start: startCol < 0 ? '' : normalizeEventClock_(values[r][startCol]),
-        end: endCol < 0 ? '' : normalizeEventClock_(values[r][endCol]),
+        start: startCol < 0 ? '' : eventClockFromSheet_(values[r][startCol], display[r][startCol]),
+        end: endCol < 0 ? '' : eventClockFromSheet_(values[r][endCol], display[r][endCol]),
         location: locationCol < 0 ? '' : String(values[r][locationCol] || '').trim(),
         removedAt: removedCol < 0 ? '' : String(values[r][removedCol] || '').trim()
       });
@@ -86,7 +117,7 @@ function cellSame_(before, after) {
   return String(before == null ? '' : before).trim() === String(after == null ? '' : after);
 }
 
-function planEventsTabMigration_(headerRow, dataRows) {
+function planEventsTabMigration_(headerRow, dataRows, displayRows) {
   var headers = (headerRow || []).map(function (cell) { return String(cell || '').trim(); });
   while (headers.length && !headers[headers.length - 1]) headers.pop();
   var changed = false;
@@ -102,7 +133,8 @@ function planEventsTabMigration_(headerRow, dataRows) {
   var endCol = eventHeaderCol_(headers, 'end');
   var typeCol = eventHeaderCol_(headers, 'type');
   var kept = 0;
-  var rows = (dataRows || []).map(function (source) {
+  var rows = (dataRows || []).map(function (source, index) {
+    var shown = (displayRows && displayRows[index]) || [];
     var row = [];
     for (var c = 0; c < headers.length; c++) row.push(c < source.length ? source[c] : '');
     var type = typeCol >= 0 ? String(row[typeCol] || '').trim() : '';
@@ -116,7 +148,7 @@ function planEventsTabMigration_(headerRow, dataRows) {
     }
     function putClock(col, fallback) {
       if (col < 0) return;
-      var next = normalizeEventClock_(row[col]);
+      var next = eventClockFromSheet_(row[col], shown[col]);
       if (!next && fallback) next = fallback;
       if (!next || cellSame_(row[col], next)) return;
       row[col] = next;
@@ -124,8 +156,8 @@ function planEventsTabMigration_(headerRow, dataRows) {
     }
     putClock(startCol, '');
     var standard = standardEventWindow_(type);
-    var startText = startCol >= 0 ? normalizeEventClock_(row[startCol]) : '';
-    var endFallback = standard && startText === standard.start && endCol >= 0 && !normalizeEventClock_(row[endCol]) ? standard.end : '';
+    var startText = startCol >= 0 ? eventClockFromSheet_(row[startCol], shown[startCol]) : '';
+    var endFallback = standard && startText === standard.start && endCol >= 0 && !eventClockFromSheet_(row[endCol], shown[endCol]) ? standard.end : '';
     putClock(endCol, endFallback);
     return row;
   });
@@ -136,8 +168,10 @@ function migrateEventsTab() {
   if (typeof SpreadsheetApp === 'undefined') return { changed: false, kept: 0 };
   var sheet = openSheet_().getSheetByName('Events');
   if (!sheet || sheet.getLastRow() < 1) return { changed: false, kept: 0 };
-  var values = sheet.getDataRange().getValues();
-  var plan = planEventsTabMigration_(values[0], values.slice(1));
+  var range = sheet.getDataRange();
+  var values = range.getValues();
+  var display = range.getDisplayValues ? range.getDisplayValues() : values;
+  var plan = planEventsTabMigration_(values[0], values.slice(1), display.slice(1));
   if (!plan.changed) {
     try { Logger.log('Events tab already matches. Kept ' + plan.kept + ' events.'); } catch (err) {}
     return plan;
@@ -311,13 +345,17 @@ function sameRibbonBusiness_(location, venue) {
 }
 
 function eventVenueMatches_(location, type, venue) {
-  if (!venue) return !String(location || '').replace(type, '').replace(/[,\s]/g, '');
-  var rest = String(location || '');
-  var prefix = type + ', ';
-  if (rest.indexOf(prefix) === 0) rest = rest.slice(prefix.length);
-  rest = rest.toLowerCase();
-  var name = String(venue).toLowerCase();
-  return rest === name || rest.indexOf(name + ',') === 0 || rest.indexOf(name + ' ') === 0;
+  var stored = String(location || '').replace(/\s+/g, ' ').trim();
+  var name = String(venue || '').replace(/\s+/g, ' ').trim();
+  if (!name) return !stored.replace(type, '').replace(/[,\s]/g, '');
+  var storedLower = stored.toLowerCase();
+  var nameLower = name.toLowerCase();
+  var withType = (String(type || '') + ', ' + name).toLowerCase();
+  if (storedLower === nameLower || storedLower === withType) return true;
+  // The sheet keeps the street address after the venue name.
+  if (storedLower.indexOf(withType + ',') === 0) return true;
+  if (storedLower.indexOf(nameLower + ',') === 0) return true;
+  return false;
 }
 
 function eventClockKey_(value) {
@@ -435,6 +473,7 @@ function planEventSync_(text, existing, today) {
     var blankStandardEnd = !storedEnd && standard && storedStart === standard.start && nextEnd === standard.end;
     var sameTime = storedStart === nextStart && (storedEnd === nextEnd || blankStandardEnd);
     var samePlace = eventVenueMatches_(current.location, kind.type, venue);
+    if (samePlace) event.location = current.location || event.location;
     if (sameTime && samePlace) {
       unchanged += 1;
       return;
