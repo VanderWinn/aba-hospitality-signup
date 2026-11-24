@@ -1,4 +1,6 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 const { loadAba, stateFromSeed, memoryDeps } = require('./load-aba');
 
@@ -351,4 +353,16 @@ test('the manage panel does not print the token and offers another open spot', (
   }, view);
   assert.match(cancelled, /Sign-up cancelled/);
   assert.equal(cancelled.includes('manage-move'), false);
+});
+
+test('opening a cancel link does not cancel until the button is clicked', () => {
+  const app = fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8');
+  const start = app.indexOf('async function runQuickCancel');
+  const end = app.indexOf('async function finishQuickCancel');
+  const open = app.slice(start, end);
+  assert.match(open, /id="quick-cancel-go"/);
+  assert.match(open, /Opening this page does not cancel it/);
+  assert.equal(open.includes("action: 'cancel'"), false);
+  const finish = app.slice(end, app.indexOf('function showAppleCalendar'));
+  assert.match(finish, /action: 'cancel'/);
 });
