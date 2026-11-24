@@ -93,47 +93,85 @@ function shortMonthDay_(iso) {
   }).format(new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])));
 }
 
+function clockMinutes_(clock) {
+  var parsed = parseClock_(clock);
+  if (!parsed) return null;
+  return parsed.hour * 60 + parsed.minute;
+}
+
+function shiftClockLabel_(dateKey, clock, delta) {
+  var parsed = parseClock_(clock);
+  var moved = addMinutes_(dateKey, parsed.hour, parsed.minute, delta);
+  return formatClock_(moved.hour, moved.minute);
+}
+
+function standardEventWindow_(type) {
+  if (type === 'Happy Hour') return { start: '4:30 PM', end: '6:30 PM', cleanup: 30 };
+  if (type === 'Lunch & Learn') return { start: '11:30 AM', end: '1:00 PM', cleanup: 20 };
+  return null;
+}
+
+function expandEventSlots_(event) {
+  var roles = abaTemplates_()[event.type];
+  if (!roles) throw new Error('Unknown event type: ' + event.type);
+  var standard = standardEventWindow_(event.type);
+  var delta = 0;
+  var eventEnd = event.end || '';
+  if (standard && event.start && clockMinutes_(event.start) != null) {
+    delta = clockMinutes_(event.start) - clockMinutes_(standard.start);
+    if (!eventEnd) eventEnd = shiftClockLabel_(event.date, standard.end, delta);
+  }
+  var headerTime = event.end ? compactRange_(event.start, event.end) : event.start;
+  return roles.map(function (role) {
+    var roleDate = event.date;
+    var start = role.start;
+    var end = role.end;
+    if (role.relative) {
+      var startShift = shiftClock_(event.date, event.start, role.startOffset);
+      var endShift = role.throughEventEnd
+        ? (event.end ? { date: event.date, clock: event.end } : shiftClock_(event.date, event.start, 60))
+        : shiftClock_(event.date, event.start, role.endOffset);
+      start = startShift.clock;
+      end = endShift.clock;
+      roleDate = startShift.date;
+    } else if (role.dayOffset) {
+      roleDate = addDays_(event.date, role.dayOffset);
+    } else if (standard && role.task === 'Clean-Up' && eventEnd) {
+      start = eventEnd;
+      var cleaned = addMinutes_(event.date, parseClock_(eventEnd).hour, parseClock_(eventEnd).minute, standard.cleanup);
+      end = formatClock_(cleaned.hour, cleaned.minute);
+    } else if (standard && role.task === 'Networking Ambassador') {
+      start = event.start;
+      end = eventEnd;
+    } else if (delta) {
+      start = shiftClockLabel_(event.date, role.start, delta);
+      end = shiftClockLabel_(event.date, role.end, delta);
+    }
+    var timeLabel = roleDate === event.date ? compactRange_(start, end) : shortMonthDay_(roleDate) + ', ' + compactRange_(start, end);
+    var place = splitPlace_(event.location, event.type);
+    return {
+      slotId: event.date + '|' + event.type + '|' + role.task,
+      date: event.date,
+      time: headerTime,
+      event: event.type,
+      location: event.location,
+      venue: place.venue,
+      address: place.address,
+      task: role.task,
+      capacity: role.capacity,
+      roleDate: roleDate,
+      roleStart: start,
+      roleEnd: end,
+      timeLabel: timeLabel,
+      description: role.description || ''
+    };
+  });
+}
+
 function abaExpandEvents_() {
-  var templates = abaTemplates_();
   var slots = [];
   abaEvents_().forEach(function (event) {
-    var roles = templates[event.type];
-    if (!roles) throw new Error('Unknown event type: ' + event.type);
-    var headerTime = event.end ? compactRange_(event.start, event.end) : event.start;
-    roles.forEach(function (role) {
-      var roleDate = event.date;
-      var start = role.start;
-      var end = role.end;
-      if (role.relative) {
-        var startShift = shiftClock_(event.date, event.start, role.startOffset);
-        var endShift = role.throughEventEnd
-          ? (event.end ? { date: event.date, clock: event.end } : shiftClock_(event.date, event.start, 60))
-          : shiftClock_(event.date, event.start, role.endOffset);
-        start = startShift.clock;
-        end = endShift.clock;
-        roleDate = startShift.date;
-      } else if (role.dayOffset) {
-        roleDate = addDays_(event.date, role.dayOffset);
-      }
-      var timeLabel = roleDate === event.date ? compactRange_(start, end) : shortMonthDay_(roleDate) + ', ' + compactRange_(start, end);
-      var place = splitPlace_(event.location, event.type);
-      slots.push({
-        slotId: event.date + '|' + event.type + '|' + role.task,
-        date: event.date,
-        time: headerTime,
-        event: event.type,
-        location: event.location,
-        venue: place.venue,
-        address: place.address,
-        task: role.task,
-        capacity: role.capacity,
-        roleDate: roleDate,
-        roleStart: start,
-        roleEnd: end,
-        timeLabel: timeLabel,
-        description: role.description || ''
-      });
-    });
+    expandEventSlots_(event).forEach(function (slot) { slots.push(slot); });
   });
   return slots;
 }

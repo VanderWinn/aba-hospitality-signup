@@ -41,7 +41,7 @@ test('the sheet is optional and the original eleven events stay the fallback', (
 test('the listing adds only a new future event and leaves Dec 9 alone', () => {
   const existing = aba.abaFallbackEvents_();
   const plan = aba.planEventSync_(SAMPLE, existing, TODAY);
-  assert.equal(plan.added, 3);
+  assert.equal(plan.added, 4);
   const books = plan.addedEvents.find((event) => event.date === '2026-12-15');
   assert.equal(books.type, 'Ribbon Cutting');
   assert.equal(books.location, 'Ribbon Cutting, Ada Books');
@@ -53,7 +53,7 @@ test('the listing adds only a new future event and leaves Dec 9 alone', () => {
   assert.equal(plan.skipped.collision, 1);
   assert.equal(plan.warnings.some((line) => /Lunch & Learn/.test(line)), true);
   const summary = aba.eventSyncSummary_(plan, true);
-  assert.match(summary, /syncEventsFromDoc dry run: added 3, existing \d+, past \d+, skipped \d+ \(out of scope: \d+, ambiguous: \d+, collision: 1\)/);
+  assert.match(summary, /syncEventsFromDoc dry run: added 4, existing \d+, past \d+, skipped \d+ \(out of scope: \d+, ambiguous: \d+, collision: 1\)/);
   const onlyKnown = [
     '2026 ABA Event Listing',
     'November',
@@ -62,8 +62,29 @@ test('the listing adds only a new future event and leaves Dec 9 alone', () => {
     '9 - ABA Happy Hour - Ada Hotel, 4:30-6:30pm'
   ].join('\n');
   const today = aba.planEventSync_(onlyKnown, existing, TODAY);
-  assert.equal(today.added, 0);
-  assert.match(aba.eventSyncSummary_(today, true), /added 0/);
+  assert.equal(today.added, 1);
+  assert.equal(today.addedEvents[0].type, 'Lunch & Learn');
+  assert.equal(today.addedEvents[0].date, '2026-11-24');
+  assert.equal(today.addedEvents[0].start, '1:00 PM');
+  assert.equal(today.addedEvents[0].end, '5:00 PM');
+  assert.equal(today.addedEvents[0].location, 'Lunch & Learn, Test Location');
+  assert.match(aba.eventSyncSummary_(today, true), /added 1/);
+  const slots = aba.expandEventSlots_(today.addedEvents[0]);
+  function role(name) { return slots.find((item) => item.task === name); }
+  assert.equal(role('Drink Delivery').roleDate, '2026-11-23');
+  assert.equal(role('Drink Delivery').roleStart, '2:00 PM');
+  assert.equal(role('Drink Delivery').roleEnd, '3:00 PM');
+  assert.equal(role('Set-Up').roleStart, '12:30 PM');
+  assert.equal(role('Set-Up').roleEnd, '12:55 PM');
+  assert.equal(role('Door Greeter').roleStart, '12:45 PM');
+  assert.equal(role('Sign-In Table').roleStart, '12:30 PM');
+  assert.equal(role('Food Table Host').roleEnd, '2:45 PM');
+  assert.equal(role('Clean-Up').roleStart, '5:00 PM');
+  assert.equal(role('Clean-Up').roleEnd, '5:20 PM');
+  const usual = aba.expandEventSlots_(existing.find((event) => event.date === '2026-12-09' && event.type === 'Happy Hour'));
+  assert.equal(usual.find((item) => item.task === 'Networking Ambassador').roleStart, '4:30 PM');
+  assert.equal(usual.find((item) => item.task === 'Clean-Up').roleStart, '6:30 PM');
+  assert.equal(usual.find((item) => item.task === 'Set-Up').roleStart, '4:00 PM');
 });
 
 test('a dry run does not write events or send mail', () => {

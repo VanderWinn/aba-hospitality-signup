@@ -136,7 +136,6 @@ function pullEventClock_(text) {
 
 function eventKind_(text) {
   var s = String(text || '').toLowerCase();
-  if (/\(test\)/.test(s)) return { skip: 'ambiguous' };
   if (/open house/.test(s) && /ribbon cutting/.test(s)) return { skip: 'ambiguous' };
   if (/open house/.test(s)) return { skip: 'out' };
   if (/grand opening/.test(s)) return { skip: 'out' };
