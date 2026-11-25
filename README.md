@@ -40,7 +40,7 @@ Normalized model:
 | Field | Meaning |
 | --- | --- |
 | `example` | `true` shows the Example data badge. A live sheet sets this to `false`. |
-| `asOf` | `YYYY-MM-DD` anchor for Year, Quarter, Month, and Last 12 months. The placeholder is `2026-11-24`, the date of the approved sketch. A live source should use today's date in America/Detroit. |
+| `asOf` | `YYYY-MM-DD` anchor for the fiscal year, Quarter, Month, and Last 12 months. The placeholder is `2026-11-24`, the date of the approved sketch, which falls in FY2027. A live source should use today's date in America/Detroit. |
 | `events` | `{ id, date, type }`. `type` is `Lunch & Learn`, `Ribbon Cutting`, or `Happy Hour`. |
 | `attendance` | `{ eventId, audience, count }`. `audience` is `Member` or `Guest`. `count` is a number of people, not a list of people. |
 | `openings` | `{ date, audience, eventType, count }`. Member or guest total at that date, before later changes. |
@@ -48,20 +48,18 @@ Normalized model:
 
 `fromSheetTabs()` drops columns named email, phone, mobile, name, attendee, or first or last name. Do not put those columns on these tabs. Names on the existing hospitality dashboard still come only from the password-checked `dashboard` POST. This page does not request or render them.
 
-With no pie slice selected, the membership cards use the Member roster. Attendance and events use everyone. Clicking **Members** or **Guests** limits the whole page, including the membership cards, to that audience. Click the slice again to clear it. **Reset filters** also clears it, and returns the current year, Year grouping, and all event types.
+With no pie slice selected, the membership cards use the Member roster. Attendance and events use everyone. Clicking **Members** or **Guests** limits the whole page, including the membership cards, to that audience. Click the slice again to clear it. **Reset filters** also clears it, and returns the current fiscal year to date, Year grouping, and all event types.
 
-**Open** on each card is a placeholder label. It does not navigate and has no click action.
-
-Dates drive every total. In the current year the default range is January 1 through `asOf`. In a past year it is the full calendar year. **Last 12 months** replaces that range with the trailing 12 months ending on `asOf`, from the first day of the month 11 months earlier, and ignores the Year control. From and To override either preset. After a custom range is picked, Year, Quarter, and Month do not put the preset dates back. They only change how **Membership Gains V Losses** is grouped inside those dates. Reset, or choosing Last 12 months, clears a custom range.
+Dates drive every total. The year is ABA's fiscal year, July 1 through June 30, named for the year it ends. FY2026 is July 1, 2025 through June 30, 2026. With `asOf` of November 24, 2026, the current year is FY2027, July 1, 2026 through June 30, 2027, and the default Dates range is that year to date: July 1, 2026 through November 24, 2026. A past fiscal year uses the full July 1 through June 30. **Last 12 months** stays the trailing 12 months ending on `asOf`, from the first day of the month 11 months earlier, and ignores the Year control. From and To override either preset. After a custom range is picked, Year, Quarter, and Month do not put the preset dates back. They only change how **Membership Gains V Losses** is grouped inside those dates. Reset, or choosing Last 12 months, clears a custom range. Reset returns to the current fiscal year to date.
 
 Year, Quarter, and Month group that bar chart only:
 
-- **Year** is one bar for each calendar year in the date range.
-- **Quarter** is Q1, Q2, Q3, and Q4 for the quarters the range covers.
-- **Month** is one bar per month, J through D, for the months the range covers.
+- **Year** is one bar for each fiscal year in the date range, labeled FY2027 and so on.
+- **Quarter** is the fiscal quarters the range covers: Q1 July–September, Q2 October–December, Q3 January–March, Q4 April–June.
+- **Month** is one bar per month. A full fiscal year runs J A S O N D J F M A M J, July through June.
 - **Last 12 months** sets the trailing range and groups that chart by month. That keeps one control for "the last 12 months, by month" instead of a separate grouping switch.
 
-The events and attendance lines stay month by month for the selected dates. They do not follow the Year or Quarter grouping. Comparisons are the same number of days, ending one month, one quarter, or one year earlier.
+The events and attendance lines stay month by month for the selected dates, in that same July-through-June order when the range is a fiscal year. They do not follow the Year or Quarter grouping. Last month and last quarter are the same number of days, ending one month or one quarter earlier. Last year is the same dates in the prior fiscal year.
 
 **Open** on a card, or the big number, lists the records behind that total. The list uses the same Year, Period, Dates, event types, companies, people, name search, and Members or Guests choice. Back returns to the dashboard with those filters still set. Reset clears every filter, and an open list refreshes to the unfiltered records.
 
@@ -132,7 +130,7 @@ Use the spreadsheet this site already uses. Add tabs, do not put emails, phones,
 | `audience` | yes | `Member` or `Guest` |
 | `event_type` | yes | Same three event types. All types together are the unfiltered cards |
 | `joins` | yes | People who joined that day |
-| `losses` | yes | People who left that day. What counts as left (a lapse, a non-renewal, or a removal) is still open |
+| `losses` | yes | People who left that day. What counts as left (a lapse, a non-renewal, or a removal) is still open. Losses taken from the Deactivated tab are dated `2026-06-30`, the last day of FY2026 |
 
 **MembershipOpening**
 

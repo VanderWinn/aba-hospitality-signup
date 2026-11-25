@@ -1,7 +1,9 @@
 /* Placeholder facts for the membership and events dashboard, and the adapter
    that will later read the Google Sheet. Counts only: no names, emails, or phones.
 
-   The example is a closed ledger. Member stock at the sketch dates is
+   The example is a closed ledger. The page reads it on a fiscal year,
+   July 1 through June 30, so the default window is FY2027 to date
+   (2026-07-01 through asOf), not the calendar year. Member stock at the sketch dates is
    385 (2025-11-24), 404 (2026-08-24), 409 (2026-10-24), and 412 (2026-11-24).
    August 2026 joins and losses are split around the 24th so the same-length
    comparison windows land on the sketch figures. One event on 2025-11-27

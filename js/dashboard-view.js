@@ -17,8 +17,8 @@
     });
   }
 
-  function hint(label, key, iconOnly) {
-    var def = (model.DEFS && model.DEFS[key]) || '';
+  function hint(label, key, iconOnly, extra) {
+    var def = ((model.DEFS && model.DEFS[key]) || '') + (extra || '');
     var flag = (model.FLAGS && model.FLAGS[key]) || '';
     var body = escapeHtml(def);
     if (flag) body += '<span class="tip-flag">' + escapeHtml(flag) + '</span>';
@@ -207,16 +207,20 @@ function lineSvg(values, lastYear, labels, kind, narrow) {
       memberGroup + guestGroup + '</svg>';
   }
 
+function fiscalLabel(year) {
+  return 'FY' + year;
+}
+
 function yearControl(view, compact) {
   var options = view.years.map(function (year) {
-    return '<option value="' + year + '"' + (year === view.year ? ' selected' : '') + '>' + year + '</option>';
+    return '<option value="' + year + '"' + (year === view.year ? ' selected' : '') + '>' + fiscalLabel(year) + '</option>';
   }).join('');
   var cls = 'ystep' + (compact ? ' compact' : '') + (view.yearEnabled ? '' : ' is-off');
   return '<div class="' + cls + '"' + (view.yearEnabled ? '' : ' aria-disabled="true"') + '>' +
-    '<button type="button" data-year-step="-1" aria-label="Previous year"' + (view.yearEnabled ? '' : ' disabled') + '>◂</button>' +
-    '<b>' + view.year + '</b>' +
-    '<button type="button" data-year-step="1" aria-label="Next year"' + (view.yearEnabled ? '' : ' disabled') + '>▸</button>' +
-    '<label class="ycaret"><span class="sr-only">Choose a year</span><select data-year-select aria-label="Year"' +
+    '<button type="button" data-year-step="-1" aria-label="Previous fiscal year"' + (view.yearEnabled ? '' : ' disabled') + '>◂</button>' +
+    '<b>' + fiscalLabel(view.year) + '</b>' +
+    '<button type="button" data-year-step="1" aria-label="Next fiscal year"' + (view.yearEnabled ? '' : ' disabled') + '>▸</button>' +
+    '<label class="ycaret"><span class="sr-only">Choose a fiscal year</span><select data-year-select aria-label="Fiscal year"' +
     (view.yearEnabled ? '' : ' disabled') + '>' + options + '</select></label></div>';
 }
 
@@ -304,7 +308,9 @@ function yearControl(view, compact) {
   }
 
   function daterow(view) {
-    var year = '<span class="lab">' + hint('Year', 'Year selector') + '</span>' + yearControl(view);
+    var bounds = model.fiscalBounds(view.year);
+    var yearSpan = ' ' + fiscalLabel(view.year) + ' is ' + model.formatDate(bounds.start) + ' through ' + model.formatDate(bounds.end) + '.';
+    var year = '<span class="lab">' + hint('Fiscal year', 'Year selector', false, yearSpan) + '</span>' + yearControl(view);
     var period = '<span class="lab">' + hint('Period', 'Period') + '</span>' + periodControl(view);
     var dates = '<span class="lab">' + hint('Dates', 'Calendar') + '</span>' +
       dateField('from', 'From', view.range.start) + dateField('to', 'To', view.range.end);

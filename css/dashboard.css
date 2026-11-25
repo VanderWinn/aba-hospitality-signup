@@ -170,7 +170,7 @@ button.big { display: block; width: 100%; }
   position: relative;
 }
 
-.ystep b { font-weight: 700; font-family: Montserrat, Raleway, sans-serif; min-width: 36px; text-align: center; }
+.ystep b { font-weight: 700; font-family: Montserrat, Raleway, sans-serif; min-width: 58px; text-align: center; }
 
 .ystep button, .ycaret select {
   border: 0;

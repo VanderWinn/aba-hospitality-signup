@@ -28,91 +28,98 @@ function view(state) {
   return dash.compute(source, Object.assign(dash.defaultState(source), state || {}));
 }
 
-test('the default year matches the concept 2b example figures', () => {
+test('the default year is the current fiscal year to date', () => {
   const home = view();
   assert.equal(source.example, true);
   assert.equal(source.asOf, '2026-11-24');
-  assert.equal(home.range.start, '2026-01-01');
+  assert.equal(dash.fiscalYearOf('2026-11-24'), 2027);
+  assert.equal(dash.fiscalYearOf('2026-06-30'), 2026);
+  assert.equal(dash.fiscalYearOf('2026-07-01'), 2027);
+  const fy2026 = dash.fiscalBounds(2026);
+  assert.equal(fy2026.start, '2025-07-01');
+  assert.equal(fy2026.end, '2026-06-30');
+  assert.equal(home.year, 2027);
+  assert.equal(home.range.start, '2026-07-01');
   assert.equal(home.range.end, '2026-11-24');
   assert.equal(home.grouping, 'year');
-  assert.deepEqual(Array.from(home.gains, (bucket) => bucket.label), ['2026']);
-  assert.equal(home.gains[0].joins, 50);
-  assert.equal(home.gains[0].losses, 32);
-  assert.deepEqual(Array.from(home.monthBuckets, (bucket) => bucket.label), ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N']);
+  assert.deepEqual(Array.from(home.gains, (bucket) => bucket.label), ['FY2027']);
+  assert.equal(home.gains[0].joins, 27);
+  assert.equal(home.gains[0].losses, 15);
+  assert.deepEqual(Array.from(home.monthBuckets, (bucket) => bucket.label), ['J', 'A', 'S', 'O', 'N']);
   assert.equal(home.members.value, 412);
   assert.equal(home.members.lastMonth, 409);
   assert.equal(home.members.lastQuarter, 404);
   assert.equal(home.members.lastYear, 385);
   assert.equal(home.members.tone, 'up');
   assert.equal(home.members.color, '#0077FF');
-  assert.equal(home.newMembers.value, 50);
-  assert.equal(home.newMembers.lastMonth, 45);
-  assert.equal(home.newMembers.lastQuarter, 39);
-  assert.equal(home.newMembers.lastYear, 40);
-  assert.equal(home.net.value, 18);
-  assert.equal(home.net.lastMonth, 16);
-  assert.equal(home.net.lastQuarter, 12);
-  assert.equal(home.net.lastYear, 11);
-  assert.equal(home.events.value, 13);
-  assert.equal(home.events.lastMonth, 12);
-  assert.equal(home.events.lastQuarter, 11);
-  assert.equal(home.events.lastYear, 11);
-  assert.deepEqual(Array.from(home.eventSeries), [1, 1, 0, 1, 1, 1, 2, 1, 1, 2, 2]);
-  assert.deepEqual(Array.from(home.eventLastYear), [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
-  assert.equal(home.attendance.value, 462);
-  assert.equal(home.attendance.lastMonth, 450);
-  assert.equal(home.attendance.lastQuarter, 448);
-  assert.equal(home.attendance.lastYear, 415);
-  assert.deepEqual(Array.from(home.attendanceSeries), [35, 32, 0, 38, 34, 36, 72, 33, 37, 75, 70]);
-  assert.deepEqual(Array.from(home.attendanceLastYear), [38, 36, 35, 40, 37, 39, 42, 36, 38, 41, 33]);
-  assert.equal(home.pie.members, 286);
-  assert.equal(home.pie.guests, 176);
+  assert.equal(home.newMembers.value, 27);
+  assert.equal(home.newMembers.lastMonth, 27);
+  assert.equal(home.newMembers.lastQuarter, 18);
+  assert.equal(home.newMembers.lastYear, 13);
+  assert.equal(home.net.value, 12);
+  assert.equal(home.net.lastMonth, 12);
+  assert.equal(home.net.lastQuarter, 5);
+  assert.equal(home.net.lastYear, -1);
+  assert.equal(home.events.value, 8);
+  assert.equal(home.events.lastMonth, 7);
+  assert.equal(home.events.lastQuarter, 5);
+  assert.equal(home.events.lastYear, 5);
+  assert.deepEqual(Array.from(home.eventSeries), [2, 1, 1, 2, 2]);
+  assert.deepEqual(Array.from(home.eventLastYear), [1, 1, 1, 1, 1]);
+  assert.equal(home.attendance.value, 287);
+  assert.equal(home.attendance.lastMonth, 253);
+  assert.equal(home.attendance.lastQuarter, 180);
+  assert.equal(home.attendance.lastYear, 190);
+  assert.deepEqual(Array.from(home.attendanceSeries), [72, 33, 37, 75, 70]);
+  assert.deepEqual(Array.from(home.attendanceLastYear), [42, 36, 38, 41, 33]);
+  assert.equal(home.pie.members, 177);
+  assert.equal(home.pie.guests, 110);
   assert.equal(home.pie.memberPct, 62);
   assert.equal(home.pie.guestPct, 38);
-  assert.equal(home.eventCounts.all, 13);
-  assert.equal(home.eventCounts['Lunch & Learn'], 5);
-  assert.equal(home.eventCounts['Ribbon Cutting'], 3);
-  assert.equal(home.eventCounts['Happy Hour'], 5);
+  assert.equal(home.eventCounts.all, 8);
+  assert.equal(home.eventCounts['Lunch & Learn'], 3);
+  assert.equal(home.eventCounts['Ribbon Cutting'], 1);
+  assert.equal(home.eventCounts['Happy Hour'], 4);
   const span = dash.inclusiveDays(home.range.start, home.range.end);
   const lastMonth = dash.shiftRange(home.range.start, home.range.end, 1);
   const lastQuarter = dash.shiftRange(home.range.start, home.range.end, 3);
-  const lastYear = dash.shiftRange(home.range.start, home.range.end, 12);
-  assert.equal(lastMonth.start, '2025-12-01');
+  const lastYear = dash.priorYearRange(home.range.start, home.range.end);
+  assert.equal(lastMonth.start, '2026-05-31');
   assert.equal(lastMonth.end, '2026-10-24');
   assert.equal(dash.inclusiveDays(lastMonth.start, lastMonth.end), span);
-  assert.equal(lastQuarter.start, '2025-10-01');
+  assert.equal(lastQuarter.start, '2026-03-31');
   assert.equal(lastQuarter.end, '2026-08-24');
   assert.equal(dash.inclusiveDays(lastQuarter.start, lastQuarter.end), span);
-  assert.equal(lastYear.start, '2025-01-01');
+  assert.equal(lastYear.start, '2025-07-01');
   assert.equal(lastYear.end, '2025-11-24');
   assert.equal(dash.inclusiveDays(lastYear.start, lastYear.end), span);
 });
 
 test('quarter and month group the gains chart without changing the date range', () => {
   const quarter = view({ period: 'quarter' });
-  assert.equal(quarter.range.start, '2026-01-01');
+  assert.equal(quarter.range.start, '2026-07-01');
   assert.equal(quarter.range.end, '2026-11-24');
   assert.equal(quarter.grouping, 'quarter');
   assert.equal(quarter.members.value, 412);
-  assert.equal(quarter.events.value, 13);
-  assert.deepEqual(Array.from(quarter.gains, (bucket) => bucket.label), ['Q1', 'Q2', 'Q3', 'Q4']);
-  assert.deepEqual(Array.from(quarter.gains, (bucket) => bucket.joins), [11, 12, 13, 14]);
-  assert.equal(quarter.eventSeries.length, 11);
+  assert.equal(quarter.events.value, 8);
+  assert.deepEqual(Array.from(quarter.gains, (bucket) => bucket.label), ['Q1', 'Q2']);
+  assert.deepEqual(Array.from(quarter.gains, (bucket) => bucket.joins), [13, 14]);
+  assert.equal(quarter.eventSeries.length, 5);
   const month = view({ period: 'month' });
-  assert.equal(month.range.start, '2026-01-01');
+  assert.equal(month.range.start, '2026-07-01');
   assert.equal(month.range.end, '2026-11-24');
   assert.equal(month.members.value, 412);
-  assert.deepEqual(Array.from(month.gains, (bucket) => bucket.label), ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N']);
-  assert.deepEqual(Array.from(month.gains, (bucket) => bucket.joins), [4, 2, 5, 3, 3, 6, 5, 3, 5, 8, 6]);
-  const past = view({ year: 2025, period: 'year' });
-  assert.equal(past.range.start, '2025-01-01');
-  assert.equal(past.range.end, '2025-12-31');
-  assert.deepEqual(Array.from(past.gains, (bucket) => bucket.label), ['2025']);
-  assert.equal(past.monthBuckets.length, 12);
+  assert.deepEqual(Array.from(month.gains, (bucket) => bucket.label), ['J', 'A', 'S', 'O', 'N']);
+  assert.deepEqual(Array.from(month.gains, (bucket) => bucket.joins), [5, 3, 5, 8, 6]);
+  const past = view({ year: 2026, period: 'year' });
+  assert.equal(past.range.start, '2025-07-01');
+  assert.equal(past.range.end, '2026-06-30');
+  assert.deepEqual(Array.from(past.gains, (bucket) => bucket.label), ['FY2026']);
+  assert.deepEqual(Array.from(past.monthBuckets, (bucket) => bucket.label), ['J', 'A', 'S', 'O', 'N', 'D', 'J', 'F', 'M', 'A', 'M', 'J']);
   assert.equal(past.events.value > 0, true);
-  const pastQuarter = view({ year: 2025, period: 'quarter' });
-  assert.equal(pastQuarter.range.start, '2025-01-01');
-  assert.equal(pastQuarter.range.end, '2025-12-31');
+  const pastQuarter = view({ year: 2026, period: 'quarter' });
+  assert.equal(pastQuarter.range.start, '2025-07-01');
+  assert.equal(pastQuarter.range.end, '2026-06-30');
   assert.deepEqual(Array.from(pastQuarter.gains, (bucket) => bucket.label), ['Q1', 'Q2', 'Q3', 'Q4']);
   const trailing = view({ year: 2024, period: 'last12' });
   assert.equal(trailing.yearEnabled, false);
@@ -133,7 +140,7 @@ test('a custom date range overrides the preset and keeps grouping', () => {
   assert.equal(sliced.range.end, '2026-08-31');
   assert.equal(sliced.yearEnabled, false);
   assert.notEqual(sliced.members.value, 412);
-  assert.deepEqual(Array.from(sliced.gains, (bucket) => bucket.label), ['Q1', 'Q2', 'Q3']);
+  assert.deepEqual(Array.from(sliced.gains, (bucket) => bucket.label), ['Q3 ’26', 'Q4 ’26', 'Q1 ’27']);
   assert.deepEqual(Array.from(sliced.monthBuckets, (bucket) => bucket.label), ['M', 'A', 'M', 'J', 'J', 'A']);
   const grouped = dash.applyAction(source, custom, { type: 'period', period: 'month' });
   assert.equal(grouped.from, '2026-03-01');
@@ -149,25 +156,25 @@ test('a custom date range overrides the preset and keeps grouping', () => {
 
 test('the pie, event type, and bar filters recalculate the page', () => {
   const guests = view({ audience: 'Guest' });
-  assert.equal(guests.attendance.value, 176);
-  assert.equal(guests.events.value, 12);
+  assert.equal(guests.attendance.value, 110);
+  assert.equal(guests.events.value, 7);
   assert.notEqual(guests.members.value, 412);
-  assert.notEqual(guests.newMembers.value, 50);
+  assert.notEqual(guests.newMembers.value, 27);
   const members = view({ audience: 'Member' });
-  assert.equal(members.attendance.value, 286);
+  assert.equal(members.attendance.value, 177);
   assert.equal(members.members.value, 412);
-  assert.equal(members.events.value, 13);
+  assert.equal(members.events.value, 8);
   const lunch = view({ eventType: 'Lunch & Learn' });
-  assert.equal(lunch.events.value, 5);
+  assert.equal(lunch.events.value, 3);
   assert.ok(lunch.members.value < 412);
   const months = view({ period: 'month' });
-  const january = view({ period: 'month', bucket: months.gains[0].id });
-  assert.equal(january.events.value, 1);
-  assert.equal(january.newMembers.value, 4);
-  assert.equal(january.bucket, months.gains[0].id);
+  const july = view({ period: 'month', bucket: months.gains[0].id });
+  assert.equal(july.events.value, 2);
+  assert.equal(july.newMembers.value, 5);
+  assert.equal(july.bucket, months.gains[0].id);
   const cleared = dash.applyAction(source, { audience: 'Guest', eventType: 'Happy Hour', bucket: 'x', year: 2025, period: 'month' }, { type: 'reset' });
   assert.equal(cleared.period, 'year');
-  assert.equal(cleared.year, 2026);
+  assert.equal(cleared.year, 2027);
   assert.equal(cleared.audience, '');
   assert.equal(cleared.eventType, '');
   const again = dash.applyAction(source, { audience: 'Guest', period: 'year', year: 2026, from: '', to: '', eventType: '', bucket: '' }, { type: 'audience', audience: 'Guest' });
@@ -220,16 +227,16 @@ test('the sheet adapter keeps counts and drops contact fields', () => {
   const directory = sandbox.ABADirectory.build(source);
   const plain = dash.compute(source, null, directory);
   const attendance = sandbox.ABADirectory.drill(directory, 'attendance', plain);
-  assert.equal(attendance.rows.length, 462);
+  assert.equal(attendance.rows.length, 287);
   assert.equal(attendance.rows[0].email.endsWith('@example.com'), true);
   assert.equal(String(attendance.rows[0].phone).indexOf('555-'), 0);
   assert.equal(attendance.columns.some((column) => column.key === 'notes'), true);
   const guestView = Object.assign({}, plain, { audience: 'Guest' });
-  assert.equal(sandbox.ABADirectory.drill(directory, 'attendance', guestView).rows.length, 176);
+  assert.equal(sandbox.ABADirectory.drill(directory, 'attendance', guestView).rows.length, 110);
   const company = dash.compute(source, {
-    year: 2026, period: 'year', from: '', to: '', eventTypes: [], companies: ['Ada River Cafe'], people: [], nameQuery: '', audience: '', bucket: ''
+    year: 2027, period: 'year', from: '', to: '', eventTypes: [], companies: ['Ada River Cafe'], people: [], nameQuery: '', audience: '', bucket: ''
   }, directory);
-  assert.ok(company.attendance.value < 462);
+  assert.ok(company.attendance.value < 287);
   assert.ok(company.members.value < 412);
   const both = dash.applyAction(source, { year: 2026, period: 'month', from: '2026-03-01', to: '2026-06-30', eventTypes: ['Lunch & Learn', 'Happy Hour'], companies: ['Ada River Cafe'], people: ['Avery Sample'], nameQuery: 'sam', audience: 'Guest', bucket: 'x' }, { type: 'reset' });
   assert.equal(both.period, 'year');
@@ -241,7 +248,7 @@ test('the sheet adapter keeps counts and drops contact fields', () => {
   assert.equal(both.audience, '');
   assert.equal(both.bucket, '');
   const combo = dash.compute(source, {
-    year: 2026, period: 'year', from: '', to: '',
+    year: 2027, period: 'year', from: '', to: '',
     eventTypes: ['Lunch & Learn', 'Happy Hour'],
     companies: ['Ada River Cafe', 'Brookside Bakery'],
     people: ['Avery Demo'],
@@ -293,7 +300,9 @@ test('the dashboard page is gated and the public sign-up does not link to it', (
   assert.equal(/<a[^>]*data-drill/.test(rendered), false);
   assert.match(rendered, /Example data/);
   assert.match(rendered, />412</);
-  assert.match(rendered, /\+18/);
+  assert.match(rendered, /FY2027/);
+  assert.match(rendered, /Jul 1, 2026 through Jun 30, 2027/);
+  assert.match(rendered, /\+12/);
   assert.match(rendered, /Powered by Donny C\. Nguyen/);
   assert.match(rendered, /aba-logo\.png/);
   assert.equal(rendered.includes('WIREFRAME'), false);
