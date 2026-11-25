@@ -55,6 +55,10 @@ function portalQuarter_(today) {
   return { label: 'Q' + (quarter + 1) + ' ' + year, start: iso(startMonth, 1), end: iso(endMonth, endDay) };
 }
 
+function portalCompany_(row) {
+  return String((row && (row.company || row.organization || row.business)) || '').trim();
+}
+
 function portalPersonKey_(row) {
   var email = String(row.email || '').trim().toLowerCase();
   if (email) return 'e:' + email;
@@ -82,6 +86,88 @@ function portalTally_(rows) {
   return { volunteers: people.length, shifts: shifts, people: people };
 }
 
+function portalMonthMeta_(key) {
+  var names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  var shorts = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var month = Number(String(key).slice(5, 7));
+  return {
+    key: key,
+    label: names[month - 1] || key,
+    short: shorts[month - 1] || key,
+    year: String(key).slice(0, 4)
+  };
+}
+
+function portalVenue_(row, slots) {
+  if (row && row.venue) return String(row.venue).trim();
+  var slot = null;
+  (slots || []).forEach(function (item) {
+    if (!slot && portalSameRole_(row, item)) slot = item;
+  });
+  var location = String((slot && slot.location) || (row && row.location) || '');
+  var prefix = String((row && row.event) || '') + ', ';
+  if (prefix !== ', ' && location.indexOf(prefix) === 0) return location.slice(prefix.length);
+  return location;
+}
+
+function portalChart_(rows, slots) {
+  var monthMap = {};
+  var peopleMap = {};
+  var order = [];
+  (rows || []).forEach(function (row) {
+    var month = String(row.date).slice(0, 7);
+    if (!monthMap[month]) monthMap[month] = 0;
+    monthMap[month] += 1;
+    var key = portalPersonKey_(row);
+    if (!peopleMap[key]) {
+      peopleMap[key] = { name: String(row.name || '').trim(), company: portalCompany_(row), total: 0, counts: {}, events: [] };
+      order.push(key);
+    }
+    var person = peopleMap[key];
+    if (!person.company) person.company = portalCompany_(row);
+    person.total += 1;
+    person.counts[month] = (person.counts[month] || 0) + 1;
+    var matched = null;
+    (slots || []).forEach(function (item) {
+      if (!matched && portalSameRole_(row, item)) matched = item;
+    });
+    var seats = matched ? Number(matched.capacity) : 1;
+    if (!isFinite(seats) || seats < 1) seats = 1;
+    person.events.push({
+      date: row.date,
+      month: month,
+      name: String(row.event || ''),
+      task: String(row.task || ''),
+      venue: portalVenue_(row, slots),
+      capacity: seats,
+      slot: String((matched && matched.slotId) || (row.date + '|' + row.event + '|' + row.task))
+    });
+  });
+  var months = Object.keys(monthMap).sort().map(function (key) {
+    var meta = portalMonthMeta_(key);
+    meta.shifts = monthMap[key];
+    return meta;
+  });
+  var people = order.map(function (key) {
+    var person = peopleMap[key];
+    var counts = {};
+    months.forEach(function (month) { counts[month.key] = person.counts[month.key] || 0; });
+    person.counts = counts;
+    person.events.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    return person;
+  });
+  people.sort(function (a, b) {
+    if (b.total !== a.total) return b.total - a.total;
+    return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+  });
+  var companyAvailable = false;
+  people.forEach(function (person, index) {
+    person.id = 'p' + (index + 1);
+    if (person.company) companyAvailable = true;
+  });
+  return { months: months, people: people, companyAvailable: companyAvailable };
+}
+
 function portalSameRole_(row, slot) {
   if (row.slotId && slot.slotId && String(row.slotId) === String(slot.slotId)) return true;
   return row.date === slot.date && row.event === slot.event && row.task === slot.task;
@@ -97,8 +183,10 @@ function portalDashboard_(signups, slots, today) {
   function between(row, start, end) {
     return row.date >= start && row.date <= end;
   }
-  var quarterStats = portalTally_(rows.filter(function (row) { return between(row, quarter.start, quarter.end); }));
-  var yearStats = portalTally_(rows.filter(function (row) { return between(row, year + '-01-01', year + '-12-31'); }));
+  var quarterRows = rows.filter(function (row) { return between(row, quarter.start, quarter.end); });
+  var yearRows = rows.filter(function (row) { return between(row, year + '-01-01', year + '-12-31'); });
+  var quarterStats = portalTally_(quarterRows);
+  var yearStats = portalTally_(yearRows);
   var upcoming = [];
   var filled = 0;
   var seats = 0;
@@ -169,7 +257,18 @@ function portalDashboard_(signups, slots, today) {
       seats: seats,
       openRoles: openRoles,
       events: upcoming
-    }
+    },
+    chart: (function () {
+      var chart = portalChart_(yearRows, slots);
+      var opportunities = 0;
+      (slots || []).forEach(function (slot) {
+        if (!slot || !slot.date || String(slot.date).slice(0, 4) !== year) return;
+        var seats = Number(slot.capacity);
+        if (isFinite(seats) && seats > 0) opportunities += seats;
+      });
+      chart.opportunities = opportunities;
+      return chart;
+    })()
   };
 }
 

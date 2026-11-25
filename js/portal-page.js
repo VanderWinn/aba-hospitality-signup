@@ -4,13 +4,16 @@
 
   var portal = window.ABAPortal;
   var PASSWORD_KEY = 'aba-board-portal-password';
+  var VIEW_KEY = 'aba-board-portal-view';
   var state = {
     hash: '',
     events: [],
     year: 0,
     month: 0,
     today: '',
-    notice: ''
+    notice: '',
+    dashboard: null,
+    view: readView()
   };
 
   document.addEventListener('DOMContentLoaded', start);
@@ -61,12 +64,44 @@
     document.getElementById('portal-lock').addEventListener('click', lock);
     document.getElementById('portal-prev').addEventListener('click', function () { shiftMonth(-1); });
     document.getElementById('portal-next').addEventListener('click', function () { shiftMonth(1); });
+    document.getElementById('portal-dashboard-body').addEventListener('click', onDashClick);
+    document.getElementById('portal-dashboard-body').addEventListener('change', onDashChange);
+    window.addEventListener('hashchange', function () {
+      state.view = portal.dashboardStateFromHash(location.hash);
+      if (state.dashboard) paintDash();
+    });
     var saved = readPassword();
     if (saved) {
       sha256(saved).then(function (digest) {
         if (digest === state.hash) openPortal();
       });
     }
+  }
+
+  function readView() {
+    var hash = '';
+    try { hash = String(location.hash || '').replace(/^#/, ''); } catch (err) {}
+    if (!hash) {
+      try { hash = sessionStorage.getItem(VIEW_KEY) || ''; } catch (err) {}
+    }
+    if (portal && portal.dashboardStateFromHash) return portal.dashboardStateFromHash(hash);
+    return {
+      order: ['person', 'role', 'event', 'date'],
+      path: [],
+      extPath: [],
+      filters: { person: [], role: [], event: [], category: [], from: '', to: '' },
+      drawer: false
+    };
+  }
+
+  function saveView() {
+    var hash = portal.dashboardHash(state.view);
+    try { sessionStorage.setItem(VIEW_KEY, hash); } catch (err) {}
+    try {
+      if (String(location.hash || '').replace(/^#/, '') !== hash) {
+        history.replaceState(null, '', '#' + hash);
+      }
+    } catch (err) {}
   }
 
   function readPassword() {
@@ -135,9 +170,97 @@
         root.innerHTML = portal.renderDashboard(null, { error: (data && data.error) || 'The dashboard could not be loaded.' });
         return;
       }
-      root.innerHTML = portal.renderDashboard(data.dashboard);
+      state.dashboard = data.dashboard;
+      paintDash();
     } catch (err) {
       root.innerHTML = portal.renderDashboard(null, { error: err.message || 'The dashboard could not be loaded.' });
+    }
+  }
+
+  function paintDash() {
+    var root = document.getElementById('portal-dashboard-body');
+    if (root) root.innerHTML = portal.renderDashboard(state.dashboard, null, state.view);
+    saveView();
+  }
+
+  function emptyFilters() {
+    return { person: [], role: [], event: [], category: [], from: '', to: '' };
+  }
+
+  function monthBounds(key) {
+    var parts = String(key || '').split('-');
+    var year = Number(parts[0]);
+    var month = Number(parts[1]);
+    var last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    var day = last < 10 ? '0' + last : String(last);
+    return { from: key + '-01', to: key + '-' + day };
+  }
+
+  function onDashClick(event) {
+    var node = event.target.closest('[data-step], [data-crumb], [data-clear], [data-clear-filter], [data-month-filter], [data-filter-toggle]');
+    if (!node || !state.dashboard) return;
+    if (node.hasAttribute('data-filter-toggle')) {
+      state.view.drawer = !state.view.drawer;
+      paintDash();
+      return;
+    }
+    var external = node.getAttribute('data-section') === 'external';
+    if (node.hasAttribute('data-crumb')) {
+      var keep = Number(node.getAttribute('data-crumb')) || 0;
+      if (external) state.view.extPath = (state.view.extPath || []).slice(0, keep);
+      else state.view.path = (state.view.path || []).slice(0, keep);
+    } else if (node.hasAttribute('data-step')) {
+      var order = external ? ['person', 'event', 'date'] : state.view.order;
+      var path = external ? state.view.extPath : state.view.path;
+      if (path.length >= order.length) return;
+      path.push({
+        dim: order[path.length],
+        key: node.getAttribute('data-step'),
+        label: node.getAttribute('data-label') || node.getAttribute('data-step')
+      });
+    } else if (node.getAttribute('data-clear') === 'all') {
+      state.view.filters = emptyFilters();
+    } else if (node.hasAttribute('data-clear-filter')) {
+      var kind = node.getAttribute('data-clear-filter');
+      if (kind === 'from' || kind === 'to') state.view.filters[kind] = '';
+      else {
+        var value = node.getAttribute('data-clear-value');
+        state.view.filters[kind] = (state.view.filters[kind] || []).filter(function (item) { return item !== value; });
+      }
+    } else if (node.hasAttribute('data-month-filter')) {
+      var bounds = monthBounds(node.getAttribute('data-month-filter'));
+      state.view.filters.from = bounds.from;
+      state.view.filters.to = bounds.to;
+    } else return;
+    paintDash();
+  }
+
+  function onDashChange(event) {
+    var node = event.target;
+    if (!state.dashboard || !node) return;
+    if (node.hasAttribute('data-order-index')) {
+      var keepDrawer = !!state.view.drawer;
+      state.view.order = portal.reorderDrill(state.view.order, Number(node.getAttribute('data-order-index')), node.value);
+      state.view.path = [];
+      state.view.drawer = keepDrawer;
+      paintDash();
+      return;
+    }
+    if (node.hasAttribute('data-filter')) {
+      var name = node.getAttribute('data-filter');
+      var values = [];
+      document.querySelectorAll('#portal-dashboard-body input[data-filter="' + name + '"]').forEach(function (box) {
+        if (box.checked) values.push(box.value);
+      });
+      state.view.filters[name] = values;
+      state.view.drawer = true;
+      paintDash();
+      return;
+    }
+    if (node.hasAttribute('data-filter-date')) {
+      state.view.filters[node.getAttribute('data-filter-date')] = node.value;
+      state.view.drawer = true;
+      paintDash();
     }
   }
 
