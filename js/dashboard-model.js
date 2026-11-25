@@ -24,22 +24,22 @@
     'Lunch & Learn': 'Shows only Lunch & Learn events in the period you selected.',
     'Ribbon Cutting': 'Shows only Ribbon Cutting events in the period you selected.',
     'Happy Hour': 'Shows only Happy Hour events in the period you selected.',
-    'Year selector': 'Steps or opens a list of years. Year, Quarter, and Month are measured within the year you select. The Year control is not used when Last 12 months is selected.',
-    'Period': 'Chooses Year (the default), Quarter, Month, or Last 12 months. Year, Quarter, and Month are anchored to the Year control. Last 12 months is the trailing 12 full months and ignores the Year control. Every card, metric, comparison, and label on the page follows this choice, together with the Dates range.',
-    'Year': 'In the current year, year to date: January 1 through today. Charts use monthly buckets and show only the elapsed months. When a previous year is chosen, Year shows that entire calendar year (January 1 to December 31). This is the default view.',
-    'Quarter': 'In the current year, quarter to date: the current quarter\'s start through today. Charts use weekly buckets. When a previous year is chosen, Quarter runs to the end of that quarter.',
-    'Month': 'In the current year, month to date: the 1st of the current month through today\'s day. Charts use daily buckets. When a previous year is chosen, Month runs to the end of that month.',
-    'Last 12 months (period)': 'The trailing 12 full months, ending today, regardless of the Year control. Charts use monthly buckets. Comparisons are with the 12 months before that.',
-    'Calendar': 'Lets you pick a start date and an end date; every figure on the page follows that range. In the default Year view, Dates show January 1 through November 24 of the selected year.',
-    'Reset filters': 'Clears any click-to-filter choice (including a Members or Guests pie selection) and other selected filters, and restores the default view: the current year, Year, and all event types.',
+    'Year selector': 'Steps or opens a list of years. Dates follow that year, from January 1 through today in the current year and through December 31 in a past year. The Year control is not used when Last 12 months is selected or when you have picked custom dates.',
+    'Period': 'Year, Quarter, and Month group the Membership Gains V Losses bars. Year is one bar for the year. Quarter is Q1 through Q4. Month is one bar per month. Last 12 months sets Dates to the trailing 12 months and groups those bars by month. The other cards keep their layout. Every total follows the Dates range.',
+    'Year': 'Groups Membership Gains V Losses as one bar for each year in the Dates range. It does not change the other charts. The totals still follow the Dates range.',
+    'Quarter': 'Groups Membership Gains V Losses into quarters, Q1 through Q4, inside the Dates range. It does not change the other charts. The totals still follow the Dates range.',
+    'Month': 'Groups Membership Gains V Losses month by month, J through D, for the months inside the Dates range. It does not change the other charts. The totals still follow the Dates range.',
+    'Last 12 months (period)': 'Sets Dates to the trailing 12 full months ending today, and groups Membership Gains V Losses by month. The Year control is not used. Comparisons use the 12 months before that.',
+    'Calendar': 'Pick a start and an end date. That range overrides the year and the Last 12 months preset. Year, Quarter, and Month still group the gains and losses bars inside the dates you pick. Every total follows this range.',
+    'Reset filters': 'Clears any click-to-filter choice (including a Members or Guests pie selection) and a custom date range, and restores the default view: the current year, Year grouping, and all event types.',
     'Members': '412 is the member total at the end of the selected period. The figures below compare the member total with last month, last quarter, and last year, each the same length of time as the selected period, shifted back.',
     'New Members': 'How many members joined during the period you selected. In this example, 50 is 13% of starting members.',
     'Net Gain': 'The net change in membership for the selected period: members who joined minus members who left.',
-    'Membership Gains V Losses': 'Up = gains (always blue). Down = losses (always red). New Members (bars up, always blue) and members who left (bars down, always red) by month for the elapsed months of the selected period (here January through November). Click a bar to filter the whole page to it; Reset filters clears it.',
-    'Events Held': 'How many events took place in the period you selected. In this example, events averaged 36 attendees. The figures below compare the same length of time shifted back one month, one quarter, and one year. The line graph plots events for each elapsed month of the selected year (January through November), with the value at each point; a month with no events is plotted at zero. The faint dashed orange (#F28C28) line is the same months shifted back one year.',
-    'Attendance': '462 is attendance for the selected period. The figures below compare the same length of time shifted back one month, one quarter, and one year. The line graph plots attendance for each elapsed month of the selected year (January through November), with the value at each point; a month with no events is plotted at zero. The faint dashed orange (#F28C28) line is the same months shifted back one year.',
+    'Membership Gains V Losses': 'Up = gains (always blue). Down = losses (always red). Year groups this chart into one bar for the year. Quarter groups it into Q1, Q2, Q3, and Q4. Month groups it month by month. Click a bar to filter the whole page to it; Reset filters clears it.',
+    'Events Held': 'How many events took place in the dates you selected. In this example, events averaged 36 attendees. The figures below compare the same length of time shifted back one month, one quarter, and one year. The line stays month by month for those dates, including a month with no events at zero. It does not follow the Year, Quarter, or Month grouping. The faint dashed orange (#F28C28) line is the same months shifted back one year.',
+    'Attendance': '462 is attendance for the dates you selected. The figures below compare the same length of time shifted back one month, one quarter, and one year. The line stays month by month for those dates, including a month with no events at zero. It does not follow the Year, Quarter, or Month grouping. The faint dashed orange (#F28C28) line is the same months shifted back one year.',
     'Attendance Distribution': 'Of the people who attended in the selected period, how many were members and how many were guests. The raw count is the main number; the percentage is context. Click Members or Guests to filter the whole page; click again to clear.',
-    'Open': 'Opens a closer look at this measure, then on to inputs and who did the work.',
+    'Open': 'Placeholder. The Open label stays here for a closer look later. It does not navigate and has no click action.',
     'Last month / quarter / year': 'The same measure for the same length of time as the selected period, shifted back one month, one quarter, or one year.',
     'Powered by Donny C. Nguyen': 'A credit line for the portal work. It is not a data measure.'
   };
@@ -150,69 +150,62 @@
     return { start: iso(year, 1, 1), end: iso(year, 12, 31) };
   }
 
-  function granularityFor(period, custom, range) {
-    if (!custom) {
-      if (period === 'quarter') return 'week';
-      if (period === 'month') return 'day';
-      return 'month';
-    }
-    var days = inclusiveDays(range.start, range.end);
-    if (days <= 35) return 'day';
-    if (days <= 120) return 'week';
+  function groupingOf(period) {
+    if (period === 'quarter') return 'quarter';
+    if (period === 'year') return 'year';
     return 'month';
   }
 
-  function bucketsFor(range, granularity) {
+  function clipBucket(range, start, end, label) {
+    var bStart = start < range.start ? range.start : start;
+    var bEnd = end > range.end ? range.end : end;
+    if (bStart > bEnd) return null;
+    return { id: bStart + ':' + bEnd, label: label, start: bStart, end: bEnd };
+  }
+
+  function bucketsFor(range, grouping) {
     var out = [];
     var guard = 0;
-    if (granularity === 'month') {
-      var p = parseISO(range.start);
-      var endP = parseISO(range.end);
-      var idx = p.y * 12 + (p.m - 1);
-      var endIdx = endP.y * 12 + (endP.m - 1);
-      while (idx <= endIdx && guard < 240) {
-        var y = Math.floor(idx / 12);
-        var m = idx % 12 + 1;
-        var bStart = iso(y, m, 1);
-        var bEnd = iso(y, m, daysInMonth(y, m));
-        if (bStart < range.start) bStart = range.start;
-        if (bEnd > range.end) bEnd = range.end;
-        out.push({ id: bStart + ':' + bEnd, label: LETTERS[m - 1], start: bStart, end: bEnd });
+    var startP = parseISO(range.start);
+    var endP = parseISO(range.end);
+    if (grouping === 'year') {
+      var y;
+      for (y = startP.y; y <= endP.y && guard < 40; y++) {
+        var bucket = clipBucket(range, iso(y, 1, 1), iso(y, 12, 31), String(y));
+        if (bucket) out.push(bucket);
+        guard += 1;
+      }
+      return out;
+    }
+    if (grouping === 'quarter') {
+      var idx = startP.y * 4 + Math.floor((startP.m - 1) / 3);
+      var endIdx = endP.y * 4 + Math.floor((endP.m - 1) / 3);
+      var multiYear = startP.y !== endP.y;
+      while (idx <= endIdx && guard < 80) {
+        var year = Math.floor(idx / 4);
+        var quarter = idx % 4;
+        var startMonth = quarter * 3 + 1;
+        var endMonth = startMonth + 2;
+        var label = 'Q' + (quarter + 1);
+        if (multiYear) label += ' ’' + String(year).slice(2);
+        var bucketQ = clipBucket(range, iso(year, startMonth, 1), iso(year, endMonth, daysInMonth(year, endMonth)), label);
+        if (bucketQ) out.push(bucketQ);
         idx += 1;
         guard += 1;
       }
       return out;
     }
-    if (granularity === 'week') {
-      var cursor = range.start;
-      while (cursor <= range.end && guard < 200) {
-        var day = new Date(dateUTC(cursor)).getUTCDay();
-        var untilSun = day === 0 ? 0 : 7 - day;
-        var bEnd = addDays(cursor, untilSun);
-        if (bEnd > range.end) bEnd = range.end;
-        var pp = parseISO(cursor);
-        out.push({
-          id: cursor + ':' + bEnd,
-          label: MONTHS[pp.m - 1] + ' ' + pp.d,
-          start: cursor,
-          end: bEnd
-        });
-        cursor = addDays(bEnd, 1);
-        guard += 1;
-      }
-      return out;
-    }
-    var cursorD = range.start;
-    var spanMonths = range.start.slice(0, 7) !== range.end.slice(0, 7);
-    while (cursorD <= range.end && guard < 400) {
-      var pd = parseISO(cursorD);
-      out.push({
-        id: cursorD + ':' + cursorD,
-        label: spanMonths ? (pd.m + '/' + pd.d) : String(pd.d),
-        start: cursorD,
-        end: cursorD
-      });
-      cursorD = addDays(cursorD, 1);
+    var monthIdx = startP.y * 12 + (startP.m - 1);
+    var monthEndIdx = endP.y * 12 + (endP.m - 1);
+    var spanYears = startP.y !== endP.y;
+    while (monthIdx <= monthEndIdx && guard < 240) {
+      var my = Math.floor(monthIdx / 12);
+      var mm = monthIdx % 12 + 1;
+      var letter = LETTERS[mm - 1];
+      if (spanYears && mm === 1) letter = letter + String(my).slice(2);
+      var bucketM = clipBucket(range, iso(my, mm, 1), iso(my, mm, daysInMonth(my, mm)), letter);
+      if (bucketM) out.push(bucketM);
+      monthIdx += 1;
       guard += 1;
     }
     return out;
@@ -364,16 +357,16 @@
     if (years.indexOf(year) === -1) year = Number(today.slice(0, 4));
     var period = state && state.period;
     if (period !== 'year' && period !== 'quarter' && period !== 'month' && period !== 'last12') period = 'year';
-    var preset = periodRange(period, year, today);
     var custom = false;
-    var range = preset;
+    var range = periodRange('year', year, today);
     if (state && isISO(state.from) && isISO(state.to)) {
-      var from = state.from <= state.to ? state.from : state.to;
-      var to = state.from <= state.to ? state.to : state.from;
-      if (from !== preset.start || to !== preset.end) {
-        custom = true;
-        range = { start: from, end: to };
-      }
+      custom = true;
+      range = {
+        start: state.from <= state.to ? state.from : state.to,
+        end: state.from <= state.to ? state.to : state.from
+      };
+    } else if (period === 'last12') {
+      range = periodRange('last12', year, today);
     }
     var eventType = state && TYPES.indexOf(state.eventType) !== -1 ? state.eventType : '';
     var audience = state && (state.audience === 'Member' || state.audience === 'Guest') ? state.audience : '';
@@ -384,9 +377,8 @@
       period: period,
       custom: custom,
       range: range,
-      preset: preset,
-      granularity: granularityFor(period, custom, range),
-      yearEnabled: period !== 'last12',
+      grouping: groupingOf(period),
+      yearEnabled: period !== 'last12' && !custom,
       eventType: eventType,
       audience: audience,
       bucket: state && state.bucket ? String(state.bucket) : ''
@@ -411,16 +403,16 @@
     if (action.type === 'reset') return defaultState(data);
     if (action.type === 'period') {
       next.period = action.period;
-      next.from = '';
-      next.to = '';
       next.bucket = '';
+      if (action.period === 'last12') {
+        next.from = '';
+        next.to = '';
+      }
       return next;
     }
     if (action.type === 'year') {
-      if (next.period === 'last12') return next;
+      if (next.period === 'last12' || (next.from && next.to)) return next;
       next.year = Number(action.year);
-      next.from = '';
-      next.to = '';
       next.bucket = '';
       return next;
     }
@@ -428,6 +420,7 @@
       next.from = action.from;
       next.to = action.to;
       next.bucket = '';
+      if (next.period === 'last12') next.period = 'month';
       return next;
     }
     if (action.type === 'eventType') {
@@ -496,7 +489,8 @@
     data = data || {};
     var view = resolveView(data, state || defaultState(data));
     var attendance = attendanceByEvent(data);
-    var buckets = bucketsFor(view.range, view.granularity);
+    var buckets = bucketsFor(view.range, view.grouping);
+    var monthBuckets = bucketsFor(view.range, 'month');
     var selected = null;
     buckets.forEach(function (bucket) {
       if (bucket.id === view.bucket) selected = bucket;
@@ -526,17 +520,17 @@
       var flow = flowBetween(data, bucket.start, bucket.end, roster, eventType);
       return { id: bucket.id, label: bucket.label, joins: flow.joins, losses: flow.losses };
     });
-    var eventSeries = buckets.map(function (bucket) {
+    var eventSeries = monthBuckets.map(function (bucket) {
       return countEvents(bucket.start, bucket.end);
     });
-    var eventLastYear = buckets.map(function (bucket) {
+    var eventLastYear = monthBuckets.map(function (bucket) {
       var shifted = shiftRange(bucket.start, bucket.end, 12);
       return countEvents(shifted.start, shifted.end);
     });
-    var attendanceSeries = buckets.map(function (bucket) {
+    var attendanceSeries = monthBuckets.map(function (bucket) {
       return sumAttendance(bucket.start, bucket.end);
     });
-    var attendanceLastYear = buckets.map(function (bucket) {
+    var attendanceLastYear = monthBuckets.map(function (bucket) {
       var shifted = shiftRange(bucket.start, bucket.end, 12);
       return sumAttendance(shifted.start, shifted.end);
     });
@@ -563,7 +557,8 @@
       custom: view.custom,
       yearEnabled: view.yearEnabled,
       range: view.range,
-      granularity: view.granularity,
+      grouping: view.grouping,
+      monthBuckets: monthBuckets,
       eventType: eventType,
       audience: pieAudience,
       bucket: selected ? selected.id : '',

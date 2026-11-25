@@ -48,9 +48,20 @@ Normalized model:
 
 `fromSheetTabs()` drops columns named email, phone, mobile, name, attendee, or first or last name. Do not put those columns on these tabs. Names on the existing hospitality dashboard still come only from the password-checked `dashboard` POST. This page does not request or render them.
 
-With no pie slice selected, the membership cards use the Member roster. Attendance and events use everyone. Clicking **Members** or **Guests** limits the whole page, including the membership cards, to that audience. Click the slice again to clear it. **Reset filters** also clears it, and returns the current year, the Year period, and all event types.
+With no pie slice selected, the membership cards use the Member roster. Attendance and events use everyone. Clicking **Members** or **Guests** limits the whole page, including the membership cards, to that audience. Click the slice again to clear it. **Reset filters** also clears it, and returns the current year, Year grouping, and all event types.
 
-Year, Quarter, and Month follow the Year control. In the current year they run through `asOf`. In a past year, Year is the full calendar year, and Quarter and Month run through the end of that quarter or month (the quarter and month that contain `asOf`). Last 12 months is the trailing 12 months ending on `asOf`, from the first day of the month 11 months earlier, and it ignores the Year control. Charts use months for Year and Last 12 months, weeks for Quarter, and days for Month. Comparisons are the same number of days, ending one month, one quarter, or one year earlier.
+**Open** on each card is a placeholder label. It does not navigate and has no click action.
+
+Dates drive every total. In the current year the default range is January 1 through `asOf`. In a past year it is the full calendar year. **Last 12 months** replaces that range with the trailing 12 months ending on `asOf`, from the first day of the month 11 months earlier, and ignores the Year control. From and To override either preset. After a custom range is picked, Year, Quarter, and Month do not put the preset dates back. They only change how **Membership Gains V Losses** is grouped inside those dates. Reset, or choosing Last 12 months, clears a custom range.
+
+Year, Quarter, and Month group that bar chart only:
+
+- **Year** is one bar for each calendar year in the date range.
+- **Quarter** is Q1, Q2, Q3, and Q4 for the quarters the range covers.
+- **Month** is one bar per month, J through D, for the months the range covers.
+- **Last 12 months** sets the trailing range and groups that chart by month. That keeps one control for "the last 12 months, by month" instead of a separate grouping switch.
+
+The events and attendance lines stay month by month for the selected dates. They do not follow the Year or Quarter grouping. Comparisons are the same number of days, ending one month, one quarter, or one year earlier.
 
 ### Sheet tabs to add later
 

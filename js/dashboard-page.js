@@ -128,6 +128,10 @@
 
   function onClick(event) {
     var info = event.target.closest('.info');
+    if (event.target.closest('[data-open-placeholder]') && !info) {
+      event.preventDefault();
+      return;
+    }
     if (info) {
       event.preventDefault();
       event.stopPropagation();
@@ -146,7 +150,7 @@
       return;
     }
     var step = event.target.closest('[data-year-step]');
-    if (step && state.period !== 'last12') {
+    if (step && state.period !== 'last12' && !(state.from && state.to)) {
       var view = dash.compute(source, state);
       var index = view.years.indexOf(view.year);
       var nextYear = view.years[index + Number(step.getAttribute('data-year-step'))];

@@ -34,8 +34,11 @@ test('the default year matches the concept 2b example figures', () => {
   assert.equal(source.asOf, '2026-11-24');
   assert.equal(home.range.start, '2026-01-01');
   assert.equal(home.range.end, '2026-11-24');
-  assert.equal(home.granularity, 'month');
-  assert.deepEqual(Array.from(home.buckets, (bucket) => bucket.label), ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N']);
+  assert.equal(home.grouping, 'year');
+  assert.deepEqual(Array.from(home.gains, (bucket) => bucket.label), ['2026']);
+  assert.equal(home.gains[0].joins, 50);
+  assert.equal(home.gains[0].losses, 32);
+  assert.deepEqual(Array.from(home.monthBuckets, (bucket) => bucket.label), ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N']);
   assert.equal(home.members.value, 412);
   assert.equal(home.members.lastMonth, 409);
   assert.equal(home.members.lastQuarter, 404);
@@ -50,8 +53,6 @@ test('the default year matches the concept 2b example figures', () => {
   assert.equal(home.net.lastMonth, 16);
   assert.equal(home.net.lastQuarter, 12);
   assert.equal(home.net.lastYear, 11);
-  assert.deepEqual(Array.from(home.gains, (bucket) => bucket.joins), [4, 2, 5, 3, 3, 6, 5, 3, 5, 8, 6]);
-  assert.deepEqual(Array.from(home.gains, (bucket) => bucket.losses), [3, 1, 2, 6, 2, 3, 2, 5, 2, 3, 3]);
   assert.equal(home.events.value, 13);
   assert.equal(home.events.lastMonth, 12);
   assert.equal(home.events.lastQuarter, 11);
@@ -87,36 +88,63 @@ test('the default year matches the concept 2b example figures', () => {
   assert.equal(dash.inclusiveDays(lastYear.start, lastYear.end), span);
 });
 
-test('quarter, month, a past year, and the trailing 12 months follow the period rules', () => {
+test('quarter and month group the gains chart without changing the date range', () => {
   const quarter = view({ period: 'quarter' });
-  assert.equal(quarter.range.start, '2026-10-01');
+  assert.equal(quarter.range.start, '2026-01-01');
   assert.equal(quarter.range.end, '2026-11-24');
-  assert.equal(quarter.granularity, 'week');
-  assert.equal(quarter.events.value, 4);
-  assert.equal(quarter.buckets.length > 4, true);
+  assert.equal(quarter.grouping, 'quarter');
+  assert.equal(quarter.members.value, 412);
+  assert.equal(quarter.events.value, 13);
+  assert.deepEqual(Array.from(quarter.gains, (bucket) => bucket.label), ['Q1', 'Q2', 'Q3', 'Q4']);
+  assert.deepEqual(Array.from(quarter.gains, (bucket) => bucket.joins), [11, 12, 13, 14]);
+  assert.equal(quarter.eventSeries.length, 11);
   const month = view({ period: 'month' });
-  assert.equal(month.range.start, '2026-11-01');
+  assert.equal(month.range.start, '2026-01-01');
   assert.equal(month.range.end, '2026-11-24');
-  assert.equal(month.granularity, 'day');
-  assert.equal(month.buckets.length, 24);
-  assert.equal(month.events.value, 2);
+  assert.equal(month.members.value, 412);
+  assert.deepEqual(Array.from(month.gains, (bucket) => bucket.label), ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N']);
+  assert.deepEqual(Array.from(month.gains, (bucket) => bucket.joins), [4, 2, 5, 3, 3, 6, 5, 3, 5, 8, 6]);
   const past = view({ year: 2025, period: 'year' });
   assert.equal(past.range.start, '2025-01-01');
   assert.equal(past.range.end, '2025-12-31');
-  assert.equal(past.buckets.length, 12);
+  assert.deepEqual(Array.from(past.gains, (bucket) => bucket.label), ['2025']);
+  assert.equal(past.monthBuckets.length, 12);
   assert.equal(past.events.value > 0, true);
   const pastQuarter = view({ year: 2025, period: 'quarter' });
-  assert.equal(pastQuarter.range.start, '2025-10-01');
+  assert.equal(pastQuarter.range.start, '2025-01-01');
   assert.equal(pastQuarter.range.end, '2025-12-31');
-  const pastMonth = view({ year: 2025, period: 'month' });
-  assert.equal(pastMonth.range.start, '2025-11-01');
-  assert.equal(pastMonth.range.end, '2025-11-30');
+  assert.deepEqual(Array.from(pastQuarter.gains, (bucket) => bucket.label), ['Q1', 'Q2', 'Q3', 'Q4']);
   const trailing = view({ year: 2024, period: 'last12' });
   assert.equal(trailing.yearEnabled, false);
+  assert.equal(trailing.grouping, 'month');
   assert.equal(trailing.range.start, '2025-12-01');
   assert.equal(trailing.range.end, '2026-11-24');
-  assert.equal(trailing.granularity, 'month');
-  assert.equal(trailing.buckets.length, 12);
+  assert.equal(trailing.gains.length, 12);
+});
+
+test('a custom date range overrides the preset and keeps grouping', () => {
+  const custom = {
+    year: 2026, period: 'quarter', from: '2026-03-01', to: '2026-08-31',
+    eventType: '', audience: '', bucket: ''
+  };
+  const sliced = dash.compute(source, custom);
+  assert.equal(sliced.custom, true);
+  assert.equal(sliced.range.start, '2026-03-01');
+  assert.equal(sliced.range.end, '2026-08-31');
+  assert.equal(sliced.yearEnabled, false);
+  assert.notEqual(sliced.members.value, 412);
+  assert.deepEqual(Array.from(sliced.gains, (bucket) => bucket.label), ['Q1', 'Q2', 'Q3']);
+  assert.deepEqual(Array.from(sliced.monthBuckets, (bucket) => bucket.label), ['M', 'A', 'M', 'J', 'J', 'A']);
+  const grouped = dash.applyAction(source, custom, { type: 'period', period: 'month' });
+  assert.equal(grouped.from, '2026-03-01');
+  assert.equal(grouped.to, '2026-08-31');
+  const months = dash.compute(source, grouped);
+  assert.equal(months.range.start, '2026-03-01');
+  assert.deepEqual(Array.from(months.gains, (bucket) => bucket.label), ['M', 'A', 'M', 'J', 'J', 'A']);
+  const back = dash.applyAction(source, grouped, { type: 'period', period: 'last12' });
+  assert.equal(back.from, '');
+  assert.equal(back.to, '');
+  assert.equal(dash.compute(source, back).range.start, '2025-12-01');
 });
 
 test('the pie, event type, and bar filters recalculate the page', () => {
@@ -132,11 +160,11 @@ test('the pie, event type, and bar filters recalculate the page', () => {
   const lunch = view({ eventType: 'Lunch & Learn' });
   assert.equal(lunch.events.value, 5);
   assert.ok(lunch.members.value < 412);
-  const home = view();
-  const january = view({ bucket: home.buckets[0].id });
+  const months = view({ period: 'month' });
+  const january = view({ period: 'month', bucket: months.gains[0].id });
   assert.equal(january.events.value, 1);
   assert.equal(january.newMembers.value, 4);
-  assert.equal(january.bucket, home.buckets[0].id);
+  assert.equal(january.bucket, months.gains[0].id);
   const cleared = dash.applyAction(source, { audience: 'Guest', eventType: 'Happy Hour', bucket: 'x', year: 2025, period: 'month' }, { type: 'reset' });
   assert.equal(cleared.period, 'year');
   assert.equal(cleared.year, 2026);
@@ -195,6 +223,9 @@ test('the dashboard page is gated and the public sign-up does not link to it', (
   assert.equal(roundTrip.period, 'quarter');
   assert.equal(roundTrip.audience, 'Guest');
   const rendered = sandbox.ABADashboardView.render(Object.assign(view(), { documents: { extras: [] }, mobile: false }));
+  assert.match(rendered, /data-open-placeholder="true"/);
+  assert.equal(/<a[^>]*data-open-placeholder/.test(rendered), false);
+  assert.match(dash.DEFS.Open, /does not navigate/);
   assert.match(rendered, /Example data/);
   assert.match(rendered, />412</);
   assert.match(rendered, /\+18/);

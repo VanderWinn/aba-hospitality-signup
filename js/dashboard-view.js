@@ -59,7 +59,7 @@
 
   function card(title, key, body, extra) {
     return '<section class="card' + (extra || '') + '"><div class="hd"><h2 class="ttl">' + hint(title, key) +
-      '</h2><div class="open"><span>Open</span> ' + hint('', 'Open', true) + '<b aria-hidden="true">›</b></div></div><div class="bodycol">' +
+      '</h2><div class="open" data-open-placeholder="true"><span>Open</span> ' + hint('', 'Open', true) + '<b aria-hidden="true">›</b></div></div><div class="bodycol">' +
       body + '</div></section>';
   }
 
@@ -85,7 +85,8 @@
     var sc = Math.min((mid - (showLabels ? 28 : 16)) / maxUp, (h - mid - (showLabels ? 36 : 18)) / maxDown);
     var n = series.length || 1;
     var cw = (w - 20) / n;
-    var bw = Math.min(cw * 0.56, showLabels ? 28 : 18);
+    var cap = n <= 1 ? 84 : (n <= 4 ? 56 : (showLabels ? 28 : 18));
+    var bw = Math.min(cw * 0.62, cap);
     var parts = ['<line x1="6" y1="' + mid + '" x2="' + (w - 6) + '" y2="' + mid + '" stroke="#9aa6a9"/>'];
     series.forEach(function (bucket, index) {
       var x = 10 + index * cw + (cw - bw) / 2;
@@ -207,7 +208,7 @@ function yearControl(view, compact) {
       ['last12', 'Last 12 months', 'Last 12 months (period)']
     ];
     return '<div class="pseg" role="group" aria-label="Period">' + items.map(function (item) {
-      var on = view.period === item[0] && !view.custom;
+      var on = view.period === item[0];
       return '<button type="button" data-period="' + item[0] + '"' + (on ? ' class="on" aria-pressed="true"' : ' aria-pressed="false"') + '>' +
         escapeHtml(item[1]) + '<span class="tip" role="tooltip"><strong>' + escapeHtml(item[1]) + '</strong>' + escapeHtml(model.DEFS[item[2]] || '') + '</span></button>';
     }).join('') + '</div>';
@@ -329,7 +330,7 @@ function yearControl(view, compact) {
   }
 
   function render(view) {
-    var labels = view.buckets.map(function (bucket) { return bucket.label; });
+    var labels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
     var showBarLabels = !view.mobile && view.buckets.length <= 16;
     var members = card('Members', 'Members',
       headline(String(view.members.value), view.members.tone, 'big-members') + priors(view.members),
