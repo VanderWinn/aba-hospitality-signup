@@ -85,7 +85,7 @@
       try { hash = sessionStorage.getItem(VIEW_KEY) || ''; } catch (err) {}
     }
     if (portal && portal.dashboardStateFromHash) return portal.dashboardStateFromHash(hash);
-    return { period: 'year', category: '', detail: null };
+    return { range: 'last12', from: '', to: '', category: '', detail: null };
   }
 
   function saveView() {
@@ -183,12 +183,15 @@
       loadDashboard();
       return;
     }
-    var node = event.target.closest('[data-period], [data-category], [data-person], [data-event], [data-back]');
+    var node = event.target.closest('[data-range], [data-category], [data-person], [data-event], [data-back]');
     if (!node || !state.dashboard) return;
-    if (!state.view) state.view = { period: 'year', category: '', detail: null };
+    if (!state.view) state.view = { range: 'last12', from: '', to: '', category: '', detail: null };
     if (node.hasAttribute('data-back')) state.view.detail = null;
-    else if (node.hasAttribute('data-period')) {
-      state.view.period = node.getAttribute('data-period') === 'quarter' ? 'quarter' : 'year';
+    else if (node.hasAttribute('data-range')) {
+      var pick = node.getAttribute('data-range');
+      state.view.range = pick === 'quarter' ? 'quarter' : (pick === 'year' ? 'year' : 'last12');
+      state.view.from = '';
+      state.view.to = '';
       state.view.detail = null;
     } else if (node.hasAttribute('data-category')) {
       state.view.category = node.getAttribute('data-category') || '';
@@ -201,7 +204,20 @@
     paintDash();
   }
 
-  function onDashChange() {}
+  function onDashChange(event) {
+    var node = event.target;
+    if (!node || !node.hasAttribute('data-range-date') || !state.dashboard) return;
+    var root = document.getElementById('portal-dashboard-body');
+    var from = root && root.querySelector('[data-range-date="from"]');
+    var to = root && root.querySelector('[data-range-date="to"]');
+    if (!from || !to || !from.value || !to.value) return;
+    if (!state.view) state.view = { range: 'last12', from: '', to: '', category: '', detail: null };
+    state.view.range = 'custom';
+    state.view.from = from.value;
+    state.view.to = to.value;
+    state.view.detail = null;
+    paintDash();
+  }
 
   async function postDashboard(password) {
     var url = backendUrl();

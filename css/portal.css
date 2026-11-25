@@ -619,6 +619,20 @@
 #portal-calendar-note[hidden] { display: none; }
 
 .plain-dash { margin-top: 0.2rem; }
+.range-bar { margin: 0 0 0.35rem; }
+.date-range { display: flex; flex-wrap: wrap; gap: 0.65rem; margin: 0 0 0.85rem; }
+.date-field { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 700; }
+.date-field input {
+  min-height: 44px;
+  min-width: 11rem;
+  font: inherit;
+  font-size: 1rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+.plain-months { overflow-x: auto; padding-bottom: 0.2rem; }
 .pill-row { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0 0 0.85rem; }
 .pill {
   min-height: 44px;

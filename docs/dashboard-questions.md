@@ -58,6 +58,6 @@ The short header is what a member reads. The question is the accessible name and
 | Which roles are still open? | The event detail, opened by clicking that event. | The event name, with a Back button |
 | What did this person do? | The person detail, opened by clicking that person. Date, event, and role. | The person's name, with a Back button |
 
-The period pills (This year, This quarter) are not a separate question. They set the period for the tiles, the chart, and both lists. This year is the default, so the page is useful with no setup.
+The time control is not a separate question. Last 12 months, This year, and This quarter set the period for the tiles, the chart, and both lists. From and To set any other range. Last 12 months is the default, so the page is useful with no setup. Reset returns to that default.
 
 External attendance is not in this ranking. The sheet does not record guests. That block stays below the real numbers, uses the same tile-and-list pattern, and is labeled example data.

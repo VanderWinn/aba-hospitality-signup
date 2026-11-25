@@ -329,7 +329,7 @@
   }
 
   function defaultDashboardState() {
-    return { period: 'year', category: '', detail: null };
+    return { range: 'last12', from: '', to: '', category: '', detail: null };
   }
 
   function dimLabel(id) {
@@ -456,19 +456,38 @@
     return items;
   }
 
+  function isoDate(value) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? String(value) : '';
+  }
+
   function plainView(view) {
-    var period = view && view.period === 'quarter' ? 'quarter' : 'year';
+    var range = 'last12';
+    if (view && (view.range === 'year' || view.range === 'quarter' || view.range === 'custom' || view.range === 'last12')) range = view.range;
+    else if (view && view.period === 'quarter') range = 'quarter';
+    else if (view && view.period === 'year') range = 'year';
+    var from = isoDate(view && view.from);
+    var to = isoDate(view && view.to);
+    if (from && to && from > to) {
+      var swap = from;
+      from = to;
+      to = swap;
+    }
+    if (range === 'custom' && (!from || !to)) range = 'last12';
     var category = view && view.category ? String(view.category) : '';
     var detail = null;
     if (view && view.detail && view.detail.id && (view.detail.kind === 'person' || view.detail.kind === 'event')) {
       detail = { kind: view.detail.kind, id: String(view.detail.id) };
     }
-    return { period: period, category: category, detail: detail };
+    return { range: range, from: from, to: to, category: category, detail: detail };
   }
 
   function dashboardHash(state) {
     var view = plainView(state);
-    var parts = ['period=' + view.period];
+    var parts = ['range=' + view.range];
+    if (view.range === 'custom') {
+      parts.push('from=' + view.from);
+      parts.push('to=' + view.to);
+    }
     if (view.category) parts.push('category=' + encodeURIComponent(view.category));
     if (view.detail) parts.push('detail=' + encodeURIComponent(view.detail.kind + ':' + view.detail.id));
     return parts.join('&');
@@ -504,7 +523,15 @@
       try { key = decodeURIComponent(key); } catch (err) {}
       bag[key] = bits.slice(1).join('=');
     });
-    if (bag.period === 'quarter') view.period = 'quarter';
+    if (bag.range === 'year' || bag.range === 'quarter' || bag.range === 'custom' || bag.range === 'last12') view.range = bag.range;
+    else if (bag.period === 'quarter') view.range = 'quarter';
+    else if (bag.period === 'year') view.range = 'year';
+    if (bag.from) {
+      try { view.from = decodeURIComponent(bag.from); } catch (err) { view.from = bag.from; }
+    }
+    if (bag.to) {
+      try { view.to = decodeURIComponent(bag.to); } catch (err) { view.to = bag.to; }
+    }
     if (bag.category) {
       try { view.category = decodeURIComponent(bag.category); } catch (err) { view.category = bag.category; }
     }
@@ -955,18 +982,50 @@
     };
   }
 
-  function periodRange(model, period) {
-    var year = String((model.participation && model.participation.year && model.participation.year.label) || (model.asOf || '').slice(0, 4) || '');
+  function asOfDay(model) {
+    if (model && isoDate(model.asOf)) return model.asOf;
+    var year = String((model && model.participation && model.participation.year && model.participation.year.label) || '').slice(0, 4);
     if (!/^\d{4}$/.test(year)) year = '2026';
-    if (period === 'quarter') {
-      var quarter = quarterFromLabel(model.participation && model.participation.quarter && model.participation.quarter.label);
-      if (quarter) return quarter;
+    return year + '-12-31';
+  }
+
+  function monthEnd(year, month) {
+    return year + '-' + pad2(month) + '-' + pad2(new Date(Date.UTC(year, month, 0)).getUTCDate());
+  }
+
+  function shiftMonth(iso, delta) {
+    var index = Number(iso.slice(0, 4)) * 12 + (Number(iso.slice(5, 7)) - 1) + delta;
+    return { year: Math.floor(index / 12), month: (index % 12) + 1 };
+  }
+
+  function rangeCaption(start, end) {
+    var names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    function piece(iso) {
+      return names[Number(iso.slice(5, 7)) - 1] + ' ' + iso.slice(0, 4);
     }
-    return { label: year, start: year + '-01-01', end: year + '-12-31' };
+    return piece(start) + ' – ' + piece(end);
+  }
+
+  function viewRange(model, view) {
+    var today = asOfDay(model);
+    var year = today.slice(0, 4);
+    if (view.range === 'custom' && view.from && view.to) {
+      return { start: view.from, end: view.to, label: rangeCaption(view.from, view.to) };
+    }
+    if (view.range === 'quarter') {
+      var quarter = quarterFromLabel(model.participation && model.participation.quarter && model.participation.quarter.label);
+      if (quarter) return { start: quarter.start, end: quarter.end, label: quarter.label };
+    }
+    if (view.range === 'year') return { start: year + '-01-01', end: year + '-12-31', label: year };
+    var end = shiftMonth(today, 0);
+    var start = shiftMonth(today, -11);
+    var startIso = start.year + '-' + pad2(start.month) + '-01';
+    var endIso = monthEnd(end.year, end.month);
+    return { start: startIso, end: endIso, label: rangeCaption(startIso, endIso) };
   }
 
   function shiftsInView(model, view) {
-    var range = periodRange(model, view.period);
+    var range = viewRange(model, view);
     return collectShifts(model).filter(function (shift) {
       if (!shift.date || shift.date < range.start || shift.date > range.end) return false;
       if (view.category && shift.event !== view.category) return false;
@@ -991,7 +1050,7 @@
   }
 
   function eventsInView(model, view) {
-    var range = periodRange(model, view.period);
+    var range = viewRange(model, view);
     return ((model.capacity && model.capacity.events) || []).filter(function (event) {
       if (!event.date || event.date < range.start || event.date > range.end) return false;
       if (view.category && event.name !== view.category) return false;
@@ -1026,17 +1085,20 @@
     var cursor = range.start.slice(0, 7);
     var end = range.end.slice(0, 7);
     var total = 0;
-    while (cursor && cursor <= end && items.length < 18) {
+    var names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var previousYear = '';
+    while (cursor && cursor <= end && items.length < 120) {
       var count = counts[cursor] || 0;
       total += count;
-      var parts = cursor.split('-');
-      var label = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' })
-        .format(new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, 1)));
-      items.push({ label: label, value: count });
-      var month = Number(parts[1]) + 1;
-      var year = Number(parts[0]);
-      if (month > 12) { month = 1; year += 1; }
-      cursor = year + '-' + pad2(month);
+      var year = cursor.slice(0, 4);
+      var month = Number(cursor.slice(5, 7));
+      var nextMonth = month === 12 ? 1 : month + 1;
+      var nextYear = month === 12 ? String(Number(year) + 1) : year;
+      var nextKey = nextYear + '-' + pad2(nextMonth);
+      var showYear = !previousYear || previousYear !== year || nextKey > end;
+      items.push({ label: names[month - 1] + (showYear ? ' ’' + year.slice(2) : ''), value: count });
+      previousYear = year;
+      cursor = nextKey;
     }
     items.push({ label: 'Total', value: total, accent: true });
     return items;
@@ -1045,7 +1107,8 @@
   function monthChart(items) {
     var max = 1;
     items.forEach(function (item) { if (item.value > max) max = item.value; });
-    return '<div class="vchart plain-months" role="img" aria-label="Shifts by month"><div class="vbars">' + items.map(function (item) {
+    var wide = items.length > 16 ? ' style="min-width:' + (items.length * 46) + 'px"' : '';
+    return '<div class="vchart plain-months" role="img" aria-label="Shifts by month"><div class="vbars"' + wide + '>' + items.map(function (item) {
       var height = item.value ? Math.max(8, Math.round((item.value / max) * 100)) : 0;
       return '<div class="vbar"><span class="vbar-value">' + item.value + '</span>' +
         '<span class="vbar-col' + (item.accent ? ' is-focus' : '') + '" style="height:' + height + '%"></span>' +
@@ -1094,11 +1157,11 @@
   }
 
   function plainHome(model, view) {
-    var range = periodRange(model, view.period);
+    var range = viewRange(model, view);
     var shifts = shiftsInView(model, view);
     var people = peopleInView(shifts);
     var events = eventsInView(model, view);
-    var unfiltered = shiftsInView(model, { period: view.period, category: '' });
+    var unfiltered = shiftsInView(model, { range: view.range, from: view.from, to: view.to, category: '' });
     var typeNames = ['Lunch & Learn', 'Ribbon Cutting', 'Happy Hour'];
     unfiltered.forEach(function (shift) {
       if (shift.event && typeNames.indexOf(shift.event) === -1) typeNames.push(shift.event);
@@ -1119,10 +1182,15 @@
       kpiTile('How many people helped?', 'Volunteers', String(people.length), escapeHtml(range.label)) +
       kpiTile('Who should we thank?', 'Top volunteer', top ? top.name : 'None yet', top ? (top.count + ' shifts') : 'No shifts in this period', true) +
       '</div>';
-    var periodPills = '<div class="pill-row" role="group" aria-label="Which period?">' +
-      pillButton('data-period="year"', 'This year', null, view.period !== 'quarter') +
-      pillButton('data-period="quarter"', 'This quarter', null, view.period === 'quarter') +
-      '</div>';
+    var periodPills = '<div class="range-bar"><div class="pill-row" role="group" aria-label="Choose a time range">' +
+      pillButton('data-range="last12"', 'Last 12 months', null, view.range === 'last12') +
+      pillButton('data-range="year"', 'This year', null, view.range === 'year') +
+      pillButton('data-range="quarter"', 'This quarter', null, view.range === 'quarter') +
+      pillButton('data-range="reset"', 'Reset', null, false) +
+      '</div><div class="date-range">' +
+      '<label class="date-field">From <input type="date" data-range-date="from" value="' + escapeHtml(range.start) + '" aria-label="Start date"></label>' +
+      '<label class="date-field">To <input type="date" data-range-date="to" value="' + escapeHtml(range.end) + '" aria-label="End date"></label>' +
+      '</div></div>';
     var typePills = '<div class="pill-row" role="group" aria-label="Which event types draw participation?">' +
       pillButton('data-category=""', 'All', unfiltered.length, !view.category);
     typeNames.forEach(function (name) {
