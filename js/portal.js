@@ -1110,7 +1110,7 @@
     var wide = items.length > 16 ? ' style="min-width:' + (items.length * 46) + 'px"' : '';
     return '<div class="vchart plain-months" role="img" aria-label="Shifts by month"><div class="vbars"' + wide + '>' + items.map(function (item) {
       var height = item.value ? Math.max(8, Math.round((item.value / max) * 100)) : 0;
-      return '<div class="vbar"><span class="vbar-value">' + item.value + '</span>' +
+      return '<div class="vbar' + (item.accent ? ' is-total' : '') + '"><span class="vbar-value">' + item.value + '</span>' +
         '<span class="vbar-col' + (item.accent ? ' is-focus' : '') + '" style="height:' + height + '%"></span>' +
         '<span class="vbar-label">' + escapeHtml(item.label) + '</span></div>';
     }).join('') + '</div></div>';
