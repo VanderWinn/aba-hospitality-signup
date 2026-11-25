@@ -244,7 +244,47 @@
       openings: openings,
       changes: changes
     });
+    normalized.companies = memberCompaniesFromSheet(tabs.members || tabs.Members);
+    normalized.attendanceRecords = attendanceRecordsFromSheet(tabs.attendanceRecords || tabs.attendance_records);
     return normalized;
+  }
+
+  function memberCompaniesFromSheet(rows) {
+    var seen = {};
+    var names = [];
+    sheetRows(rows).forEach(function (row) {
+      var name = String(field(row, ['company_name', 'company']) || '').trim();
+      if (!name || seen[name]) return;
+      seen[name] = true;
+      names.push(name);
+    });
+    names.sort(function (a, b) { return a < b ? -1 : a > b ? 1 : 0; });
+    return names;
+  }
+
+  function attendanceRecordsFromSheet(rows) {
+    var known = {
+      name: 1, attendee: 1, attendee_name: 1, member_or_guest: 1, audience: 1,
+      event: 1, event_name: 1, date: 1, email: 1, phone: 1, mobile: 1,
+      company: 1, company_name: 1
+    };
+    return sheetRows(rows).map(function (row) {
+      var record = { name: '', audience: '', event: '', date: '', email: '', phone: '', company: '' };
+      Object.keys(row || {}).forEach(function (key) {
+        var low = String(key).toLowerCase().replace(/\s+/g, '_');
+        var value = row[key];
+        if (low === 'name' || low === 'attendee' || low === 'attendee_name') record.name = String(value || '');
+        else if (low === 'member_or_guest' || low === 'audience') record.audience = canonicalAudience(value) || String(value || '');
+        else if (low === 'event' || low === 'event_name') record.event = String(value || '');
+        else if (low === 'date') record.date = String(value || '');
+        else if (low === 'email') record.email = String(value || '');
+        else if (low === 'phone' || low === 'mobile') record.phone = String(value || '');
+        else if (low === 'company' || low === 'company_name') record.company = String(value || '');
+        else if (!known[low]) record[low] = value;
+      });
+      if (!record.name || !isISO(record.date)) return null;
+      return record;
+    }).filter(Boolean);
   }
 
   function placeholderSource() {

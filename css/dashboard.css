@@ -29,6 +29,10 @@ button, input, select { font: inherit; color: inherit; }
 
 button { cursor: pointer; }
 
+button.big, button.open { border: 0; background: transparent; padding: 0; cursor: pointer; }
+
+button.big { display: block; width: 100%; }
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -560,6 +564,123 @@ button { cursor: pointer; }
 
 .skip:focus { top: 8px; }
 
+.search-box { position: relative; display: block; }
+
+.search-box input, .multi-find, .drill-tools input {
+  border: 1px solid #c5cfd2;
+  border-radius: 4px;
+  height: 32px;
+  padding: 0 8px;
+  width: 148px;
+  background: #fff;
+}
+
+.suggest, .multi-pop {
+  position: absolute;
+  z-index: 30;
+  background: #fff;
+  border: 1px solid var(--deep);
+  border-radius: 6px;
+  box-shadow: 0 8px 22px rgba(47, 80, 95, .18);
+  padding: 8px;
+  width: 240px;
+}
+
+.suggest { top: 36px; left: 0; }
+
+.suggest p, .multi-actions { margin: 6px 0 4px; font-size: 11px; font-weight: 700; color: var(--soft); letter-spacing: .4px; text-transform: uppercase; }
+
+.suggest .empty-opt { text-transform: none; font-weight: 400; letter-spacing: 0; }
+
+.suggest button, .multi-actions button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 6px 4px;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.rail-block { margin-top: 16px; }
+
+.multi { position: relative; }
+
+.multi-face {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #c5cfd2;
+  border-radius: 4px;
+  background: #fff;
+  min-height: 32px;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.multi-pop { top: 36px; left: 0; }
+
+.multi-actions { display: flex; gap: 8px; text-transform: none; letter-spacing: 0; }
+
+.multi-actions button { width: auto; color: var(--pine); font-weight: 700; padding: 0; }
+
+.multi-find { width: 100%; margin: 4px 0 8px; }
+
+.multi-list { max-height: 220px; overflow: auto; }
+
+.check { display: flex; gap: 6px; align-items: flex-start; font-size: 13px; padding: 4px 0; }
+
+.picked { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 0; font-size: 12px; color: var(--soft); }
+
+.picked-chip {
+  border: 1px solid #c5cfd2;
+  background: #fff;
+  border-radius: 12px;
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.empty-opt { margin: 0; color: var(--soft); font-size: 12px; font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+.drill-back { position: fixed; inset: 0; background: rgba(26, 51, 60, .35); z-index: 40; }
+
+.drill {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 41;
+  width: min(760px, 100%);
+  height: 100%;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 24px rgba(26, 51, 60, .18);
+}
+
+.drill-bar, .drill-tools { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+
+.drill-bar h2 { margin: 0; font-size: 16px; font-family: Montserrat, Raleway, sans-serif; color: var(--deep); }
+
+.drill-back-btn { border: 1px solid #c5cfd2; background: #fff; border-radius: 4px; padding: 6px 10px; font-weight: 700; }
+
+.drill-tools input { flex: 1; width: auto; }
+
+.record-count { margin: 0; font-weight: 700; white-space: nowrap; }
+
+.drill-scroll { overflow: auto; flex: 1; }
+
+.drill-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+.drill-table th, .drill-table td { border-bottom: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+
+.drill-table th { position: sticky; top: 0; background: #fff; }
+
+.drill-table th button { border: 0; background: transparent; font-weight: 700; padding: 0; color: var(--deep); }
+
+@media (max-width: 800px) {
+  .drill { width: 100%; }
+}
+
 @media (max-width: 1100px) {
   .pill { padding: 0 8px; font-size: 12px; }
   .pseg button { padding: 6px 8px; }
@@ -594,15 +715,20 @@ button { cursor: pointer; }
 
   .example-badge { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
 
-  .stack .open span { display: none; }
-
   .daterow-mob {
     display: flex;
+    flex-direction: column;
     background: #fff;
     border-bottom: 1px solid var(--line);
     min-height: 88px;
     align-items: stretch;
   }
+
+  .daterow-mob .search-line { padding: 8px 10px 0; }
+
+  .daterow-mob .search-box input { width: 100%; }
+
+  .daterow-mob .mob-main { display: flex; align-items: stretch; }
 
   .daterow-mob .cols { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 

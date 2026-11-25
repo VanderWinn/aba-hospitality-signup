@@ -13,7 +13,7 @@ function load() {
   };
   context.globalThis = context;
   vm.createContext(context);
-  ['js/dashboard-model.js', 'js/dashboard-data.js', 'js/dashboard-view.js'].forEach(function (file) {
+  ['js/dashboard-model.js', 'js/dashboard-data.js', 'js/dashboard-directory.js', 'js/dashboard-view.js'].forEach(function (file) {
     vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename: file });
   });
   return context;
@@ -200,6 +200,46 @@ test('the sheet adapter keeps counts and drops contact fields', () => {
   assert.equal(JSON.stringify(source).includes('@'), false);
   assert.equal(JSON.stringify(source).toLowerCase().includes('phone'), false);
   assert.equal(JSON.stringify(source).toLowerCase().includes('email'), false);
+  const kept = dataApi.fromSheetTabs({
+    attendanceRecords: [{
+      name: 'Avery Sample',
+      member_or_guest: 'Guest',
+      event: 'Happy Hour',
+      date: '2026-04-08',
+      email: 'avery.sample@example.com',
+      phone: '555-0101',
+      company: 'Visitor Co.',
+      notes: 'Example visit'
+    }],
+    members: [{ company_name: 'Juniper Goods' }, { company_name: 'Ada River Cafe' }, { company_name: 'Visitor Co.' }]
+  });
+  assert.equal(kept.attendanceRecords[0].email, 'avery.sample@example.com');
+  assert.equal(kept.attendanceRecords[0].phone, '555-0101');
+  assert.equal(kept.attendanceRecords[0].notes, 'Example visit');
+  assert.equal(Array.from(kept.companies).join('|'), 'Ada River Cafe|Juniper Goods|Visitor Co.');
+  const directory = sandbox.ABADirectory.build(source);
+  const plain = dash.compute(source, null, directory);
+  const attendance = sandbox.ABADirectory.drill(directory, 'attendance', plain);
+  assert.equal(attendance.rows.length, 462);
+  assert.equal(attendance.rows[0].email.endsWith('@example.com'), true);
+  assert.equal(String(attendance.rows[0].phone).indexOf('555-'), 0);
+  assert.equal(attendance.columns.some((column) => column.key === 'notes'), true);
+  const guestView = Object.assign({}, plain, { audience: 'Guest' });
+  assert.equal(sandbox.ABADirectory.drill(directory, 'attendance', guestView).rows.length, 176);
+  const company = dash.compute(source, {
+    year: 2026, period: 'year', from: '', to: '', eventTypes: [], companies: ['Ada River Cafe'], people: [], nameQuery: '', audience: '', bucket: ''
+  }, directory);
+  assert.ok(company.attendance.value < 462);
+  assert.ok(company.members.value < 412);
+  const both = dash.applyAction(source, { year: 2026, period: 'month', from: '2026-03-01', to: '2026-06-30', eventTypes: ['Lunch & Learn', 'Happy Hour'], companies: ['Ada River Cafe'], people: ['Avery Sample'], nameQuery: 'sam', audience: 'Guest', bucket: 'x' }, { type: 'reset' });
+  assert.equal(both.period, 'year');
+  assert.equal(both.from, '');
+  assert.equal(both.eventTypes.length, 0);
+  assert.equal(both.companies.length, 0);
+  assert.equal(both.people.length, 0);
+  assert.equal(both.nameQuery, '');
+  assert.equal(both.audience, '');
+  assert.equal(both.bucket, '');
 });
 
 test('the dashboard page is gated and the public sign-up does not link to it', () => {
@@ -223,9 +263,9 @@ test('the dashboard page is gated and the public sign-up does not link to it', (
   assert.equal(roundTrip.period, 'quarter');
   assert.equal(roundTrip.audience, 'Guest');
   const rendered = sandbox.ABADashboardView.render(Object.assign(view(), { documents: { extras: [] }, mobile: false }));
-  assert.match(rendered, /data-open-placeholder="true"/);
-  assert.equal(/<a[^>]*data-open-placeholder/.test(rendered), false);
-  assert.match(dash.DEFS.Open, /does not navigate/);
+  assert.match(rendered, /data-drill="members"/);
+  assert.match(rendered, />Open</);
+  assert.equal(/<a[^>]*data-drill/.test(rendered), false);
   assert.match(rendered, /Example data/);
   assert.match(rendered, />412</);
   assert.match(rendered, /\+18/);

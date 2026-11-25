@@ -63,6 +63,46 @@ Year, Quarter, and Month group that bar chart only:
 
 The events and attendance lines stay month by month for the selected dates. They do not follow the Year or Quarter grouping. Comparisons are the same number of days, ending one month, one quarter, or one year earlier.
 
+**Open** on a card, or the big number, lists the records behind that total. The list uses the same Year, Period, Dates, event types, companies, people, name search, and Members or Guests choice. Back returns to the dashboard with those filters still set. Reset clears every filter, and an open list refreshes to the unfiltered records.
+
+On the left, under Event type, **Company** then **Person** are separate multi-select lists. Each has Select all, Clear all, checkboxes, and a type-to-filter box. Enter in that box checks the first match. Select all, while a filter is typed, adds only the visible matches. Choices inside one list combine with OR. Event type, company, person, and a name search combine with AND. The person list shows only people at the selected companies. Removing a company removes its people from the person selection. Guests can belong to a company that is not a member company; those companies are not in the Company list.
+
+The top bar order is Year, Period, Dates, Search, Reset. Search suggests people and companies. Choosing a suggestion adds that person or company to the left-rail selection. Enter on text that you do not pick applies a case-insensitive “name contains” match. On a phone the search field is full width at the top of the filter area.
+
+Placeholder mode uses about ten obviously fake companies and fake people. Attendance emails end in `@example.com` and phone numbers start with `555`. Those contact fields are not on the summary cards. They appear only in the attendance drill-down, which also shows any extra field on the record, such as `notes`.
+
+The attendance drill-down shows contact information to anyone who has the portal password. Real names, emails, and phone numbers must come from the password-checked `executiveDrilldown` POST when the list opens. They are not stored in this repo, in static JavaScript, or in `localStorage`. The placeholder page does not call that endpoint.
+
+`fromSheetTabs()` still drops email, phone, and name from the headline tabs. It keeps them on `attendanceRecords` only.
+
+**Members** (member companies for the Company list; not guest companies)
+
+| Column | Required | Notes |
+| --- | --- | --- |
+| `company_name` | yes | One member company per row, shown in the Company list |
+
+**AttendanceRecords** (one person per visit; used when a drill-down opens)
+
+| Column | Required | Notes |
+| --- | --- | --- |
+| `name` | yes | The attendee, not a company total |
+| `member_or_guest` | yes | `Member` or `Guest` |
+| `event` | yes | Event name |
+| `date` | yes | `YYYY-MM-DD` |
+| `email` | no | Shown only in this drill-down |
+| `phone` | no | Shown only in this drill-down |
+| `company` | no | Matched by the Company filter. A guest company that is not on Members stays off the Company list |
+| any other column | no | Shown automatically as its own column |
+
+### Apps Script for the drill-down
+
+No deployment yet. The page still uses placeholder data. When the sheet is ready:
+
+1. Add the Members and AttendanceRecords tabs above. Do not put those columns on the public sign-up tabs.
+2. The repo already has `executiveDrilldownAction_` and routes `action: 'executiveDrilldown'`. It checks `PORTAL_PASSWORD_SHA256` the same way as the portal dashboard. A wrong password returns status 401 and no rows.
+3. Publish it only when you want it live: **Deploy → Manage deployments → pencil icon → Version: New version → Deploy**. The `/exec` URL stays the same.
+4. Point the drill-down loader at that POST. Send `{ action: 'executiveDrilldown', password }` as `text/plain` when the list opens, then pass the JSON through `fromSheetTabs()`. Do not send the records on the first dashboard load.
+
 ### Sheet tabs to add later
 
 Use the spreadsheet this site already uses. Add tabs, do not put emails, phones, or people's names on them.

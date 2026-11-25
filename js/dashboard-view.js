@@ -53,13 +53,13 @@
     }).join('') + '</div>';
   }
 
-  function headline(text, tone, sizeClass) {
-    return '<div class="big ' + sizeClass + ' tone-' + tone + '">' + text + '</div>';
+  function headline(text, tone, sizeClass, drill) {
+    return '<button type="button" class="big ' + sizeClass + ' tone-' + tone + '" data-drill="' + drill + '">' + text + '</button>';
   }
 
-  function card(title, key, body, extra) {
+  function card(title, key, body, extra, drill) {
     return '<section class="card' + (extra || '') + '"><div class="hd"><h2 class="ttl">' + hint(title, key) +
-      '</h2><div class="open" data-open-placeholder="true"><span>Open</span> ' + hint('', 'Open', true) + '<b aria-hidden="true">›</b></div></div><div class="bodycol">' +
+      '</h2><button type="button" class="open" data-drill="' + drill + '"><span>Open</span> ' + hint('', 'Open', true) + '<b aria-hidden="true">›</b></button></div><div class="bodycol">' +
       body + '</div></section>';
   }
 
@@ -288,6 +288,7 @@ function yearControl(view, compact) {
     var period = '<span class="lab">' + hint('Period', 'Period') + '</span>' + periodControl(view);
     var dates = '<span class="lab">' + hint('Dates', 'Calendar') + '</span>' +
       dateField('from', 'From', view.range.start) + dateField('to', 'To', view.range.end);
+    var search = '<div class="dgroup search-group">' + searchBox(view, 'full') + '</div>';
     var reset = '<button type="button" class="reset" data-reset>↺ Reset filters ' + hint('', 'Reset filters', true) + '</button>';
     var startText = model.formatDate(view.range.start);
     var endText = model.formatDate(view.range.end);
@@ -298,10 +299,84 @@ function yearControl(view, compact) {
       '<input type="date" data-date="from" value="' + escapeHtml(view.range.start) + '" aria-label="From date">' +
       '<input type="date" data-date="to" value="' + escapeHtml(view.range.end) + '" aria-label="To date">';
     return '<div class="daterow daterow-full"><div class="dgroup">' + year + '</div><div class="dgroup">' + period +
-      '</div><div class="dgroup">' + dates + '</div><div class="dgroup">' + reset + '</div></div>' +
-      '<div class="daterow daterow-mob"><div class="cols"><div class="track">' + yearControl(view, true) + periodControl(view) +
+      '</div><div class="dgroup">' + dates + '</div>' + search + '<div class="dgroup">' + reset + '</div></div>' +
+      '<div class="daterow daterow-mob"><div class="search-line">' + searchBox(view, 'mob') + '</div><div class="mob-main"><div class="cols"><div class="track">' + yearControl(view, true) + periodControl(view) +
       '</div><div class="dprow"><label class="drow drow-span">' + mobileDates + '</label></div></div>' +
-      '<div class="sticky"><button type="button" class="reset" data-reset>↺ Reset filters</button></div></div>';
+      '<div class="sticky"><button type="button" class="reset" data-reset>↺ Reset filters</button></div></div></div>';
+  }
+
+  function selectedTypes(view) {
+    if (view.eventTypes && view.eventTypes.length) return view.eventTypes;
+    return view.eventType ? [view.eventType] : [];
+  }
+
+  function typeOn(view, type) {
+    var selected = selectedTypes(view);
+    return type ? selected.indexOf(type) !== -1 : !selected.length;
+  }
+
+  function chipsFor(items, kind) {
+    var list = items || [];
+    if (!list.length) return '';
+    if (list.length > 2) {
+      return '<p class="picked">' + list.length + ' selected</p>';
+    }
+    return '<div class="picked">' + list.map(function (item) {
+      return '<button type="button" class="picked-chip" data-clear-' + kind + '="' + escapeHtml(item) + '">' + escapeHtml(item) + ' ×</button>';
+    }).join('') + '</div>';
+  }
+
+  function multiMenu(view, kind) {
+    var ui = view.ui || {};
+    var open = ui.openMenu === kind;
+    var typed = kind === 'company' ? (ui.companyFilter || '') : (ui.personFilter || '');
+    var selected = kind === 'company' ? (view.companies || []) : (view.people || []);
+    var options = kind === 'company' ? ((view.directory && view.directory.companies) || []) : ((view.personOptions) || []);
+    var visible = options.filter(function (option) {
+      var label = kind === 'company' ? option : option.name;
+      if (!typed) return true;
+      return String(label).toLowerCase().indexOf(typed.toLowerCase()) !== -1;
+    });
+    var summary = !selected.length ? (kind === 'company' ? 'All companies' : 'All people') : (selected.length > 2 ? selected.length + ' selected' : selected.join(', '));
+    var boxes = visible.map(function (option) {
+      var label = kind === 'company' ? option : option.name;
+      var on = selected.indexOf(label) !== -1;
+      return '<label class="check"><input type="checkbox" data-' + kind + '-option="' + escapeHtml(label) + '"' + (on ? ' checked' : '') + '> ' + escapeHtml(label) + '</label>';
+    }).join('') || '<p class="empty-opt">No matches</p>';
+    return '<div class="multi' + (open ? ' is-open' : '') + '" data-menu="' + kind + '">' +
+      '<button type="button" class="multi-face" data-menu-toggle="' + kind + '" aria-expanded="' + open + '">' + escapeHtml(summary) + '</button>' +
+      '<div class="multi-pop"' + (open ? '' : ' hidden') + '>' +
+      '<div class="multi-actions"><button type="button" data-select-all="' + kind + '">Select all</button><button type="button" data-clear-all="' + kind + '">Clear all</button></div>' +
+      '<input class="multi-find" data-find="' + kind + '" value="' + escapeHtml(typed) + '" placeholder="Type a name" aria-label="Filter ' + kind + ' list">' +
+      '<div class="multi-list">' + boxes + '</div></div>' +
+      chipsFor(selected, kind) + '</div>';
+  }
+
+  function nameChip(view) {
+    if (!view.nameQuery) return '';
+    return '<button type="button" class="picked-chip" data-clear-name="1">Name contains “' + escapeHtml(view.nameQuery) + '” ×</button>';
+  }
+
+  function railFilters(view) {
+    return '<div class="rail-block"><div class="h">' + hint('Company', 'Company') + '</div>' + multiMenu(view, 'company') + '</div>' +
+      '<div class="rail-block"><div class="h">' + hint('Person', 'Person') + '</div>' + multiMenu(view, 'person') + nameChip(view) + '</div>';
+  }
+
+  function searchBox(view, where) {
+    var ui = view.ui || {};
+    var text = ui.searchText || '';
+    var open = ui.suggest && ui.suggestWhere === where && text;
+    var hits = view.suggestions || { people: [], companies: [] };
+    var people = (hits.people || []).map(function (person) {
+      return '<button type="button" data-suggest-person="' + escapeHtml(person.name) + '">' + escapeHtml(person.name) + '</button>';
+    }).join('');
+    var companies = (hits.companies || []).map(function (name) {
+      return '<button type="button" data-suggest-company="' + escapeHtml(name) + '">' + escapeHtml(name) + '</button>';
+    }).join('');
+    var menu = open ? '<div class="suggest"><p>People</p>' + (people || '<p class="empty-opt">No people</p>') + '<p>Companies</p>' + (companies || '<p class="empty-opt">No companies</p>') + '</div>' : '';
+    return '<label class="search-box"><span class="sr-only">' + hint('Search', 'Search name') + '</span>' +
+      '<input data-name-search="' + where + '" value="' + escapeHtml(text) + '" placeholder="Search name…" aria-label="Search name" autocomplete="off">' +
+      menu + '</label>';
   }
 
   function eventTypes(view, chips) {
@@ -311,18 +386,40 @@ function yearControl(view, compact) {
     if (chips) {
       return '<div class="chips"><div class="h">' + hint('Event type', 'Event type') + '</div><div class="chip-row">' +
         types.map(function (type) {
-          var on = view.eventType === type[0];
+          var on = typeOn(view, type[0]);
           return '<button type="button" class="chip' + (on ? ' on' : '') + '" data-type="' + escapeHtml(type[0]) + '" aria-pressed="' + on + '">' +
             escapeHtml(type[1]) + '</button>';
-        }).join('') + '</div></div>';
+        }).join('') + '</div>' + railFilters(view) + '</div>';
     }
     return '<div class="h">' + hint('Event type', 'Event type') + '</div>' + types.map(function (type) {
-      var on = view.eventType === type[0];
+      var on = typeOn(view, type[0]);
       var count = type[0] ? (view.eventCounts[type[0]] || 0) : view.eventCounts.all;
       return '<button type="button" class="tog' + (on ? ' on' : '') + '" data-type="' + escapeHtml(type[0]) + '" aria-pressed="' + on + '">' +
         '<span class="sw" aria-hidden="true"></span><span class="tog-label">' + escapeHtml(type[1]) + '</span>' +
         hint('', type[2], true) + '<span class="n">' + count + '</span></button>';
+    }).join('') + railFilters(view);
+  }
+
+  function drillPanel(view) {
+    var drill = view.drill;
+    if (!drill) return '';
+    var pack = drill.pack || { columns: [], rows: [], title: 'Records' };
+    var shown = pack.shown || pack.rows || [];
+    var count = shown.length;
+    var heads = (pack.columns || []).map(function (column) {
+      var mark = drill.sort === column.key ? (drill.dir === 'desc' ? ' ▼' : ' ▲') : '';
+      return '<th><button type="button" data-sort="' + escapeHtml(column.key) + '">' + escapeHtml(column.label) + mark + '</button></th>';
     }).join('');
+    var body = shown.map(function (row) {
+      return '<tr>' + (pack.columns || []).map(function (column) {
+        return '<td>' + escapeHtml(row[column.key] == null ? '' : row[column.key]) + '</td>';
+      }).join('') + '</tr>';
+    }).join('') || '<tr><td colspan="' + Math.max(1, (pack.columns || []).length) + '">No records match.</td></tr>';
+    var badge = view.example ? '<span class="example-badge">Example data</span>' : '';
+    return '<div class="drill-back" data-drill-close></div><section class="drill" role="dialog" aria-label="' + escapeHtml(pack.title) + '">' +
+      '<header class="drill-bar"><button type="button" class="drill-back-btn" data-drill-close>Back</button><h2>' + escapeHtml(pack.title) + '</h2>' + badge + '</header>' +
+      '<div class="drill-tools"><input data-drill-search value="' + escapeHtml(drill.q || '') + '" placeholder="Search these records" aria-label="Search these records"><p class="record-count">' + count + ' records</p></div>' +
+      '<div class="drill-scroll"><table class="drill-table"><thead><tr>' + heads + '</tr></thead><tbody>' + body + '</tbody></table></div></section>';
   }
 
   function legend() {
@@ -333,33 +430,34 @@ function yearControl(view, compact) {
     var labels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
     var showBarLabels = !view.mobile && view.buckets.length <= 16;
     var members = card('Members', 'Members',
-      headline(String(view.members.value), view.members.tone, 'big-members') + priors(view.members),
-      ' card-members');
+      headline(String(view.members.value), view.members.tone, 'big-members', 'members') + priors(view.members),
+      ' card-members', 'members');
     var fresh = card('New Members', 'New Members',
-      headline(String(view.newMembers.value), view.newMembers.tone, 'big-mid') + priors(view.newMembers),
-      ' pop');
+      headline(String(view.newMembers.value), view.newMembers.tone, 'big-mid', 'newMembers') + priors(view.newMembers),
+      ' pop', 'newMembers');
     var net = card('Net Gain', 'Net Gain',
-      headline(signed(view.net.value), view.net.tone, 'big-mid') + priors(view.net),
-      ' pop');
+      headline(signed(view.net.value), view.net.tone, 'big-mid', 'changes') + priors(view.net),
+      ' pop', 'changes');
     var gains = card('Membership Gains V Losses', 'Membership Gains V Losses',
       '<div class="chart-slot">' + gainsSvg(view.gains, view.bucket, showBarLabels) + '</div>',
-      ' card-gains');
+      ' card-gains', 'changes');
     var events = card('Events Held', 'Events Held',
-      headline(String(view.events.value), view.events.tone, 'big-mid') + priors(view.events) +
+      headline(String(view.events.value), view.events.tone, 'big-mid', 'events') + priors(view.events) +
       '<div class="chart-slot">' + lineSvg(view.eventSeries, view.eventLastYear, labels, 'Events held', view.mobile) + '</div>' + legend(),
-      ' card-events');
+      ' card-events', 'events');
     var attendance = card('Attendance', 'Attendance',
-      headline(String(view.attendance.value), view.attendance.tone, 'big-mid') + priors(view.attendance) +
+      headline(String(view.attendance.value), view.attendance.tone, 'big-mid', 'attendance') + priors(view.attendance) +
       '<div class="chart-slot">' + lineSvg(view.attendanceSeries, view.attendanceLastYear, labels, 'Attendance', view.mobile) + '</div>' + legend(),
-      ' card-attendance');
+      ' card-attendance', 'attendance');
     var pie = card('Attendance Distribution', 'Attendance Distribution',
       pieSvg(view.pie, view.audience),
-      ' card-pie');
+      ' card-pie', 'attendance');
     return docbar(view) + daterow(view) + '<div class="body" id="content"><aside class="side">' + eventTypes(view, false) +
       '</aside><div class="main">' + eventTypes(view, true) +
       '<div class="row row-top">' + members + '<div class="stack">' + fresh + net + '</div>' + gains + '</div>' +
       '<div class="row row-bottom">' + events + attendance + pie + '</div></div></div>' +
-      '<footer class="sig"><img src="../assets/aba-logo.png" alt="Ada Business Association logo"><span class="credit">Powered by Donny C. Nguyen</span></footer>';
+      '<footer class="sig"><img src="../assets/aba-logo.png" alt="Ada Business Association logo"><span class="credit">Powered by Donny C. Nguyen</span></footer>' +
+      drillPanel(view);
   }
 
   root.ABADashboardView = { render: render, escapeHtml: escapeHtml };

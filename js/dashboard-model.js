@@ -31,7 +31,7 @@
     'Month': 'Groups Membership Gains V Losses month by month, J through D, for the months inside the Dates range. It does not change the other charts. The totals still follow the Dates range.',
     'Last 12 months (period)': 'Sets Dates to the trailing 12 full months ending today, and groups Membership Gains V Losses by month. The Year control is not used. Comparisons use the 12 months before that.',
     'Calendar': 'Pick a start and an end date. That range overrides the year and the Last 12 months preset. Year, Quarter, and Month still group the gains and losses bars inside the dates you pick. Every total follows this range.',
-    'Reset filters': 'Clears any click-to-filter choice (including a Members or Guests pie selection) and a custom date range, and restores the default view: the current year, Year grouping, and all event types.',
+    'Reset filters': 'Clears every filter in one click: the year, the period, the dates, event types, companies, people, a name search, and a pie or bar selection. An open list refreshes to the unfiltered records.',
     'Members': '412 is the member total at the end of the selected period. The figures below compare the member total with last month, last quarter, and last year, each the same length of time as the selected period, shifted back.',
     'New Members': 'How many members joined during the period you selected. In this example, 50 is 13% of starting members.',
     'Net Gain': 'The net change in membership for the selected period: members who joined minus members who left.',
@@ -39,7 +39,10 @@
     'Events Held': 'How many events took place in the dates you selected. In this example, events averaged 36 attendees. The figures below compare the same length of time shifted back one month, one quarter, and one year. The line stays month by month for those dates, including a month with no events at zero. It does not follow the Year, Quarter, or Month grouping. The faint dashed orange (#F28C28) line is the same months shifted back one year.',
     'Attendance': '462 is attendance for the dates you selected. The figures below compare the same length of time shifted back one month, one quarter, and one year. The line stays month by month for those dates, including a month with no events at zero. It does not follow the Year, Quarter, or Month grouping. The faint dashed orange (#F28C28) line is the same months shifted back one year.',
     'Attendance Distribution': 'Of the people who attended in the selected period, how many were members and how many were guests. The raw count is the main number; the percentage is context. Click Members or Guests to filter the whole page; click again to clear.',
-    'Open': 'Placeholder. The Open label stays here for a closer look later. It does not navigate and has no click action.',
+    'Open': 'Opens the list of records behind this number. The list follows the filters already on the page.',
+    'Company': 'Limits every figure to attendance and membership for the member companies you select. Companies combine with OR. Guests from other companies stay out of this list.',
+    'Person': 'Limits every figure to the people you select. The list shows people at the selected companies, or everyone when no company is selected. People combine with OR.',
+    'Search name': 'Type a name to add a person or a company, or press Enter to keep rows whose person name contains that text.',
     'Last month / quarter / year': 'The same measure for the same length of time as the selected period, shifted back one month, one quarter, or one year.',
     'Powered by Donny C. Nguyen': 'A credit line for the portal work. It is not a data measure.'
   };
@@ -215,9 +218,18 @@
     return (row.audience || '') + '|' + (row.eventType || '');
   }
 
+  function typeSelected(value, filter) {
+    if (filter == null || filter === '') return true;
+    if (typeof filter === 'string') return value === filter;
+    if (!filter.length) return true;
+    var i;
+    for (i = 0; i < filter.length; i++) if (filter[i] === value) return true;
+    return false;
+  }
+
   function rowMatches(row, audience, eventType) {
     if (audience && row.audience !== audience) return false;
-    if (eventType && row.eventType !== eventType) return false;
+    if (!typeSelected(row.eventType, eventType)) return false;
     return true;
   }
 
@@ -280,7 +292,7 @@
   function eventsIn(data, start, end, eventType, audience, attendance) {
     return (data.events || []).filter(function (event) {
       if (!event.date || event.date < start || event.date > end) return false;
-      if (eventType && event.type !== eventType) return false;
+      if (!typeSelected(event.type, eventType)) return false;
       if (audience) {
         var counts = attendance[event.id] || { Member: 0, Guest: 0 };
         if (!(counts[audience] > 0)) return false;
@@ -329,6 +341,10 @@
       from: '',
       to: '',
       eventType: '',
+      eventTypes: [],
+      companies: [],
+      people: [],
+      nameQuery: '',
       audience: '',
       bucket: ''
     };
@@ -368,7 +384,17 @@
     } else if (period === 'last12') {
       range = periodRange('last12', year, today);
     }
-    var eventType = state && TYPES.indexOf(state.eventType) !== -1 ? state.eventType : '';
+    var eventTypes = [];
+    if (state && typeof state.eventTypes !== 'string' && state.eventTypes && state.eventTypes.length) {
+      state.eventTypes.forEach(function (type) {
+        if (TYPES.indexOf(type) !== -1 && eventTypes.indexOf(type) === -1) eventTypes.push(type);
+      });
+    } else if (state && TYPES.indexOf(state.eventType) !== -1) {
+      eventTypes = [state.eventType];
+    }
+    var companies = listOf(state && state.companies);
+    var people = listOf(state && state.people);
+    var nameQuery = state && state.nameQuery ? String(state.nameQuery) : '';
     var audience = state && (state.audience === 'Member' || state.audience === 'Guest') ? state.audience : '';
     return {
       today: today,
@@ -379,10 +405,27 @@
       range: range,
       grouping: groupingOf(period),
       yearEnabled: period !== 'last12' && !custom,
-      eventType: eventType,
+      eventType: eventTypes.length === 1 ? eventTypes[0] : '',
+      eventTypes: eventTypes,
+      companies: companies,
+      people: people,
+      nameQuery: nameQuery,
       audience: audience,
       bucket: state && state.bucket ? String(state.bucket) : ''
     };
+  }
+
+  function listOf(value) {
+    var out = [];
+    if (!value || typeof value === 'string') {
+      if (value) out.push(String(value));
+      return out;
+    }
+    value.forEach(function (item) {
+      var text = String(item || '').trim();
+      if (text && out.indexOf(text) === -1) out.push(text);
+    });
+    return out;
   }
 
   function copyState(state) {
@@ -392,6 +435,10 @@
       from: state.from || '',
       to: state.to || '',
       eventType: state.eventType || '',
+      eventTypes: listOf(state.eventTypes),
+      companies: listOf(state.companies),
+      people: listOf(state.people),
+      nameQuery: state.nameQuery || '',
       audience: state.audience || '',
       bucket: state.bucket || ''
     };
@@ -424,7 +471,38 @@
       return next;
     }
     if (action.type === 'eventType') {
-      next.eventType = action.eventType || '';
+      if (!action.eventType) {
+        next.eventTypes = [];
+        next.eventType = '';
+      } else {
+        var types = listOf(next.eventTypes);
+        if (!types.length && next.eventType) types = [next.eventType];
+        var at = types.indexOf(action.eventType);
+        if (at === -1) types.push(action.eventType);
+        else types.splice(at, 1);
+        next.eventTypes = types;
+        next.eventType = '';
+      }
+      next.bucket = '';
+      return next;
+    }
+    if (action.type === 'companies') {
+      next.companies = listOf(action.companies);
+      if (next.companies.length && action.allowedPeople) {
+        var allowed = {};
+        listOf(action.allowedPeople).forEach(function (name) { allowed[name] = true; });
+        next.people = listOf(next.people).filter(function (name) { return allowed[name]; });
+      }
+      next.bucket = '';
+      return next;
+    }
+    if (action.type === 'people') {
+      next.people = listOf(action.people);
+      next.bucket = '';
+      return next;
+    }
+    if (action.type === 'nameQuery') {
+      next.nameQuery = action.query ? String(action.query) : '';
       next.bucket = '';
       return next;
     }
@@ -441,8 +519,13 @@
 
   function stateHash(state) {
     var parts = ['year=' + Number(state.year || 0), 'period=' + (state.period || 'year')];
-    if (state.eventType) parts.push('type=' + encodeURIComponent(state.eventType));
+    var hashTypes = listOf(state.eventTypes);
+    if (!hashTypes.length && state.eventType) hashTypes = [state.eventType];
+    if (hashTypes.length) parts.push('type=' + hashTypes.map(encodeURIComponent).join(','));
     if (state.audience) parts.push('audience=' + encodeURIComponent(state.audience));
+    if (listOf(state.companies).length) parts.push('companies=' + listOf(state.companies).map(encodeURIComponent).join(','));
+    if (listOf(state.people).length) parts.push('people=' + listOf(state.people).map(encodeURIComponent).join(','));
+    if (state.nameQuery) parts.push('q=' + encodeURIComponent(state.nameQuery));
     if (state.from && state.to) {
       parts.push('from=' + state.from);
       parts.push('to=' + state.to);
@@ -468,7 +551,20 @@
     if (bag.period === 'year' || bag.period === 'quarter' || bag.period === 'month' || bag.period === 'last12') {
       state.period = bag.period;
     }
-    if (TYPES.indexOf(bag.type) !== -1) state.eventType = bag.type;
+    if (bag.type) {
+      var parsedTypes = String(bag.type).split(',').map(function (part) {
+        try { return decodeURIComponent(part); } catch (err) { return part; }
+      }).filter(function (type) { return TYPES.indexOf(type) !== -1; });
+      state.eventTypes = parsedTypes;
+      state.eventType = parsedTypes.length === 1 ? parsedTypes[0] : '';
+    }
+    if (bag.companies) state.companies = String(bag.companies).split(',').map(function (part) {
+      try { return decodeURIComponent(part); } catch (err) { return part; }
+    }).filter(Boolean);
+    if (bag.people) state.people = String(bag.people).split(',').map(function (part) {
+      try { return decodeURIComponent(part); } catch (err) { return part; }
+    }).filter(Boolean);
+    if (bag.q) state.nameQuery = bag.q;
     if (bag.audience === 'Member' || bag.audience === 'Guest') state.audience = bag.audience;
     if (isISO(bag.from) && isISO(bag.to)) {
       state.from = bag.from;
@@ -485,9 +581,10 @@
     return metric(measure(range.start, range.end), measure(lm.start, lm.end), measure(lq.start, lq.end), measure(ly.start, ly.end));
   }
 
-  function compute(data, state) {
+  function compute(data, state, directory) {
     data = data || {};
     var view = resolveView(data, state || defaultState(data));
+    if (directory) view.directory = directory;
     var attendance = attendanceByEvent(data);
     var buckets = bucketsFor(view.range, view.grouping);
     var monthBuckets = bucketsFor(view.range, 'month');
@@ -496,28 +593,37 @@
       if (bucket.id === view.bucket) selected = bucket;
     });
     var measure = selected ? { start: selected.start, end: selected.end } : view.range;
-    var eventType = view.eventType;
+    var eventTypes = view.eventTypes;
     var pieAudience = view.audience;
     var roster = pieAudience || 'Member';
+    var identity = view.companies.length || view.people.length || view.nameQuery;
+    var narrowed = identity && directory && directory.narrow;
 
     function countEvents(start, end) {
-      return eventsIn(data, start, end, eventType, pieAudience, attendance).length;
+      if (narrowed) return directory.narrow.countEvents(start, end, eventTypes, pieAudience, view);
+      return eventsIn(data, start, end, eventTypes, pieAudience, attendance).length;
     }
     function sumAttendance(start, end, audience) {
-      return attendanceSum(eventsIn(data, start, end, eventType, '', attendance), attendance, audience || pieAudience);
+      if (narrowed) return directory.narrow.sumAttendance(start, end, eventTypes, audience || pieAudience, view);
+      return attendanceSum(eventsIn(data, start, end, eventTypes, '', attendance), attendance, audience || pieAudience);
     }
     function memberStock(start, end) {
-      return stockAt(data, end, roster, eventType);
+      if (narrowed) return directory.narrow.stock(end, eventTypes, roster, view);
+      return stockAt(data, end, roster, eventTypes);
     }
     function joins(start, end) {
-      return flowBetween(data, start, end, roster, eventType).joins;
+      if (narrowed) return directory.narrow.flow(start, end, eventTypes, roster, view).joins;
+      return flowBetween(data, start, end, roster, eventTypes).joins;
     }
     function net(start, end) {
-      return flowBetween(data, start, end, roster, eventType).net;
+      if (narrowed) return directory.narrow.flow(start, end, eventTypes, roster, view).net;
+      return flowBetween(data, start, end, roster, eventTypes).net;
     }
 
     var gainSeries = buckets.map(function (bucket) {
-      var flow = flowBetween(data, bucket.start, bucket.end, roster, eventType);
+      var flow = narrowed
+        ? directory.narrow.flow(bucket.start, bucket.end, eventTypes, roster, view)
+        : flowBetween(data, bucket.start, bucket.end, roster, eventTypes);
       return { id: bucket.id, label: bucket.label, joins: flow.joins, losses: flow.losses };
     });
     var eventSeries = monthBuckets.map(function (bucket) {
@@ -535,16 +641,26 @@
       return sumAttendance(shifted.start, shifted.end);
     });
 
-    var counted = eventsIn(data, measure.start, measure.end, '', pieAudience, attendance);
+    var counted = narrowed
+      ? directory.narrow.events(measure.start, measure.end, [], pieAudience, view)
+      : eventsIn(data, measure.start, measure.end, '', pieAudience, attendance);
     var typeCounts = { all: counted.length };
     TYPES.forEach(function (type) { typeCounts[type] = 0; });
     counted.forEach(function (event) {
       if (typeCounts[event.type] == null) typeCounts[event.type] = 0;
       typeCounts[event.type] += 1;
     });
-    var pieEvents = eventsIn(data, measure.start, measure.end, eventType, '', attendance);
-    var pieMembers = attendanceSum(pieEvents, attendance, 'Member');
-    var pieGuests = attendanceSum(pieEvents, attendance, 'Guest');
+    var pieMembers;
+    var pieGuests;
+    if (narrowed) {
+      var pieCounts = directory.narrow.pie(measure.start, measure.end, eventTypes, view);
+      pieMembers = pieCounts.Member;
+      pieGuests = pieCounts.Guest;
+    } else {
+      var pieEvents = eventsIn(data, measure.start, measure.end, eventTypes, '', attendance);
+      pieMembers = attendanceSum(pieEvents, attendance, 'Member');
+      pieGuests = attendanceSum(pieEvents, attendance, 'Guest');
+    }
     var pieTotal = pieMembers + pieGuests;
     var memberPct = pieTotal ? Math.round((pieMembers / pieTotal) * 100) : 0;
 
@@ -559,7 +675,11 @@
       range: view.range,
       grouping: view.grouping,
       monthBuckets: monthBuckets,
-      eventType: eventType,
+      eventType: view.eventType,
+      eventTypes: eventTypes,
+      companies: view.companies,
+      people: view.people,
+      nameQuery: view.nameQuery,
       audience: pieAudience,
       bucket: selected ? selected.id : '',
       buckets: buckets,

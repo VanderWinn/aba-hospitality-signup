@@ -32,7 +32,7 @@ jobs:
           cp home/index.html home/dashboard.html _site/home/
           cp home/docs.json home/portal.json _site/home/
           cp css/styles.css css/portal.css css/dashboard.css _site/css/
-          cp js/config.js js/catalog.js js/app.js js/portal.js js/portal-page.js js/dashboard-model.js js/dashboard-data.js js/dashboard-view.js js/dashboard-page.js _site/js/
+          cp js/config.js js/catalog.js js/app.js js/portal.js js/portal-page.js js/dashboard-model.js js/dashboard-data.js js/dashboard-directory.js js/dashboard-view.js js/dashboard-page.js _site/js/
           cp data/seed.json _site/data/
           cp assets/aba-logo.png assets/favicon.ico assets/favicon-32.png assets/favicon-180.png _site/assets/
 

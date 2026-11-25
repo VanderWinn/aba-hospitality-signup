@@ -321,3 +321,100 @@ function dashboardAction_(body, deps) {
   if (!today) today = ABA_RULES.todayKeyIn(new Date(), 'America/Detroit');
   return { ok: true, dashboard: portalDashboard_(signups, slots, today) };
 }
+
+/**
+ * Password-checked drill-down. Not used while the dashboard is on placeholder
+ * data. Do not deploy until the Members and AttendanceRecords tabs exist.
+ * Returns names, emails, and phones only after PORTAL_PASSWORD_SHA256 matches.
+ */
+function executiveDrilldownAction_(body, deps) {
+  deps = deps || {};
+  var expected = deps.passwordHash;
+  if (expected == null) {
+    try {
+      expected = PropertiesService.getScriptProperties().getProperty(PORTAL_PASSWORD_KEY);
+    } catch (err) {
+      expected = '';
+    }
+  }
+  var status = portalPasswordStatus_(body && body.password, expected);
+  if (status !== 'ok') {
+    return {
+      ok: false,
+      status: 401,
+      error: status === 'missing' ? 'The portal password is not set up yet.' : 'That password is not correct.'
+    };
+  }
+  var companies = deps.companies || [];
+  var attendanceRecords = deps.attendanceRecords || [];
+  var membershipPeople = deps.membershipPeople || [];
+  if (!deps.companies && !deps.attendanceRecords) {
+    try {
+      var ss = SpreadsheetApp.getActive();
+      companies = portalCompanyNames_(ss.getSheetByName('Members'));
+      attendanceRecords = portalAttendanceRecords_(ss.getSheetByName('AttendanceRecords'));
+    } catch (err) {
+      companies = [];
+      attendanceRecords = [];
+    }
+  }
+  return {
+    ok: true,
+    companies: companies,
+    attendanceRecords: attendanceRecords,
+    membershipPeople: membershipPeople
+  };
+}
+
+function portalSheetRows_(sheet) {
+  if (!sheet) return [];
+  var values = sheet.getDataRange().getValues();
+  if (!values || values.length < 2) return [];
+  var headers = values[0].map(function (cell) { return String(cell || '').trim().toLowerCase().replace(/\s+/g, '_'); });
+  var rows = [];
+  var r;
+  for (r = 1; r < values.length; r++) {
+    var row = {};
+    var empty = true;
+    headers.forEach(function (header, index) {
+      if (!header) return;
+      row[header] = values[r][index];
+      if (values[r][index] !== '' && values[r][index] != null) empty = false;
+    });
+    if (!empty) rows.push(row);
+  }
+  return rows;
+}
+
+function portalCompanyNames_(sheet) {
+  var seen = {};
+  var names = [];
+  portalSheetRows_(sheet).forEach(function (row) {
+    var name = String(row.company_name || row.company || '').trim();
+    if (!name || seen[name]) return;
+    seen[name] = true;
+    names.push(name);
+  });
+  names.sort();
+  return names;
+}
+
+function portalAttendanceRecords_(sheet) {
+  return portalSheetRows_(sheet).map(function (row) {
+    var record = {
+      name: String(row.name || ''),
+      audience: String(row.member_or_guest || row.audience || ''),
+      event: String(row.event || row.event_name || ''),
+      date: String(row.date || ''),
+      email: String(row.email || ''),
+      phone: String(row.phone || row.mobile || ''),
+      company: String(row.company || row.company_name || '')
+    };
+    Object.keys(row).forEach(function (key) {
+      if (record[key] == null && key !== 'member_or_guest' && key !== 'event_name' && key !== 'company_name' && key !== 'mobile') {
+        record[key] = row[key];
+      }
+    });
+    return record;
+  }).filter(function (row) { return row.name && row.date; });
+}
