@@ -29,6 +29,10 @@
     return '';
   }
 
+  function membershipType(value) {
+    return canonicalType(value) || '';
+  }
+
   function whole(value) {
     var n = Number(value);
     if (!isFinite(n) || n < 0) return 0;
@@ -176,19 +180,19 @@
     (source.openings || []).forEach(function (row) {
       if (!isISO(row.date)) return;
       var audience = canonicalAudience(row.audience);
-      var type = canonicalType(row.eventType);
+      var type = membershipType(row.eventType);
       var count = whole(row.count);
-      if (!audience || !type || !count) return;
+      if (!audience || !count) return;
       openings.push({ date: row.date, audience: audience, eventType: type, count: count });
     });
     var changes = [];
     (source.changes || []).forEach(function (row) {
       if (!isISO(row.date)) return;
       var audience = canonicalAudience(row.audience);
-      var type = canonicalType(row.eventType);
+      var type = membershipType(row.eventType);
       var joins = whole(row.joins);
       var losses = whole(row.losses);
-      if (!audience || !type || (!joins && !losses)) return;
+      if (!audience || (!joins && !losses)) return;
       changes.push({ date: row.date, audience: audience, eventType: type, joins: joins, losses: losses });
     });
     return {
@@ -271,20 +275,29 @@
       company: 1, company_name: 1
     };
     return sheetRows(rows).map(function (row) {
-      var record = { name: '', audience: '', event: '', date: '', email: '', phone: '', company: '' };
+      var record = { name: '', audience: '', event: '', eventType: '', eventId: '', date: '', email: '', phone: '', company: '', status: '' };
+      var blocked = false;
       Object.keys(row || {}).forEach(function (key) {
         var low = String(key).toLowerCase().replace(/\s+/g, '_');
         var value = row[key];
         if (low === 'name' || low === 'attendee' || low === 'attendee_name') record.name = String(value || '');
         else if (low === 'member_or_guest' || low === 'audience') record.audience = canonicalAudience(value) || String(value || '');
         else if (low === 'event' || low === 'event_name') record.event = String(value || '');
-        else if (low === 'date') record.date = String(value || '');
+        else if (low === 'event_type') {
+          record.eventType = canonicalType(value);
+          if (String(value || '').trim() && !record.eventType) blocked = true;
+        }
+        else if (low === 'event_id') record.eventId = String(value || '');
+        else if (low === 'date' || low === 'event_date') {
+          if (!record.date) record.date = String(value || '').slice(0, 10);
+        }
         else if (low === 'email') record.email = String(value || '');
         else if (low === 'phone' || low === 'mobile') record.phone = String(value || '');
         else if (low === 'company' || low === 'company_name') record.company = String(value || '');
+        else if (low === 'status') record.status = String(value || '').toLowerCase();
         else if (!known[low]) record[low] = value;
       });
-      if (!record.name || !isISO(record.date)) return null;
+      if (blocked || !record.name || !isISO(record.date)) return null;
       return record;
     }).filter(Boolean);
   }
@@ -293,14 +306,51 @@
     return normalize(exampleRecords());
   }
 
-  function loadExecutiveSource() {
-    return Promise.resolve(placeholderSource());
+  function postDashboard(options, action) {
+    return fetch(options.backendUrl, {
+      method: 'POST',
+      redirect: 'follow',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: action, password: options.password })
+    }).then(function (response) {
+      return response.text();
+    }).then(function (text) {
+      return JSON.parse(text);
+    });
+  }
+
+  function loadExecutiveSource(options) {
+    options = options || {};
+    var url = String(options.backendUrl || '').trim();
+    if (!url || !options.password || typeof fetch !== 'function') return Promise.resolve(placeholderSource());
+    return postDashboard(options, 'executiveDashboard').then(function (body) {
+      if (!body || body.ok !== true || !body.dashboard) return placeholderSource();
+      var source = normalize(body.dashboard);
+      source.example = false;
+      return source;
+    }).catch(function () {
+      return placeholderSource();
+    });
+  }
+
+  function loadExecutiveDrilldown(options) {
+    options = options || {};
+    var url = String(options.backendUrl || '').trim();
+    if (!url || !options.password || typeof fetch !== 'function') return Promise.resolve(null);
+    return postDashboard(options, 'executiveDrilldown').then(function (body) {
+      if (!body || body.ok !== true) return null;
+      return body;
+    }).catch(function () {
+      return null;
+    });
   }
 
   root.ABADashboardData = {
     placeholderSource: placeholderSource,
     fromSheetTabs: fromSheetTabs,
     loadExecutiveSource: loadExecutiveSource,
+    loadExecutiveDrilldown: loadExecutiveDrilldown,
     normalize: normalize
   };
 })(typeof window !== 'undefined' ? window : globalThis);

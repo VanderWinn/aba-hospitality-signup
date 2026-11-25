@@ -323,11 +323,105 @@ function dashboardAction_(body, deps) {
 }
 
 /**
- * Password-checked drill-down. Not used while the dashboard is on placeholder
- * data. Do not deploy until the Members and AttendanceRecords tabs exist.
- * Returns names, emails, and phones only after PORTAL_PASSWORD_SHA256 matches.
+ * Executive dashboard sheet. Not the hospitality sign-up spreadsheet.
+ * Set Script Property DASHBOARD_SHEET_ID to the ABA Dashboard Data file id.
+ * Do not deploy this until Donny is ready. Until then the page keeps the example data.
  */
-function executiveDrilldownAction_(body, deps) {
+var DASHBOARD_SHEET_KEY = 'DASHBOARD_SHEET_ID';
+var DASHBOARD_TYPES = { 'Lunch & Learn': true, 'Ribbon Cutting': true, 'Happy Hour': true };
+
+function dashboardEventType_(value) {
+  var text = String(value || '').trim().toLowerCase();
+  if (text === 'lunch & learn' || text === 'lunch and learn') return 'Lunch & Learn';
+  if (text === 'ribbon cutting') return 'Ribbon Cutting';
+  if (text === 'happy hour') return 'Happy Hour';
+  return '';
+}
+
+function dashboardAudience_(value) {
+  var text = String(value || '').trim().toLowerCase();
+  if (text === 'member' || text === 'members') return 'Member';
+  if (text === 'guest' || text === 'guests') return 'Guest';
+  return '';
+}
+
+function dashboardIso_(value) {
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    var zone = 'America/Detroit';
+    try {
+      if (typeof Session !== 'undefined' && Session.getScriptTimeZone) zone = Session.getScriptTimeZone() || zone;
+    } catch (err) {}
+    if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+      return Utilities.formatDate(value, zone, 'yyyy-MM-dd');
+    }
+    return value.getUTCFullYear() + '-' + ('0' + (value.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + value.getUTCDate()).slice(-2);
+  }
+  var text = String(value || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
+  return '';
+}
+
+function dashboardToday_() {
+  if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+    return Utilities.formatDate(new Date(), 'America/Detroit', 'yyyy-MM-dd');
+  }
+  return '';
+}
+
+function executiveRowsToDashboard_(tabs, asOf) {
+  tabs = tabs || {};
+  var events = [];
+  var seen = {};
+  (tabs.events || []).forEach(function (row) {
+    var date = dashboardIso_(row.date);
+    var id = String(row.event_id || row.id || '').trim();
+    var type = dashboardEventType_(row.event_type || row.type);
+    if (!date || !id || !type || seen[id]) return;
+    seen[id] = true;
+    events.push({ id: id, date: date, type: type });
+  });
+  var counts = {};
+  (tabs.attendanceRecords || []).forEach(function (row) {
+    if (String(row.status || '').toLowerCase() !== 'attended') return;
+    var id = String(row.event_id || row.eventId || '').trim();
+    var type = dashboardEventType_(row.event_type || row.eventType);
+    var audience = dashboardAudience_(row.member_or_guest || row.audience);
+    if (!id || !seen[id] || !type || !audience) return;
+    var key = id + '|' + audience;
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  var attendance = Object.keys(counts).map(function (key) {
+    var bits = key.split('|');
+    return { eventId: bits[0], audience: bits[1], count: counts[key] };
+  });
+  var openings = (tabs.openings || []).map(function (row) {
+    return {
+      date: dashboardIso_(row.as_of || row.date),
+      audience: dashboardAudience_(row.audience),
+      eventType: dashboardEventType_(row.event_type) || '',
+      count: row.count
+    };
+  }).filter(function (row) { return row.date && row.audience; });
+  var changes = (tabs.changes || []).map(function (row) {
+    return {
+      date: dashboardIso_(row.date),
+      audience: dashboardAudience_(row.audience),
+      eventType: dashboardEventType_(row.event_type) || '',
+      joins: row.joins,
+      losses: row.losses
+    };
+  }).filter(function (row) { return row.date && row.audience; });
+  return {
+    example: false,
+    asOf: asOf || dashboardToday_(),
+    events: events,
+    attendance: attendance,
+    openings: openings,
+    changes: changes
+  };
+}
+
+function dashboardPasswordStatus_(body, deps) {
   deps = deps || {};
   var expected = deps.passwordHash;
   if (expected == null) {
@@ -337,7 +431,49 @@ function executiveDrilldownAction_(body, deps) {
       expected = '';
     }
   }
-  var status = portalPasswordStatus_(body && body.password, expected);
+  return portalPasswordStatus_(body && body.password, expected);
+}
+
+function dashboardSpreadsheet_(deps) {
+  if (deps && deps.spreadsheet) return deps.spreadsheet;
+  var id = deps && deps.sheetId;
+  if (!id) {
+    try {
+      id = PropertiesService.getScriptProperties().getProperty(DASHBOARD_SHEET_KEY);
+    } catch (err) {
+      id = '';
+    }
+  }
+  if (!id || typeof SpreadsheetApp === 'undefined') return null;
+  return SpreadsheetApp.openById(id);
+}
+
+function dashboardSheetObjects_(sheet) {
+  if (!sheet) return [];
+  var values = sheet.getDataRange().getValues();
+  if (!values || values.length < 2) return [];
+  var headers = values[0].map(function (cell) {
+    return String(cell || '').trim().toLowerCase().replace(/\s+/g, '_');
+  });
+  var rows = [];
+  var r;
+  for (r = 1; r < values.length; r++) {
+    var row = {};
+    var empty = true;
+    headers.forEach(function (header, index) {
+      if (!header) return;
+      var cell = values[r][index];
+      if (cell instanceof Date) cell = dashboardIso_(cell);
+      row[header] = cell;
+      if (cell !== '' && cell != null) empty = false;
+    });
+    if (!empty) rows.push(row);
+  }
+  return rows;
+}
+
+function executiveDashboardAction_(body, deps) {
+  var status = dashboardPasswordStatus_(body, deps);
   if (status !== 'ok') {
     return {
       ok: false,
@@ -345,25 +481,104 @@ function executiveDrilldownAction_(body, deps) {
       error: status === 'missing' ? 'The portal password is not set up yet.' : 'That password is not correct.'
     };
   }
-  var companies = deps.companies || [];
-  var attendanceRecords = deps.attendanceRecords || [];
-  var membershipPeople = deps.membershipPeople || [];
-  if (!deps.companies && !deps.attendanceRecords) {
-    try {
-      var ss = SpreadsheetApp.getActive();
-      companies = portalCompanyNames_(ss.getSheetByName('Members'));
-      attendanceRecords = portalAttendanceRecords_(ss.getSheetByName('AttendanceRecords'));
-    } catch (err) {
-      companies = [];
-      attendanceRecords = [];
-    }
+  var tabs = deps && deps.tabs;
+  if (!tabs) {
+    var ss = dashboardSpreadsheet_(deps);
+    if (!ss) return { ok: false, error: 'The dashboard sheet is not configured.' };
+    tabs = {
+      events: dashboardSheetObjects_(ss.getSheetByName('Events')),
+      attendanceRecords: dashboardSheetObjects_(ss.getSheetByName('AttendanceRecords')),
+      openings: dashboardSheetObjects_(ss.getSheetByName('MembershipOpening')),
+      changes: dashboardSheetObjects_(ss.getSheetByName('Membership'))
+    };
   }
+  return { ok: true, dashboard: executiveRowsToDashboard_(tabs, deps && deps.asOf) };
+}
+
+/**
+ * Password-checked names, contacts, and the Company and Person lists.
+ * Aggregate cards use executiveDashboardAction_ and do not receive this payload.
+ * Do not deploy until Donny sets DASHBOARD_SHEET_ID and publishes a new version.
+ */
+function executiveDrilldownAction_(body, deps) {
+  var status = dashboardPasswordStatus_(body, deps);
+  if (status !== 'ok') {
+    return {
+      ok: false,
+      status: 401,
+      error: status === 'missing' ? 'The portal password is not set up yet.' : 'That password is not correct.'
+    };
+  }
+  if (deps && (deps.companies || deps.attendanceRecords || deps.roster)) {
+    return {
+      ok: true,
+      companies: deps.companies || [],
+      people: deps.people || [],
+      attendanceRecords: deps.attendanceRecords || [],
+      roster: deps.roster || []
+    };
+  }
+  var ss = dashboardSpreadsheet_(deps);
+  if (!ss) return { ok: false, error: 'The dashboard sheet is not configured.' };
+  var pack = dashboardDrilldownFromSheets_(ss);
   return {
     ok: true,
-    companies: companies,
-    attendanceRecords: attendanceRecords,
-    membershipPeople: membershipPeople
+    companies: pack.companies,
+    people: pack.people,
+    attendanceRecords: pack.attendanceRecords,
+    roster: pack.roster
   };
+}
+
+function dashboardDrilldownFromSheets_(ss) {
+  var records = [];
+  var peopleSeen = {};
+  var people = [];
+  dashboardSheetObjects_(ss.getSheetByName('AttendanceRecords')).forEach(function (row) {
+    var type = dashboardEventType_(row.event_type);
+    var date = dashboardIso_(row.event_date || row.date);
+    var name = String(row.name || '').trim();
+    if (!type || !date || !name) return;
+    var record = {
+      name: name,
+      audience: dashboardAudience_(row.member_or_guest),
+      event: String(row.event_name || row.event || ''),
+      eventType: type,
+      eventId: String(row.event_id || ''),
+      date: date,
+      email: String(row.email || ''),
+      phone: String(row.phone || row.mobile || ''),
+      company: String(row.company || ''),
+      status: String(row.status || '').toLowerCase()
+    };
+    Object.keys(row).forEach(function (key) {
+      if (record[key] == null) record[key] = row[key];
+    });
+    records.push(record);
+    var personKey = name + '|' + record.company;
+    if (!peopleSeen[personKey]) {
+      peopleSeen[personKey] = true;
+      people.push({ name: name, company: record.company, audience: record.audience });
+    }
+  });
+  people.sort(function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+  var roster = dashboardSheetObjects_(ss.getSheetByName('Membership Roster')).map(function (row) {
+    return {
+      company: String(row.company || '').trim(),
+      status: String(row.status || ''),
+      joinDate: dashboardIso_(row.join_date),
+      lostDate: dashboardIso_(row.lost_date)
+    };
+  }).filter(function (row) { return row.company; });
+  var companies = [];
+  var seen = {};
+  roster.forEach(function (row) {
+    if (String(row.status).toLowerCase() !== 'active' || seen[row.company]) return;
+    seen[row.company] = true;
+    companies.push(row.company);
+  });
+  companies.sort();
+  return { companies: companies, people: people, attendanceRecords: records, roster: roster };
 }
 
 function portalSheetRows_(sheet) {

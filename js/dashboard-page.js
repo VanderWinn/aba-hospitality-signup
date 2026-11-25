@@ -45,11 +45,22 @@
         window.location.replace(LOGIN);
         return;
       }
-      return Promise.all([dataApi.loadExecutiveSource(), loadDocs()]).then(function (parts) {
-        source = parts[0];
+      var config = window.ABA_CONFIG || {};
+      var options = { backendUrl: config.backendUrl || '', password: password };
+      return dataApi.loadExecutiveSource(options).then(function (loaded) {
+        source = loaded;
         if (!source.asOf) source.asOf = todayInDetroit();
-        directory = window.ABADirectory.build(source);
-        documents = parts[1];
+        if (source.example) {
+          directory = window.ABADirectory.build(source);
+          return null;
+        }
+        return dataApi.loadExecutiveDrilldown(options).then(function (payload) {
+          directory = window.ABADirectory.fromLive(payload || {});
+        });
+      }).then(function () {
+        return loadDocs();
+      }).then(function (docs) {
+        documents = docs;
         state = dash.stateFromHash(window.location.hash, source);
         var root = document.getElementById('dash');
         root.hidden = false;

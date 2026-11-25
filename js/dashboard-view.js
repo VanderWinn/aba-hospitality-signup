@@ -8,6 +8,7 @@
   var PINE = '#407589';
   var INK = '#39393a';
   var ORANGE = '#F28C28';
+  var exampleFlags = true;
   var TEAL = '#2F5D6B';
   var POP_TEXT = '#005FCC';
 
@@ -19,7 +20,7 @@
 
   function hint(label, key, iconOnly, extra) {
     var def = ((model.DEFS && model.DEFS[key]) || '') + (extra || '');
-    var flag = (model.FLAGS && model.FLAGS[key]) || '';
+    var flag = exampleFlags && model.FLAGS && model.FLAGS[key] ? model.FLAGS[key] : '';
     var body = escapeHtml(def);
     if (flag) body += '<span class="tip-flag">' + escapeHtml(flag) + '</span>';
     var icon = '<span class="info" tabindex="0" role="button" aria-label="About ' + escapeHtml(key) + '">ⓘ<span class="tip" role="tooltip"><strong>' +
@@ -453,6 +454,7 @@ function yearControl(view, compact) {
   }
 
   function render(view) {
+    exampleFlags = view.example === true;
     var labels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
     var showBarLabels = !view.mobile && view.buckets.length <= 16;
     var members = card('Members', 'Members',

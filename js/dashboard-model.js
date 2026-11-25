@@ -19,8 +19,8 @@
     'Board minutes': 'Opens recent board meeting minutes.',
     'Committee roster': 'Opens the committee roster.',
     'More': 'Opens any remaining documents kept in this portal.',
-    'Event type': 'Limits every figure on the page to one kind of event, or shows all types together. Toggles filter every card. The counts are the number of events in the selected period.',
-    'All': 'Shows every event type in the period you selected.',
+    'Event type': 'Limits events and attendance to Lunch & Learn, Ribbon Cutting, or Happy Hour. Other kinds of event are not on this dashboard. Membership cards do not use this filter, because the member ledger is not tied to an event type. The counts are how many events of that kind fall in the dates you selected.',
+    'All': 'Shows Lunch & Learn, Ribbon Cutting, and Happy Hour together.',
     'Lunch & Learn': 'Shows only Lunch & Learn events in the period you selected.',
     'Ribbon Cutting': 'Shows only Ribbon Cutting events in the period you selected.',
     'Happy Hour': 'Shows only Happy Hour events in the period you selected.',
@@ -634,22 +634,22 @@
       return attendanceSum(eventsIn(data, start, end, eventTypes, '', attendance), attendance, audience || pieAudience);
     }
     function memberStock(start, end) {
-      if (narrowed) return directory.narrow.stock(end, eventTypes, roster, view);
-      return stockAt(data, end, roster, eventTypes);
+      if (narrowed) return directory.narrow.stock(end, [], roster, view);
+      return stockAt(data, end, roster, '');
     }
     function joins(start, end) {
-      if (narrowed) return directory.narrow.flow(start, end, eventTypes, roster, view).joins;
-      return flowBetween(data, start, end, roster, eventTypes).joins;
+      if (narrowed) return directory.narrow.flow(start, end, [], roster, view).joins;
+      return flowBetween(data, start, end, roster, '').joins;
     }
     function net(start, end) {
-      if (narrowed) return directory.narrow.flow(start, end, eventTypes, roster, view).net;
-      return flowBetween(data, start, end, roster, eventTypes).net;
+      if (narrowed) return directory.narrow.flow(start, end, [], roster, view).net;
+      return flowBetween(data, start, end, roster, '').net;
     }
 
     var gainSeries = buckets.map(function (bucket) {
       var flow = narrowed
-        ? directory.narrow.flow(bucket.start, bucket.end, eventTypes, roster, view)
-        : flowBetween(data, bucket.start, bucket.end, roster, eventTypes);
+        ? directory.narrow.flow(bucket.start, bucket.end, [], roster, view)
+        : flowBetween(data, bucket.start, bucket.end, roster, '');
       return { id: bucket.id, label: bucket.label, joins: flow.joins, losses: flow.losses };
     });
     var eventSeries = monthBuckets.map(function (bucket) {

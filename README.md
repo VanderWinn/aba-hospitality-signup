@@ -33,7 +33,7 @@ While the figures are the example set, an **Example data** badge stays visible.
 
 ### Data adapter
 
-Every number on the page comes from `js/dashboard-data.js`. The page calls `loadExecutiveSource()`. Today that returns the placeholder records in the same file. `fromSheetTabs()` is the seam for the Google Sheet: it accepts tab arrays and returns the normalized model below. `js/dashboard-model.js` only reads that model. Swapping in the sheet means changing `loadExecutiveSource()` and nothing else on the page.
+Every number on the page comes from `js/dashboard-data.js`. The page calls `loadExecutiveSource()`. If `js/config.js` has no web app URL, or the script does not answer, that returns the placeholder records in the same file and the Example data badge stays on. A configured script returns the sheet totals and the badge goes away. `fromSheetTabs()` and `normalize()` are the seam for those totals. `js/dashboard-model.js` only reads that model. Sheet rows are not copied into this repo.
 
 Normalized model:
 
@@ -41,12 +41,18 @@ Normalized model:
 | --- | --- |
 | `example` | `true` shows the Example data badge. A live sheet sets this to `false`. |
 | `asOf` | `YYYY-MM-DD` anchor for the fiscal year, Quarter, Month, and Last 12 months. The placeholder is `2026-11-24`, the date of the approved sketch, which falls in FY2027. A live source should use today's date in America/Detroit. |
-| `events` | `{ id, date, type }`. `type` is `Lunch & Learn`, `Ribbon Cutting`, or `Happy Hour`. |
-| `attendance` | `{ eventId, audience, count }`. `audience` is `Member` or `Guest`. `count` is a number of people, not a list of people. |
+| `events` | `{ id, date, type }`. `type` must be `Lunch & Learn`, `Ribbon Cutting`, or `Happy Hour`. Any other type is dropped. |
+| `attendance` | `{ eventId, audience, count }`. `audience` is `Member` or `Guest`. `count` is how many people with `status` `attended`, not a list of people. |
 | `openings` | `{ date, audience, eventType, count }`. Member or guest total at that date, before later changes. |
 | `changes` | `{ date, audience, eventType, joins, losses }`. People who joined or left that day. |
 
-`fromSheetTabs()` drops columns named email, phone, mobile, name, attendee, or first or last name. Do not put those columns on these tabs. Names on the existing hospitality dashboard still come only from the password-checked `dashboard` POST. This page does not request or render them.
+The normalizer keeps only Lunch & Learn, Ribbon Cutting, and Happy Hour. New Member Orientation, BOSS, Collaboration, and anything else are left out of every card, chart, pie, and drill-down. An event with no date, such as the October 2020 RSVP list, is left out too. Donny confirmed the inferred dates BOSS on 2026-10-01 and the Business Roundtable (stored as Collaboration) on 2025-03-25; those rows are still excluded because their type is not one of the three.
+
+Membership rows are not really event-typed. The sheet puts `Lunch & Learn` on them as a placeholder. The membership cards, the gains chart, and the membership drill-down ignore the Event type toggles, so choosing Ribbon Cutting does not zero the member total. Events and attendance still follow that filter.
+
+Attendance counts rows whose `status` is `attended`. `no_show`, `cancelled`, `no_mark`, and a `registered` or `registration_status` value stay on the drill-down records for a later no-show view. There is no switch for that yet. The headline POST does not include those rows.
+
+`fromSheetTabs()` drops email, phone, and name from the headline tabs. It keeps them on `attendanceRecords`, and only for the three event types. Names on the existing hospitality dashboard still come only from the password-checked `dashboard` POST.
 
 With no pie slice selected, the membership cards use the Member roster. Attendance and events use everyone. Clicking **Members** or **Guests** limits the whole page, including the membership cards, to that audience. Click the slice again to clear it. **Reset filters** also clears it, and returns the current fiscal year to date, Year grouping, and all event types.
 
@@ -69,9 +75,9 @@ The top bar order is Year, Period, Dates, Search, Reset. Search suggests people 
 
 Placeholder mode uses about ten obviously fake companies and fake people. Attendance emails end in `@example.com` and phone numbers start with `555`. Those contact fields are not on the summary cards. They appear only in the attendance drill-down, which also shows any extra field on the record, such as `notes`.
 
-The attendance drill-down shows contact information to anyone who has the portal password. Real names, emails, and phone numbers must come from the password-checked `executiveDrilldown` POST when the list opens. They are not stored in this repo, in static JavaScript, or in `localStorage`. The placeholder page does not call that endpoint.
+The attendance drill-down shows contact information to anyone who has the portal password. Real names, emails, phone numbers, and the Company and Person lists come only from the password-checked `executiveDrilldown` POST. They are not in the aggregate response, this repo, static JavaScript, or `localStorage`. While the script is not configured, the page does not call that endpoint and uses the example directory instead.
 
-`fromSheetTabs()` still drops email, phone, and name from the headline tabs. It keeps them on `attendanceRecords` only.
+`fromSheetTabs()` still drops email, phone, and name from the headline tabs. It keeps them on `attendanceRecords` only, and only for Lunch & Learn, Ribbon Cutting, and Happy Hour.
 
 **Members** (member companies for the Company list; not guest companies)
 
@@ -92,14 +98,20 @@ The attendance drill-down shows contact information to anyone who has the portal
 | `company` | no | Matched by the Company filter. A guest company that is not on Members stays off the Company list |
 | any other column | no | Shown automatically as its own column |
 
-### Apps Script for the drill-down
+### Apps Script
 
-No deployment yet. The page still uses placeholder data. When the sheet is ready:
+Not deployed. Until it is, the page keeps the example data and the badge.
 
-1. Add the Members and AttendanceRecords tabs above. Do not put those columns on the public sign-up tabs.
-2. The repo already has `executiveDrilldownAction_` and routes `action: 'executiveDrilldown'`. It checks `PORTAL_PASSWORD_SHA256` the same way as the portal dashboard. A wrong password returns status 401 and no rows.
-3. Publish it only when you want it live: **Deploy → Manage deployments → pencil icon → Version: New version → Deploy**. The `/exec` URL stays the same.
-4. Point the drill-down loader at that POST. Send `{ action: 'executiveDrilldown', password }` as `text/plain` when the list opens, then pass the JSON through `fromSheetTabs()`. Do not send the records on the first dashboard load.
+The code is in `apps-script/PortalDashboard.gs` and is routed from `apps-script/Code.gs`. It reads a different spreadsheet from the hospitality sign-up file: **ABA Dashboard Data**, id `1ASUO0a6y8WISgvmSbrxcmogNXGIWLGdJX5Pgn1ufAC0`. `executiveDashboard` returns totals only. `executiveDrilldown` returns names, emails, phones, the active company list, the person list, and attendance records. Both check `PORTAL_PASSWORD_SHA256`. A wrong password returns status 401 and no rows.
+
+When Donny wants this live:
+
+1. In the Apps Script editor, open **Project Settings → Script properties** and add `DASHBOARD_SHEET_ID` with value `1ASUO0a6y8WISgvmSbrxcmogNXGIWLGdJX5Pgn1ufAC0`. Share that spreadsheet with the account that owns the script.
+2. Paste the updated `Code.gs` and `PortalDashboard.gs` if the editor does not already have them.
+3. **Deploy → Manage deployments → pencil icon → Version: New version → Deploy**. The `/exec` URL stays the same, so `js/config.js` does not change.
+4. Reload the dashboard. The Example data badge should disappear. If the property is missing, or the request fails, the badge stays and the example numbers stay.
+
+Do not deploy this as part of the current pull request.
 
 ### Sheet tabs to add later
 
@@ -128,9 +140,9 @@ Use the spreadsheet this site already uses. Add tabs, do not put emails, phones,
 | --- | --- | --- |
 | `date` | yes | `YYYY-MM-DD` |
 | `audience` | yes | `Member` or `Guest` |
-| `event_type` | yes | Same three event types. All types together are the unfiltered cards |
+| `event_type` | no | The member ledger is not tied to an event. A placeholder type is ignored. The membership cards do not follow the Event type toggles |
 | `joins` | yes | People who joined that day |
-| `losses` | yes | People who left that day. What counts as left (a lapse, a non-renewal, or a removal) is still open. Losses taken from the Deactivated tab are dated `2026-06-30`, the last day of FY2026 |
+| `losses` | yes | People who left that day. Losses from the Deactivated Accounts tab are all dated `2026-06-30`, the last day of FY2026 |
 
 **MembershipOpening**
 
@@ -142,17 +154,6 @@ Use the spreadsheet this site already uses. Add tabs, do not put emails, phones,
 | `count` | yes | Total at `as_of`, before Membership rows after that date |
 
 Guest rows are what the Guests slice uses for the membership cards. The sheet Donny receives still needs a real rule for who counts as a guest member. Until then the placeholder carries an example guest ledger.
-
-### Apps Script
-
-This page does not need an Apps Script change. The placeholder never calls the web app.
-
-When the sheet above exists, connect it like this:
-
-1. In the Apps Script project bound to the existing spreadsheet, add an `executiveDashboard` action beside `dashboard`. It must check `PORTAL_PASSWORD_SHA256` the same way `dashboardAction_` does. On a wrong or missing password, return `{ ok: false, status: 401 }` and no rows.
-2. Read only the columns in the tabs above. Return the normalized model (`events`, `attendance`, `openings`, `changes`, `asOf`, `example: false`). Do not return emails, phones, or names.
-3. Publish that script: **Deploy → Manage deployments → pencil icon → Version: New version → Deploy**. The web app URL stays the same, so `js/config.js` does not change.
-4. Change `loadExecutiveSource()` in `js/dashboard-data.js` so it POSTs `{ action: 'executiveDashboard', password }` as `text/plain`, the same way `js/portal-page.js` posts `{ action: 'dashboard', password }`, then passes the JSON through `fromSheetTabs()` or `normalize()`. No other page needs an edit.
 
 ## Checks
 

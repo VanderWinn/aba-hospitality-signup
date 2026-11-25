@@ -182,14 +182,37 @@
     });
   }
 
+  var ALLOWED = { 'Lunch & Learn': true, 'Ribbon Cutting': true, 'Happy Hour': true };
+
+  function countedVisit(row) {
+    if (row.eventType && !ALLOWED[row.eventType]) return false;
+    if (row.status && String(row.status).toLowerCase() !== 'attended') return false;
+    return true;
+  }
+
   function attendanceRows(directory, start, end, eventTypes, audience, view) {
     return (directory.attendance || []).filter(function (row) {
+      if (!countedVisit(row)) return false;
       if (row.date < start || row.date > end) return false;
       if (!typeOk(row.eventType, eventTypes)) return false;
       if (audience && row.audience !== audience) return false;
       if (view && !identityOk(row, view)) return false;
       return true;
     });
+  }
+
+  function liveMembershipOk(person, view) {
+    if ((view.companies || []).length && view.companies.indexOf(person.company) === -1) return false;
+    var selected = view.people || [];
+    var query = String(view.nameQuery || '').toLowerCase();
+    if (!selected.length && !query) return true;
+    var wanted = {};
+    (view.directory.people || []).forEach(function (entry) {
+      var named = selected.indexOf(entry.name) !== -1;
+      var queried = query && String(entry.name || '').toLowerCase().indexOf(query) !== -1;
+      if (named || queried) wanted[entry.company] = true;
+    });
+    return !!wanted[person.company];
   }
 
   var narrow = {
@@ -222,12 +245,13 @@
     },
     stock: function (end, eventTypes, audience, view) {
       var total = 0;
+      var live = view.directory && view.directory.live;
       (view.directory.membership || []).forEach(function (person) {
         if (audience && person.audience !== audience) return;
-        if (!typeOk(person.eventType, eventTypes)) return;
+        if (!live && !typeOk(person.eventType, eventTypes)) return;
         if (person.joined > end) return;
         if (person.lost && person.lost <= end) return;
-        if (!identityOk(person, view)) return;
+        if (live ? !liveMembershipOk(person, view) : !identityOk(person, view)) return;
         total += 1;
       });
       return total;
@@ -235,10 +259,11 @@
     flow: function (start, end, eventTypes, audience, view) {
       var joins = 0;
       var losses = 0;
+      var live = view.directory && view.directory.live;
       (view.directory.membership || []).forEach(function (person) {
         if (audience && person.audience !== audience) return;
-        if (!typeOk(person.eventType, eventTypes)) return;
-        if (!identityOk(person, view)) return;
+        if (!live && !typeOk(person.eventType, eventTypes)) return;
+        if (live ? !liveMembershipOk(person, view) : !identityOk(person, view)) return;
         if (person.joined >= start && person.joined <= end) joins += 1;
         if (person.lost && person.lost >= start && person.lost <= end) losses += 1;
       });
@@ -267,7 +292,8 @@
     var audience = view.audience || '';
     var roster = audience || 'Member';
     if (kind === 'attendance') {
-      var rows = withContacts(attendanceRows(directory, range.start, range.end, eventTypes, audience, view));
+      var found = attendanceRows(directory, range.start, range.end, eventTypes, audience, view);
+      var rows = directory.live ? found : withContacts(found);
       return {
         title: 'Attendance',
         kind: kind,
@@ -301,8 +327,9 @@
     var memberRows = [];
     (directory.membership || []).forEach(function (person) {
       if (person.audience !== roster) return;
-      if (!typeOk(person.eventType, eventTypes)) return;
-      if (!identityOk(person, view)) return;
+      if (directory.live) {
+        if (!liveMembershipOk(person, view)) return;
+      } else if (!identityOk(person, view)) return;
       if (status === 'member') {
         if (person.joined > range.end) return;
         if (person.lost && person.lost <= range.end) return;
@@ -400,9 +427,71 @@
     return { people: people, companies: companyHits };
   }
 
+  function fromLive(payload) {
+    payload = payload || {};
+    var attendance = [];
+    (payload.attendanceRecords || []).forEach(function (row) {
+      var type = ALLOWED[row.eventType] ? row.eventType : '';
+      if (!type) return;
+      var date = String(row.date || row.event_date || '').slice(0, 10);
+      var name = String(row.name || '').trim();
+      if (!name || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+      var copy = {};
+      Object.keys(row).forEach(function (key) { copy[key] = row[key]; });
+      copy.name = name;
+      copy.date = date;
+      copy.eventType = type;
+      copy.event = row.event || row.event_name || type;
+      copy.eventId = String(row.eventId || row.event_id || '');
+      copy.audience = row.audience || '';
+      copy.company = row.company || '';
+      copy.status = String(row.status || '').toLowerCase();
+      attendance.push(copy);
+    });
+    var seen = {};
+    var people = [];
+    attendance.forEach(function (row) {
+      var key = row.name + '|' + row.company;
+      if (seen[key]) return;
+      seen[key] = true;
+      people.push({ name: row.name, company: row.company, audience: row.audience });
+    });
+    people.sort(function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+    var membership = (payload.roster || []).map(function (row) {
+      var company = String(row.company || '').trim();
+      if (!company) return null;
+      var deactivated = String(row.status || '').toLowerCase() === 'deactivated';
+      return {
+        name: '',
+        company: company,
+        audience: 'Member',
+        eventType: '',
+        joined: row.joinDate || row.join_date || '2011-12-31',
+        lost: deactivated ? (row.lostDate || row.lost_date || '2026-06-30') : ''
+      };
+    }).filter(Boolean);
+    var companies = (payload.companies || []).slice();
+    if (!companies.length) {
+      membership.forEach(function (row) {
+        if (!row.lost && companies.indexOf(row.company) === -1) companies.push(row.company);
+      });
+      companies.sort();
+    }
+    return {
+      companies: companies,
+      guestCompany: '',
+      people: people,
+      membership: membership,
+      attendance: attendance,
+      live: true,
+      narrow: narrow
+    };
+  }
+
   root.ABADirectory = {
     COMPANIES: COMPANIES,
     build: build,
+    fromLive: fromLive,
     peopleForCompanies: peopleForCompanies,
     attendanceRows: attendanceRows,
     withContacts: withContacts,

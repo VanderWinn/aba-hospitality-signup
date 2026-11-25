@@ -164,9 +164,12 @@ test('the pie, event type, and bar filters recalculate the page', () => {
   assert.equal(members.attendance.value, 177);
   assert.equal(members.members.value, 412);
   assert.equal(members.events.value, 8);
+  const unfiltered = view();
   const lunch = view({ eventType: 'Lunch & Learn' });
   assert.equal(lunch.events.value, 3);
-  assert.ok(lunch.members.value < 412);
+  assert.equal(lunch.members.value, unfiltered.members.value);
+  assert.equal(lunch.newMembers.value, unfiltered.newMembers.value);
+  assert.equal(lunch.net.value, unfiltered.net.value);
   const months = view({ period: 'month' });
   const july = view({ period: 'month', bucket: months.gains[0].id });
   assert.equal(july.events.value, 2);
@@ -272,6 +275,78 @@ test('the sheet adapter keeps counts and drops contact fields', () => {
     documents: { extras: [] }
   }));
   assert.match(emptyPie, /No records/);
+});
+
+test('only the three event types are counted, and other statuses stay on the records', () => {
+  const parsed = dataApi.fromSheetTabs({
+    asOf: '2026-11-25',
+    events: [
+      { date: '2026-10-08', event_id: 'l', event_type: 'Lunch & Learn' },
+      { date: '2026-10-01', event_id: 'b', event_type: 'BOSS' },
+      { date: '', event_id: 'old', event_type: 'Lunch & Learn' }
+    ],
+    attendance: [
+      { event_id: 'l', audience: 'Member', count: 4 },
+      { event_id: 'b', audience: 'Member', count: 9 }
+    ],
+    membership: [{ date: '2026-06-30', audience: 'Member', event_type: 'Lunch & Learn', joins: 0, losses: 112 }],
+    attendanceRecords: [
+      { name: 'Lu Example', date: '2026-10-08', event_type: 'Lunch & Learn', status: 'no_show', email: 'lu@example.com', registration_status: 'registered' },
+      { name: 'Bo Example', date: '2026-10-01', event_type: 'BOSS', status: 'attended', email: 'bo@example.com' }
+    ]
+  });
+  assert.deepEqual(Array.from(parsed.events, (event) => event.id), ['l']);
+  assert.equal(parsed.attendance.length, 1);
+  assert.equal(parsed.attendance[0].count, 4);
+  assert.equal(parsed.attendanceRecords.length, 1);
+  assert.equal(parsed.attendanceRecords[0].status, 'no_show');
+  assert.equal(parsed.attendanceRecords[0].registration_status, 'registered');
+  assert.equal(JSON.stringify(parsed.events).includes('BOSS'), false);
+  const live = sandbox.ABADirectory.fromLive({
+    companies: ['North Co'],
+    roster: [{ company: 'North Co', status: 'Active', joinDate: '2020-01-01', lostDate: '' }],
+    attendanceRecords: [
+      { name: 'Ada North', company: 'North Co', audience: 'Member', eventType: 'Lunch & Learn', event: 'Lunch', eventId: 'l', date: '2026-10-08', status: 'attended', email: 'ada@example.com' },
+      { name: 'Bea North', company: 'North Co', audience: 'Guest', eventType: 'Lunch & Learn', event: 'Lunch', eventId: 'l', date: '2026-10-08', status: 'no_show' },
+      { name: 'Cam Boss', company: 'North Co', audience: 'Member', eventType: 'BOSS', event: 'BOSS', eventId: 'b', date: '2026-10-01', status: 'attended' },
+      { name: 'Dee North', company: 'North Co', audience: 'Guest', eventType: 'Happy Hour', event: 'Hour', eventId: 'h', date: '2026-09-01', status: 'cancelled' },
+      { name: 'Eve North', company: 'North Co', audience: 'Member', eventType: 'Ribbon Cutting', event: 'Cut', eventId: 'r', date: '2026-09-17', status: 'registered' }
+    ]
+  });
+  assert.equal(live.attendance.length, 4);
+  assert.equal(live.attendance.some((row) => row.eventType === 'BOSS'), false);
+  const narrowed = dash.compute(parsed, {
+    year: 2027, period: 'year', from: '', to: '', eventTypes: ['Happy Hour'], companies: ['North Co'], people: [], nameQuery: '', audience: '', bucket: ''
+  }, live);
+  assert.equal(narrowed.members.value, 1);
+  assert.equal(narrowed.attendance.value, 0);
+  assert.equal(narrowed.events.value, 0);
+  const gs = { crypto: require('crypto'), ABA_SHA256: (text) => require('crypto').createHash('sha256').update(String(text)).digest('hex') };
+  gs.globalThis = gs;
+  vm.createContext(gs);
+  vm.runInContext(fs.readFileSync(path.join(root, 'apps-script/PortalDashboard.gs'), 'utf8'), gs, { filename: 'PortalDashboard.gs' });
+  const built = gs.executiveRowsToDashboard_({
+    events: [
+      { date: '2026-10-08', event_id: 'l', event_type: 'Lunch & Learn' },
+      { date: '2026-10-01', event_id: 'b', event_type: 'BOSS' },
+      { date: '2025-03-25', event_id: 'c', event_type: 'Collaboration' }
+    ],
+    attendanceRecords: [
+      { event_id: 'l', event_type: 'Lunch & Learn', status: 'attended', member_or_guest: 'Member' },
+      { event_id: 'l', event_type: 'Lunch & Learn', status: 'no_show', member_or_guest: 'Guest' },
+      { event_id: 'l', event_type: 'Lunch & Learn', status: 'cancelled', member_or_guest: 'Member' },
+      { event_id: 'b', event_type: 'BOSS', status: 'attended', member_or_guest: 'Member' }
+    ],
+    changes: [{ date: '2026-06-30', audience: 'Member', event_type: 'Lunch & Learn', joins: 0, losses: 112 }]
+  }, '2026-11-25');
+  assert.deepEqual(Array.from(built.events, (event) => event.type), ['Lunch & Learn']);
+  assert.equal(built.attendance.length, 1);
+  assert.equal(built.attendance[0].count, 1);
+  assert.equal(built.example, false);
+  assert.equal(JSON.stringify(built).toLowerCase().includes('email'), false);
+  const missing = gs.executiveDashboardAction_({ password: 'secret' }, { passwordHash: gs.ABA_SHA256('secret') });
+  assert.equal(missing.ok, false);
+  assert.match(missing.error, /not configured/);
 });
 
 test('the dashboard page is gated and the public sign-up does not link to it', () => {
