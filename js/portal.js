@@ -329,7 +329,7 @@
   }
 
   function defaultDashboardState() {
-    return { order: DEFAULT_ORDER.slice(), path: [], extPath: [], filters: emptyFilters(), drawer: false };
+    return { range: 'last12', from: '', to: '', category: '', detail: null };
   }
 
   function dimLabel(id) {
@@ -456,18 +456,40 @@
     return items;
   }
 
+  function isoDate(value) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? String(value) : '';
+  }
+
+  function plainView(view) {
+    var range = 'last12';
+    if (view && (view.range === 'year' || view.range === 'quarter' || view.range === 'custom' || view.range === 'last12')) range = view.range;
+    else if (view && view.period === 'quarter') range = 'quarter';
+    else if (view && view.period === 'year') range = 'year';
+    var from = isoDate(view && view.from);
+    var to = isoDate(view && view.to);
+    if (from && to && from > to) {
+      var swap = from;
+      from = to;
+      to = swap;
+    }
+    if (range === 'custom' && (!from || !to)) range = 'last12';
+    var category = view && view.category ? String(view.category) : '';
+    var detail = null;
+    if (view && view.detail && view.detail.id && (view.detail.kind === 'person' || view.detail.kind === 'event')) {
+      detail = { kind: view.detail.kind, id: String(view.detail.id) };
+    }
+    return { range: range, from: from, to: to, category: category, detail: detail };
+  }
+
   function dashboardHash(state) {
-    state = state || defaultDashboardState();
-    var parts = ['order=' + (state.order || DEFAULT_ORDER).join('.')];
-    if (state.path && state.path.length) parts.push('path=' + state.path.map(function (step) { return encodeURIComponent(step.key); }).join('/'));
-    if (state.extPath && state.extPath.length) parts.push('ext=' + state.extPath.map(function (step) { return encodeURIComponent(step.key); }).join('/'));
-    var filters = state.filters || emptyFilters();
-    if (filters.person.length) parts.push('person=' + filters.person.map(encodeURIComponent).join(','));
-    if (filters.role.length) parts.push('role=' + filters.role.map(encodeURIComponent).join(','));
-    if (filters.event.length) parts.push('event=' + filters.event.map(encodeURIComponent).join(','));
-    if (filters.category.length) parts.push('category=' + filters.category.map(encodeURIComponent).join(','));
-    if (filters.from) parts.push('from=' + filters.from);
-    if (filters.to) parts.push('to=' + filters.to);
+    var view = plainView(state);
+    var parts = ['range=' + view.range];
+    if (view.range === 'custom') {
+      parts.push('from=' + view.from);
+      parts.push('to=' + view.to);
+    }
+    if (view.category) parts.push('category=' + encodeURIComponent(view.category));
+    if (view.detail) parts.push('detail=' + encodeURIComponent(view.detail.kind + ':' + view.detail.id));
     return parts.join('&');
   }
 
@@ -491,35 +513,35 @@
   }
 
   function dashboardStateFromHash(hash) {
-    var state = defaultDashboardState();
+    var view = defaultDashboardState();
     var query = String(hash || '').replace(/^#/, '');
-    if (!query) return state;
+    if (!query) return view;
     var bag = {};
     query.split('&').forEach(function (pair) {
       var bits = pair.split('=');
-      bag[decodeURIComponent(bits[0] || '')] = bits.slice(1).join('=');
+      var key = bits[0] || '';
+      try { key = decodeURIComponent(key); } catch (err) {}
+      bag[key] = bits.slice(1).join('=');
     });
-    if (bag.order) {
-      var order = bag.order.split('.').filter(function (id) {
-        return DEFAULT_ORDER.indexOf(id) !== -1;
-      });
-      if (order.length === 4) state.order = order;
+    if (bag.range === 'year' || bag.range === 'quarter' || bag.range === 'custom' || bag.range === 'last12') view.range = bag.range;
+    else if (bag.period === 'quarter') view.range = 'quarter';
+    else if (bag.period === 'year') view.range = 'year';
+    if (bag.from) {
+      try { view.from = decodeURIComponent(bag.from); } catch (err) { view.from = bag.from; }
     }
-    function steps(raw, order) {
-      if (!raw) return [];
-      return raw.split('/').map(function (key, index) {
-        return { dim: order[index], key: decodeURIComponent(key), label: decodeURIComponent(key) };
-      }).filter(function (step) { return step.dim && step.key; });
+    if (bag.to) {
+      try { view.to = decodeURIComponent(bag.to); } catch (err) { view.to = bag.to; }
     }
-    state.path = steps(bag.path, state.order);
-    state.extPath = steps(bag.ext, EXTERNAL_ORDER);
-    state.filters.person = splitList(bag.person);
-    state.filters.role = splitList(bag.role);
-    state.filters.event = splitList(bag.event);
-    state.filters.category = splitList(bag.category);
-    state.filters.from = bag.from || '';
-    state.filters.to = bag.to || '';
-    return state;
+    if (bag.category) {
+      try { view.category = decodeURIComponent(bag.category); } catch (err) { view.category = bag.category; }
+    }
+    if (bag.detail) {
+      var raw = bag.detail;
+      try { raw = decodeURIComponent(raw); } catch (err) {}
+      var splitAt = raw.indexOf(':');
+      if (splitAt > 0) view.detail = { kind: raw.slice(0, splitAt), id: raw.slice(splitAt + 1) };
+    }
+    return plainView(view);
   }
 
   function reorderDrill(order, index, nextId) {
@@ -941,11 +963,381 @@
       '<table class="portal-table"><thead><tr><th>Role</th><th>Filled</th><th>Status</th><th>Names</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
   }
 
+  function pad2(n) {
+    return (n < 10 ? '0' : '') + n;
+  }
+
+  function quarterFromLabel(label) {
+    var match = /Q([1-4])\s+(\d{4})/.exec(String(label || ''));
+    if (!match) return null;
+    var quarter = Number(match[1]);
+    var year = match[2];
+    var startMonth = (quarter - 1) * 3 + 1;
+    var endMonth = startMonth + 2;
+    var endDay = new Date(Date.UTC(Number(year), endMonth, 0)).getUTCDate();
+    return {
+      label: 'Q' + quarter + ' ' + year,
+      start: year + '-' + pad2(startMonth) + '-01',
+      end: year + '-' + pad2(endMonth) + '-' + pad2(endDay)
+    };
+  }
+
+  function asOfDay(model) {
+    if (model && isoDate(model.asOf)) return model.asOf;
+    var year = String((model && model.participation && model.participation.year && model.participation.year.label) || '').slice(0, 4);
+    if (!/^\d{4}$/.test(year)) year = '2026';
+    return year + '-12-31';
+  }
+
+  function monthEnd(year, month) {
+    return year + '-' + pad2(month) + '-' + pad2(new Date(Date.UTC(year, month, 0)).getUTCDate());
+  }
+
+  function shiftMonth(iso, delta) {
+    var index = Number(iso.slice(0, 4)) * 12 + (Number(iso.slice(5, 7)) - 1) + delta;
+    return { year: Math.floor(index / 12), month: (index % 12) + 1 };
+  }
+
+  function rangeCaption(start, end) {
+    var names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    function piece(iso) {
+      return names[Number(iso.slice(5, 7)) - 1] + ' ' + iso.slice(0, 4);
+    }
+    return piece(start) + ' – ' + piece(end);
+  }
+
+  function viewRange(model, view) {
+    var today = asOfDay(model);
+    var year = today.slice(0, 4);
+    if (view.range === 'custom' && view.from && view.to) {
+      return { start: view.from, end: view.to, label: rangeCaption(view.from, view.to) };
+    }
+    if (view.range === 'quarter') {
+      var quarter = quarterFromLabel(model.participation && model.participation.quarter && model.participation.quarter.label);
+      if (quarter) return { start: quarter.start, end: quarter.end, label: quarter.label };
+    }
+    if (view.range === 'year') return { start: year + '-01-01', end: year + '-12-31', label: year };
+    var end = shiftMonth(today, 0);
+    var start = shiftMonth(today, -11);
+    var startIso = start.year + '-' + pad2(start.month) + '-01';
+    var endIso = monthEnd(end.year, end.month);
+    return { start: startIso, end: endIso, label: rangeCaption(startIso, endIso) };
+  }
+
+  function shiftsInView(model, view) {
+    var range = viewRange(model, view);
+    return collectShifts(model).filter(function (shift) {
+      if (!shift.date || shift.date < range.start || shift.date > range.end) return false;
+      if (view.category && shift.event !== view.category) return false;
+      return true;
+    });
+  }
+
+  function peopleInView(shifts) {
+    var map = {};
+    var order = [];
+    (shifts || []).forEach(function (shift) {
+      if (!map[shift.personId]) {
+        map[shift.personId] = { id: shift.personId, name: shift.person, count: 0, shifts: [] };
+        order.push(shift.personId);
+      }
+      map[shift.personId].count += 1;
+      map[shift.personId].shifts.push(shift);
+    });
+    return order.map(function (id) { return map[id]; }).sort(function (a, b) {
+      return b.count - a.count || (a.name < b.name ? -1 : 1);
+    });
+  }
+
+  function eventsInView(model, view) {
+    var range = viewRange(model, view);
+    return ((model.capacity && model.capacity.events) || []).filter(function (event) {
+      if (!event.date || event.date < range.start || event.date > range.end) return false;
+      if (view.category && event.name !== view.category) return false;
+      return true;
+    }).map(function (event) {
+      var filled = 0;
+      var seats = 0;
+      (event.roles || []).forEach(function (role) {
+        var cap = Number(role.capacity) || 0;
+        seats += cap;
+        filled += Math.min(Number(role.filled) || 0, cap);
+      });
+      return {
+        event: event,
+        id: event.date + '|' + event.name,
+        filled: filled,
+        seats: seats,
+        open: Math.max(0, seats - filled),
+        covered: seats > 0 && filled >= seats
+      };
+    }).sort(function (a, b) {
+      return b.open - a.open || (a.event.date < b.event.date ? -1 : 1);
+    });
+  }
+
+  function monthSeries(shifts, range) {
+    var counts = {};
+    (shifts || []).forEach(function (shift) {
+      counts[shift.month] = (counts[shift.month] || 0) + 1;
+    });
+    var items = [];
+    var cursor = range.start.slice(0, 7);
+    var end = range.end.slice(0, 7);
+    var total = 0;
+    var names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var previousYear = '';
+    while (cursor && cursor <= end && items.length < 120) {
+      var count = counts[cursor] || 0;
+      total += count;
+      var year = cursor.slice(0, 4);
+      var month = Number(cursor.slice(5, 7));
+      var nextMonth = month === 12 ? 1 : month + 1;
+      var nextYear = month === 12 ? String(Number(year) + 1) : year;
+      var nextKey = nextYear + '-' + pad2(nextMonth);
+      var showYear = !previousYear || previousYear !== year || nextKey > end;
+      items.push({ label: names[month - 1] + (showYear ? ' ’' + year.slice(2) : ''), value: count });
+      previousYear = year;
+      cursor = nextKey;
+    }
+    items.push({ label: 'Total', value: total, accent: true });
+    return items;
+  }
+
+  function monthChart(items) {
+    var max = 1;
+    items.forEach(function (item) { if (item.value > max) max = item.value; });
+    var wide = items.length > 16 ? ' style="min-width:' + (items.length * 46) + 'px"' : '';
+    return '<div class="vchart plain-months" role="img" aria-label="Shifts by month"><div class="vbars"' + wide + '>' + items.map(function (item) {
+      var height = item.value ? Math.max(8, Math.round((item.value / max) * 100)) : 0;
+      return '<div class="vbar' + (item.accent ? ' is-total' : '') + '"><span class="vbar-value">' + item.value + '</span>' +
+        '<span class="vbar-col' + (item.accent ? ' is-focus' : '') + '" style="height:' + height + '%"></span>' +
+        '<span class="vbar-label">' + escapeHtml(item.label) + '</span></div>';
+    }).join('') + '</div></div>';
+  }
+
+  function kpiTile(question, label, value, context, isName) {
+    return '<section class="kpi-tile" title="' + escapeHtml(question) + '" aria-label="' + escapeHtml(question) + '">' +
+      '<h3 class="kpi-label">' + escapeHtml(label) + '</h3>' +
+      '<p class="kpi-num' + (isName ? ' is-name' : '') + '">' + escapeHtml(value) + '</p>' +
+      '<p class="kpi-context">' + context + '</p></section>';
+  }
+
+  function pillButton(attrs, label, count, on) {
+    return '<button type="button" class="pill' + (on ? ' is-on' : '') + '" ' + attrs + '>' +
+      escapeHtml(label) + (count == null ? '' : ' <span class="pill-count">' + count + '</span>') + '</button>';
+  }
+
+  function dayNumber(iso) {
+    var parts = String(iso || '').split('-');
+    return Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])) / 86400000;
+  }
+
+  function isoFromDay(day) {
+    var date = new Date(day * 86400000);
+    return date.getUTCFullYear() + '-' + pad2(date.getUTCMonth() + 1) + '-' + pad2(date.getUTCDate());
+  }
+
+  function previousWindow(start, end) {
+    var length = dayNumber(end) - dayNumber(start) + 1;
+    var prevEnd = dayNumber(start) - 1;
+    return { start: isoFromDay(prevEnd - length + 1), end: isoFromDay(prevEnd) };
+  }
+
+  function tallyWindow(shifts, start, end, category) {
+    var people = {};
+    var count = 0;
+    (shifts || []).forEach(function (shift) {
+      if (!shift.date || shift.date < start || shift.date > end) return;
+      if (category && shift.event !== category) return;
+      count += 1;
+      people[shift.personId] = true;
+    });
+    return { shifts: count, volunteers: Object.keys(people).length };
+  }
+
+  function compareBars(model, view, range) {
+    var names = {
+      quarter: ['This quarter vs last quarter', 'Last', 'This'],
+      year: ['This year vs last year', 'Last', 'This'],
+      last12: ['These 12 months vs the 12 before', 'Last', 'This'],
+      custom: ['This period vs the one before', 'Last', 'This']
+    };
+    var picked = names[view.range] || names.custom;
+    var prior = previousWindow(range.start, range.end);
+    var yearStart = String((model.participation && model.participation.year && model.participation.year.label) || '').slice(0, 4);
+    var covered = /^\d{4}$/.test(yearStart) && prior.start >= yearStart + '-01-01';
+    var previous;
+    var current;
+    var header = picked[0];
+    var previousName = picked[1];
+    var currentName = picked[2];
+    var note = '';
+    if (covered) {
+      var all = collectShifts(model);
+      previous = tallyWindow(all, prior.start, prior.end, view.category);
+      current = tallyWindow(all, range.start, range.end, view.category);
+    } else {
+      var quarter = model.participation && model.participation.quarter;
+      var before = model.participation && model.participation.previousQuarter;
+      if (!quarter || !before || quarter.shifts == null || before.shifts == null) return '';
+      previous = { shifts: before.shifts, volunteers: before.volunteers || 0 };
+      current = { shifts: quarter.shifts, volunteers: quarter.volunteers || 0 };
+      header = 'This quarter vs last quarter';
+      previousName = 'Last';
+      currentName = 'This';
+      if (view.category) note = '<p class="portal-dash-note">All event types.</p>';
+    }
+    function pair(label, previousValue, currentValue) {
+      var max = Math.max(previousValue, currentValue, 1);
+      function bar(value, accent, name) {
+        var height = value ? Math.max(8, Math.round((value / max) * 100)) : 0;
+        return '<div class="compare-col' + (accent ? ' is-current' : '') + '">' +
+          '<span class="compare-value">' + value + '</span>' +
+          '<span class="compare-track"><span class="compare-bar' + (accent ? ' is-focus' : '') + '" style="height:' + height + '%"></span></span>' +
+          '<span class="compare-name">' + escapeHtml(name) + '</span></div>';
+      }
+      return '<div class="compare-metric"><p class="kpi-label">' + escapeHtml(label) + '</p><div class="compare-pair">' +
+        bar(previousValue, false, previousName) + bar(currentValue, true, currentName) + '</div></div>';
+    }
+    return '<section class="compare-bars" aria-label="' + escapeHtml(header) + '"><h3 class="action-title">' + escapeHtml(header) + '</h3>' +
+      note + '<div class="compare-metrics">' +
+      pair('Shifts', previous.shifts, current.shifts) +
+      pair('Volunteers', previous.volunteers, current.volunteers) +
+      '</div></section>';
+  }
+
+  function externalBlock() {
+    var guests = exampleGuests();
+    var visits = 0;
+    guests.forEach(function (guest) { visits += guest.attended; });
+    var rows = guests.map(function (guest, index) {
+      return '<div class="plain-row is-static"><span class="plain-rank">' + (index + 1) + '</span>' +
+        '<span class="plain-name">' + escapeHtml(guest.name) + ' <span class="plain-sub">Example</span></span>' +
+        '<span class="plain-count">' + guest.attended + '</span></div>';
+    }).join('');
+    return '<section class="example-block" aria-label="External attendance is example data">' +
+      '<h3 class="action-title">External attendance</h3>' +
+      '<p class="portal-dash-note">Example data. Coming soon. These numbers are not from the sign-up sheet.</p>' +
+      '<div class="kpi-row example-kpis">' +
+      kpiTile('How many example guests are shown?', 'Example guests', String(guests.length), 'Example data') +
+      kpiTile('How many example visits are shown?', 'Example visits', String(visits), 'Example data') +
+      '</div><div class="plain-list">' + rows + '</div></section>';
+  }
+
+  function plainHome(model, view) {
+    var range = viewRange(model, view);
+    var shifts = shiftsInView(model, view);
+    var people = peopleInView(shifts);
+    var events = eventsInView(model, view);
+    var unfiltered = shiftsInView(model, { range: view.range, from: view.from, to: view.to, category: '' });
+    var typeNames = ['Lunch & Learn', 'Ribbon Cutting', 'Happy Hour'];
+    unfiltered.forEach(function (shift) {
+      if (shift.event && typeNames.indexOf(shift.event) === -1) typeNames.push(shift.event);
+    });
+    var filled = 0;
+    var seats = 0;
+    var covered = 0;
+    events.forEach(function (item) {
+      filled += item.filled;
+      seats += item.seats;
+      if (item.covered) covered += 1;
+    });
+    var top = people[0];
+    var shiftContext = seats ? ('of ' + seats + ' seats <span class="kpi-pct">' + percentOf(filled, seats) + '</span>') : 'No upcoming seats';
+    var tiles = '<div class="kpi-row">' +
+      kpiTile('Are upcoming shifts filled?', 'Shifts filled', String(filled), shiftContext) +
+      kpiTile('Are upcoming events covered?', 'Events covered', String(covered), 'of ' + events.length + ' upcoming') +
+      kpiTile('How many people helped?', 'Volunteers', String(people.length), escapeHtml(range.label)) +
+      kpiTile('Who should we thank?', 'Top volunteer', top ? top.name : 'None yet', top ? (top.count + ' shifts') : 'No shifts in this period', true) +
+      '</div>';
+    var periodPills = '<div class="range-bar"><div class="pill-row" role="group" aria-label="Choose a time range">' +
+      pillButton('data-range="last12"', 'Last 12 months', null, view.range === 'last12') +
+      pillButton('data-range="year"', 'This year', null, view.range === 'year') +
+      pillButton('data-range="quarter"', 'This quarter', null, view.range === 'quarter') +
+      pillButton('data-range="reset"', 'Reset', null, false) +
+      '</div><div class="date-range">' +
+      '<label class="date-field">From <input type="date" data-range-date="from" value="' + escapeHtml(range.start) + '" aria-label="Start date"></label>' +
+      '<label class="date-field">To <input type="date" data-range-date="to" value="' + escapeHtml(range.end) + '" aria-label="End date"></label>' +
+      '</div></div>';
+    var typePills = '<div class="pill-row" role="group" aria-label="Which event types draw participation?">' +
+      pillButton('data-category=""', 'All', unfiltered.length, !view.category);
+    typeNames.forEach(function (name) {
+      var count = 0;
+      unfiltered.forEach(function (shift) { if (shift.event === name) count += 1; });
+      typePills += pillButton('data-category="' + escapeHtml(name) + '"', name, count, view.category === name);
+    });
+    typePills += '</div>';
+    var volunteerRows = people.map(function (person, index) {
+      return '<button type="button" class="plain-row" data-person="' + escapeHtml(person.id) + '">' +
+        '<span class="plain-rank">' + (index + 1) + '</span>' +
+        '<span class="plain-name">' + escapeHtml(person.name) + '</span>' +
+        '<span class="plain-count">' + person.count + '</span></button>';
+    }).join('') || '<p class="portal-dash-note">No shifts in this period.</p>';
+    var needsPeople = events.filter(function (item) { return item.open > 0; });
+    var eventRows = needsPeople.map(function (item) {
+      var openText = item.open ? (item.open + ' open') : 'Covered';
+      return '<button type="button" class="plain-row" data-event="' + escapeHtml(item.id) + '">' +
+        '<span class="plain-name">' + escapeHtml(item.event.name) + ' <span class="plain-sub">' + escapeHtml(shortDate(item.event.date)) + '</span></span>' +
+        '<span class="plain-count' + (item.open ? ' is-open' : '') + '">' + item.filled + ' of ' + item.seats +
+        ' <span class="plain-sub">' + openText + '</span></span></button>';
+    }).join('') || '<p class="portal-dash-note">' + (events.length ? 'Every upcoming event is covered.' : 'No upcoming events in this period.') + '</p>';
+    return '<div class="plain-dash">' + periodPills + typePills + tiles + compareBars(model, view, range) +
+      '<section class="plain-chart" aria-label="Which months were busiest?"><h3 class="action-title">Shifts by month</h3>' +
+      monthChart(monthSeries(shifts, range)) + '</section>' +
+      '<div class="two-col">' +
+      '<section aria-label="Who is carrying the load?"><h3 class="action-title">Top volunteers</h3>' +
+      '<div class="plain-list">' + volunteerRows + '</div>' +
+      '<p class="portal-dash-note">People who have not signed up are not listed.</p></section>' +
+      '<section aria-label="Which upcoming event still needs volunteers?"><h3 class="action-title">Events that need people</h3>' +
+      '<div class="plain-list">' + eventRows + '</div></section>' +
+      '</div>' + externalBlock() + '</div>';
+  }
+
+  function plainDetail(model, view) {
+    var back = '<p><button type="button" class="back-link" data-back>Back</button></p>';
+    if (view.detail.kind === 'person') {
+      var people = peopleInView(shiftsInView(model, view));
+      var person = null;
+      people.forEach(function (item) { if (item.id === view.detail.id) person = item; });
+      if (!person) {
+        return '<div class="plain-dash">' + back + '<h3 class="action-title">Volunteer</h3><p class="portal-dash-note">That person has no shifts in this period.</p></div>';
+      }
+      var rows = person.shifts.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; }).map(function (shift) {
+        return '<tr><td>' + escapeHtml(shortDate(shift.date)) + '</td><td>' + escapeHtml(shift.event) + '</td><td>' + escapeHtml(shift.role) + '</td><td>' + escapeHtml(shift.venue) + '</td></tr>';
+      }).join('');
+      return '<div class="plain-dash">' + back +
+        '<h3 class="action-title">' + escapeHtml(person.name) + '</h3>' +
+        '<p class="kpi-context">' + person.count + ' shifts</p>' +
+        '<table class="portal-table"><thead><tr><th>Date</th><th>Event</th><th>Role</th><th>Venue</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    }
+    var match = null;
+    eventsInView(model, view).forEach(function (item) { if (item.id === view.detail.id) match = item; });
+    if (!match) {
+      return '<div class="plain-dash">' + back + '<h3 class="action-title">Event</h3><p class="portal-dash-note">That event is not in this period.</p></div>';
+    }
+    var roles = (match.event.roles || []).map(function (role) {
+      var names = (role.names || []).map(escapeHtml).join(', ');
+      var open = Math.max(0, (Number(role.capacity) || 0) - (Number(role.filled) || 0));
+      return '<tr><td>' + escapeHtml(role.task) + '</td><td><strong>' + countLine(role.filled, role.capacity) + '</strong></td><td>' +
+        (open ? '<span class="plain-count is-open">' + open + ' open</span>' : 'Filled') + '</td><td>' + names + '</td></tr>';
+    }).join('');
+    return '<div class="plain-dash">' + back +
+      '<h3 class="action-title">' + escapeHtml(match.event.name) + '</h3>' +
+      '<p class="kpi-context">' + escapeHtml(shortDate(match.event.date)) +
+      (match.event.venue ? ' · ' + escapeHtml(match.event.venue) : '') + '</p>' +
+      '<p class="kpi-context">' + match.filled + ' of ' + match.seats + ' seats filled</p>' +
+      '<table class="portal-table"><thead><tr><th>Role</th><th>Filled</th><th>Still open</th><th>Names</th></tr></thead><tbody>' + roles + '</tbody></table></div>';
+  }
+
   function renderDashboard(model, problem, view) {
     if (!model) {
-      return '<p class="form-error" role="alert">' + escapeHtml((problem && problem.error) || 'The dashboard could not be loaded.') + '</p>' + externalCard();
+      return '<p class="form-error" role="alert">' + escapeHtml((problem && problem.error) || 'The dashboard could not be loaded. Check the connection and try again.') + '</p>' +
+        '<p><button type="button" class="btn" data-retry>Try again</button></p>';
     }
-    return overview(model, view && view.order ? view : defaultDashboardState());
+    var state = plainView(view);
+    if (state.detail) return plainDetail(model, state);
+    return plainHome(model, state);
   }
 
   root.ABAPortal = {
