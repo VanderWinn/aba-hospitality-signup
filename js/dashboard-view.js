@@ -74,7 +74,7 @@
 
   function gainsSvg(series, selectedId, showLabels) {
     var w = 520;
-    var h = showLabels ? 300 : 150;
+    var h = showLabels ? 340 : 150;
     var maxUp = 1;
     var maxDown = 1;
     series.forEach(function (bucket) {
@@ -341,15 +341,15 @@ function yearControl(view, compact) {
       headline(signed(view.net.value), view.net.tone, 'big-mid') + priors(view.net),
       ' pop');
     var gains = card('Membership Gains V Losses', 'Membership Gains V Losses',
-      gainsSvg(view.gains, view.bucket, showBarLabels),
+      '<div class="chart-slot">' + gainsSvg(view.gains, view.bucket, showBarLabels) + '</div>',
       ' card-gains');
     var events = card('Events Held', 'Events Held',
       headline(String(view.events.value), view.events.tone, 'big-mid') + priors(view.events) +
-      lineSvg(view.eventSeries, view.eventLastYear, labels, 'Events held', view.mobile) + legend(),
+      '<div class="chart-slot">' + lineSvg(view.eventSeries, view.eventLastYear, labels, 'Events held', view.mobile) + '</div>' + legend(),
       ' card-events');
     var attendance = card('Attendance', 'Attendance',
       headline(String(view.attendance.value), view.attendance.tone, 'big-mid') + priors(view.attendance) +
-      lineSvg(view.attendanceSeries, view.attendanceLastYear, labels, 'Attendance', view.mobile) + legend(),
+      '<div class="chart-slot">' + lineSvg(view.attendanceSeries, view.attendanceLastYear, labels, 'Attendance', view.mobile) + '</div>' + legend(),
       ' card-attendance');
     var pie = card('Attendance Distribution', 'Attendance Distribution',
       pieSvg(view.pie, view.audience),
