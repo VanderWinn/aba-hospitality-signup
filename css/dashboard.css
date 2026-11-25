@@ -433,12 +433,23 @@ button.big { display: block; width: 100%; }
 .delta-flat { color: #888; font-size: 14px; }
 
 .chart-empty {
-  margin: 28px 0;
+  margin: 0;
+  width: 100%;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--soft);
   font-size: 14px;
   font-weight: 700;
   text-align: center;
 }
+
+.chart-empty.is-gains { aspect-ratio: 520 / 340; min-height: 220px; }
+
+.chart-empty.is-gains-short { aspect-ratio: 520 / 150; min-height: 96px; }
+
+.chart-empty.is-pie { width: 176px; height: 176px; min-height: 176px; }
 
 .chart-slot {
   flex: 1 1 auto;

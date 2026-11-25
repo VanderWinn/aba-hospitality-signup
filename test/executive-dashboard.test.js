@@ -254,6 +254,7 @@ test('the sheet adapter keeps counts and drops contact fields', () => {
     assert.match(comboHtml, /100%/);
   }
   if (!combo.gains.some((bucket) => bucket.joins || bucket.losses)) {
+    assert.match(comboHtml, /chart-empty is-gains/);
     assert.match(comboHtml, /No records/);
   }
   const emptyPie = sandbox.ABADashboardView.render(Object.assign({}, combo, {

@@ -78,7 +78,7 @@
       if (bucket.joins || bucket.losses) any = true;
     });
     if (!series || !series.length || !any) {
-      return '<p class="chart-empty">No records</p>';
+      return emptyChart(showLabels ? 'is-gains' : 'is-gains-short');
     }
     var w = 520;
     var h = showLabels ? 340 : 150;
@@ -155,6 +155,10 @@ function lineSvg(values, lastYear, labels, kind, narrow) {
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + '">' + parts.join('') + '</svg>';
   }
 
+  function emptyChart(kind) {
+    return '<p class="chart-empty ' + kind + '" role="img" aria-label="No records">No records</p>';
+  }
+
   function fullSlice(title, count, color, audience) {
     return '<svg class="pie" viewBox="0 0 176 176" role="img" aria-label="' + title + ' ' + count + ', 100%">' +
       '<circle data-audience="' + audience + '" cx="88" cy="88" r="80" fill="' + color + '"/>' +
@@ -168,7 +172,7 @@ function lineSvg(values, lastYear, labels, kind, narrow) {
     var members = pie.members;
     var guests = pie.guests;
     var total = members + guests;
-    if (!total) return '<p class="chart-empty">No records</p>';
+    if (!total) return emptyChart('is-pie');
     if (!guests) return fullSlice('Members', members, PINE, 'Member');
     if (!members) return fullSlice('Guests', guests, POP, 'Guest');
     var r = size / 2 - 8;
