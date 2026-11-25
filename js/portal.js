@@ -1128,14 +1128,83 @@
       escapeHtml(label) + (count == null ? '' : ' <span class="pill-count">' + count + '</span>') + '</button>';
   }
 
-  function compareLine(model, view) {
-    var current = model.participation && model.participation.quarter;
-    var previous = model.participation && model.participation.previousQuarter;
-    if (!current || !previous || current.shifts == null || previous.shifts == null) return '';
-    var note = view && view.category ? ' This comparison counts every event type.' : '';
-    return '<p class="compare-line"><span class="kpi-label">Compared with last quarter</span>' +
-      escapeHtml(current.label) + ': ' + current.shifts + ' shifts. ' +
-      escapeHtml(previous.label) + ': ' + previous.shifts + ' shifts.' + note + '</p>';
+  function dayNumber(iso) {
+    var parts = String(iso || '').split('-');
+    return Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])) / 86400000;
+  }
+
+  function isoFromDay(day) {
+    var date = new Date(day * 86400000);
+    return date.getUTCFullYear() + '-' + pad2(date.getUTCMonth() + 1) + '-' + pad2(date.getUTCDate());
+  }
+
+  function previousWindow(start, end) {
+    var length = dayNumber(end) - dayNumber(start) + 1;
+    var prevEnd = dayNumber(start) - 1;
+    return { start: isoFromDay(prevEnd - length + 1), end: isoFromDay(prevEnd) };
+  }
+
+  function tallyWindow(shifts, start, end, category) {
+    var people = {};
+    var count = 0;
+    (shifts || []).forEach(function (shift) {
+      if (!shift.date || shift.date < start || shift.date > end) return;
+      if (category && shift.event !== category) return;
+      count += 1;
+      people[shift.personId] = true;
+    });
+    return { shifts: count, volunteers: Object.keys(people).length };
+  }
+
+  function compareBars(model, view, range) {
+    var names = {
+      quarter: ['This quarter vs last quarter', 'Last', 'This'],
+      year: ['This year vs last year', 'Last', 'This'],
+      last12: ['These 12 months vs the 12 before', 'Last', 'This'],
+      custom: ['This period vs the one before', 'Last', 'This']
+    };
+    var picked = names[view.range] || names.custom;
+    var prior = previousWindow(range.start, range.end);
+    var yearStart = String((model.participation && model.participation.year && model.participation.year.label) || '').slice(0, 4);
+    var covered = /^\d{4}$/.test(yearStart) && prior.start >= yearStart + '-01-01';
+    var previous;
+    var current;
+    var header = picked[0];
+    var previousName = picked[1];
+    var currentName = picked[2];
+    var note = '';
+    if (covered) {
+      var all = collectShifts(model);
+      previous = tallyWindow(all, prior.start, prior.end, view.category);
+      current = tallyWindow(all, range.start, range.end, view.category);
+    } else {
+      var quarter = model.participation && model.participation.quarter;
+      var before = model.participation && model.participation.previousQuarter;
+      if (!quarter || !before || quarter.shifts == null || before.shifts == null) return '';
+      previous = { shifts: before.shifts, volunteers: before.volunteers || 0 };
+      current = { shifts: quarter.shifts, volunteers: quarter.volunteers || 0 };
+      header = 'This quarter vs last quarter';
+      previousName = 'Last';
+      currentName = 'This';
+      if (view.category) note = '<p class="portal-dash-note">All event types.</p>';
+    }
+    function pair(label, previousValue, currentValue) {
+      var max = Math.max(previousValue, currentValue, 1);
+      function bar(value, accent, name) {
+        var height = value ? Math.max(8, Math.round((value / max) * 100)) : 0;
+        return '<div class="compare-col' + (accent ? ' is-current' : '') + '">' +
+          '<span class="compare-value">' + value + '</span>' +
+          '<span class="compare-track"><span class="compare-bar' + (accent ? ' is-focus' : '') + '" style="height:' + height + '%"></span></span>' +
+          '<span class="compare-name">' + escapeHtml(name) + '</span></div>';
+      }
+      return '<div class="compare-metric"><p class="kpi-label">' + escapeHtml(label) + '</p><div class="compare-pair">' +
+        bar(previousValue, false, previousName) + bar(currentValue, true, currentName) + '</div></div>';
+    }
+    return '<section class="compare-bars" aria-label="' + escapeHtml(header) + '"><h3 class="action-title">' + escapeHtml(header) + '</h3>' +
+      note + '<div class="compare-metrics">' +
+      pair('Shifts', previous.shifts, current.shifts) +
+      pair('Volunteers', previous.volunteers, current.volunteers) +
+      '</div></section>';
   }
 
   function externalBlock() {
@@ -1213,7 +1282,7 @@
         '<span class="plain-count' + (item.open ? ' is-open' : '') + '">' + item.filled + ' of ' + item.seats +
         ' <span class="plain-sub">' + openText + '</span></span></button>';
     }).join('') || '<p class="portal-dash-note">' + (events.length ? 'Every upcoming event is covered.' : 'No upcoming events in this period.') + '</p>';
-    return '<div class="plain-dash">' + periodPills + typePills + tiles + compareLine(model, view) +
+    return '<div class="plain-dash">' + periodPills + typePills + tiles + compareBars(model, view, range) +
       '<section class="plain-chart" aria-label="Which months were busiest?"><h3 class="action-title">Shifts by month</h3>' +
       monthChart(monthSeries(shifts, range)) + '</section>' +
       '<div class="two-col">' +

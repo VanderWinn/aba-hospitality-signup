@@ -106,9 +106,13 @@ test('the portal password is a hash and the sign-up page does not link to it', (
   assert.match(html, /Events that need people/);
   assert.match(html, /data-person="p1"/);
   assert.match(html, /No upcoming events in this period/);
-  assert.match(html, /Compared with last quarter/);
-  assert.match(html, /Q4 2026: 3 shifts/);
-  assert.match(html, /Q3 2026: 0 shifts/);
+  assert.match(html, /This quarter vs last quarter/);
+  assert.match(html, /compare-bar is-focus/);
+  assert.match(html, /compare-value">3</);
+  assert.match(html, /compare-value">0</);
+  const october = portal.renderDashboard(model, null, { range: 'custom', from: '2026-10-01', to: '2026-10-31' });
+  assert.match(october, /This period vs the one before/);
+  assert.match(october, /compare-value">1</);
   assert.match(html, /Example data/);
   assert.match(html, /Coming soon/);
   assert.match(html, /This year/);

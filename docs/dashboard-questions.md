@@ -50,7 +50,7 @@ The short header is what a member reads. The question is the accessible name and
 | Are upcoming events covered? | Second number tile. Covered events, of upcoming events. | Events covered |
 | How many people helped? | Third number tile. People with a shift in the selected period. | Volunteers |
 | Who should we thank? | Fourth tile. The name of the person with the most shifts in the period, and that count. | Top volunteer |
-| Are we doing more or less than last quarter? | One line under the tiles, for all event types. This quarter's shift count and last quarter's shift count. No color for "good" or "bad." | Compared with last quarter |
+| Are we doing more or less than last quarter? | Two bars. The current period is the accent bar. The equal period just before it is gray. Shifts and volunteers. When those earlier dates are not in this year's shifts, the bars use this quarter and last quarter. | This quarter vs last quarter |
 | Which months were busiest? | One bar chart for the selected period, including quiet months, with a Total bar. | Shifts by month |
 | Which event types draw participation? | The event-type pills. Each pill shows that type's shift count before anyone clicks. | Event type |
 | Who is carrying the load? | Ranked list of volunteers by shift count. | Top volunteers |
