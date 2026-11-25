@@ -73,6 +73,13 @@
   }
 
   function gainsSvg(series, selectedId, showLabels) {
+    var any = false;
+    (series || []).forEach(function (bucket) {
+      if (bucket.joins || bucket.losses) any = true;
+    });
+    if (!series || !series.length || !any) {
+      return '<p class="chart-empty">No records</p>';
+    }
     var w = 520;
     var h = showLabels ? 340 : 150;
     var maxUp = 1;
@@ -96,6 +103,7 @@
       parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw.toFixed(1) + '" height="' + down.toFixed(1) + '" fill="' + CLAY + '"/>');
       if (showLabels) {
         if (bucket.joins) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid - up - 5).toFixed(1) + '" font-size="12" text-anchor="middle" fill="' + INK + '" font-weight="700" font-family="Montserrat, Raleway, sans-serif">' + bucket.joins + '</text>');
+        else if (!bucket.losses) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid - 6).toFixed(1) + '" font-size="12" text-anchor="middle" fill="#555" font-weight="700" font-family="Montserrat, Raleway, sans-serif">0</text>');
         if (bucket.losses) parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (mid + down + 13).toFixed(1) + '" font-size="12" text-anchor="middle" fill="' + INK + '" font-weight="600" font-family="Montserrat, Raleway, sans-serif">' + bucket.losses + '</text>');
       }
       var labelSize = n > 16 ? 9 : 12;
@@ -147,14 +155,22 @@ function lineSvg(values, lastYear, labels, kind, narrow) {
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + '">' + parts.join('') + '</svg>';
   }
 
+  function fullSlice(title, count, color, audience) {
+    return '<svg class="pie" viewBox="0 0 176 176" role="img" aria-label="' + title + ' ' + count + ', 100%">' +
+      '<circle data-audience="' + audience + '" cx="88" cy="88" r="80" fill="' + color + '"/>' +
+      '<text x="88" y="78" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" font-family="Montserrat, Raleway, sans-serif">' + title + '</text>' +
+      '<text x="88" y="98" text-anchor="middle" font-size="18" font-weight="800" fill="#fff" font-family="Montserrat, Raleway, sans-serif">' + count + '</text>' +
+      '<text x="88" y="116" text-anchor="middle" font-size="12" fill="#fff" font-family="Montserrat, Raleway, sans-serif">100%</text></svg>';
+  }
+
   function pieSvg(pie, selected) {
     var size = 176;
     var members = pie.members;
     var guests = pie.guests;
     var total = members + guests;
-    if (!total) {
-      return '<svg class="pie" viewBox="0 0 176 176" role="img" aria-label="No attendance in this period"><circle cx="88" cy="88" r="78" fill="#e6e6e6"/><text x="88" y="92" text-anchor="middle" font-size="12" fill="#555">No attendance</text></svg>';
-    }
+    if (!total) return '<p class="chart-empty">No records</p>';
+    if (!guests) return fullSlice('Members', members, PINE, 'Member');
+    if (!members) return fullSlice('Guests', guests, POP, 'Guest');
     var r = size / 2 - 8;
     var cx = size / 2;
     var cy = size / 2;

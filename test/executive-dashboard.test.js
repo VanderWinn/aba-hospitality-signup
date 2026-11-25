@@ -240,6 +240,30 @@ test('the sheet adapter keeps counts and drops contact fields', () => {
   assert.equal(both.nameQuery, '');
   assert.equal(both.audience, '');
   assert.equal(both.bucket, '');
+  const combo = dash.compute(source, {
+    year: 2026, period: 'year', from: '', to: '',
+    eventTypes: ['Lunch & Learn', 'Happy Hour'],
+    companies: ['Ada River Cafe', 'Brookside Bakery'],
+    people: ['Avery Demo'],
+    nameQuery: '', audience: '', bucket: ''
+  }, directory);
+  assert.equal(combo.pie.members + combo.pie.guests, combo.attendance.value);
+  const comboHtml = sandbox.ABADashboardView.render(Object.assign(combo, { mobile: false, documents: { extras: [] } }));
+  if (combo.attendance.value === 1) {
+    assert.equal(combo.pie.memberPct === 100 || combo.pie.guestPct === 100, true);
+    assert.match(comboHtml, /100%/);
+  }
+  if (!combo.gains.some((bucket) => bucket.joins || bucket.losses)) {
+    assert.match(comboHtml, /No records/);
+  }
+  const emptyPie = sandbox.ABADashboardView.render(Object.assign({}, combo, {
+    attendance: { value: 0, lastMonth: 0, lastQuarter: 0, lastYear: 0, tone: 'flat' },
+    pie: { members: 0, guests: 0, memberPct: 0, guestPct: 0 },
+    gains: [{ id: '2026-01-01:2026-11-24', label: '2026', joins: 0, losses: 0 }],
+    mobile: false,
+    documents: { extras: [] }
+  }));
+  assert.match(emptyPie, /No records/);
 });
 
 test('the dashboard page is gated and the public sign-up does not link to it', () => {

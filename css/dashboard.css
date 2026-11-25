@@ -432,6 +432,14 @@ button.big { display: block; width: 100%; }
 
 .delta-flat { color: #888; font-size: 14px; }
 
+.chart-empty {
+  margin: 28px 0;
+  color: var(--soft);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
 .chart-slot {
   flex: 1 1 auto;
   width: 100%;
