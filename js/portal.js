@@ -310,11 +310,226 @@
     ];
   }
 
-  function lensTabs(lens) {
-    return '<div class="lens-tabs" role="tablist" aria-label="Lens">' +
-      '<button type="button" role="tab" data-lens="person" class="' + (lens === 'person' ? 'is-on' : '') + '" aria-selected="' + (lens === 'person') + '">By person</button>' +
-      '<button type="button" role="tab" data-lens="event" class="' + (lens === 'event' ? 'is-on' : '') + '" aria-selected="' + (lens === 'event') + '">By event</button>' +
-      '</div>';
+  var DRILL_DIMS = [
+    { id: 'person', label: 'Person' },
+    { id: 'role', label: 'Role' },
+    { id: 'event', label: 'Event' },
+    { id: 'date', label: 'Date' }
+  ];
+  var DEFAULT_ORDER = ['person', 'role', 'event', 'date'];
+  var EXTERNAL_ORDER = ['person', 'event', 'date'];
+  // Top-level dashboard sections. Add or reorder views here.
+  var DASHBOARD_SECTIONS = [
+    { id: 'internal', title: 'Internal volunteering' },
+    { id: 'external', title: 'External attendance' }
+  ];
+
+  function emptyFilters() {
+    return { person: [], role: [], event: [], category: [], from: '', to: '' };
+  }
+
+  function defaultDashboardState() {
+    return { order: DEFAULT_ORDER.slice(), path: [], extPath: [], filters: emptyFilters(), drawer: false };
+  }
+
+  function dimLabel(id) {
+    for (var i = 0; i < DRILL_DIMS.length; i++) if (DRILL_DIMS[i].id === id) return DRILL_DIMS[i].label;
+    return id;
+  }
+
+  function shortDate(iso) {
+    var parts = String(iso || '').split('-');
+    if (parts.length < 3) return String(iso || '');
+    return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+      .format(new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))));
+  }
+
+  function collectShifts(model) {
+    var shifts = [];
+    ((model && model.chart && model.chart.people) || []).forEach(function (person) {
+      (person.events || []).forEach(function (event) {
+        shifts.push({
+          personId: person.id,
+          person: person.name,
+          company: person.company || '',
+          role: event.task || '',
+          event: event.name || '',
+          eventKey: event.date + '|' + (event.name || ''),
+          date: event.date,
+          month: event.month || String(event.date || '').slice(0, 7),
+          venue: event.venue || '',
+          capacity: event.capacity || 1,
+          slot: event.slot || (event.date + '|' + event.name + '|' + event.task)
+        });
+      });
+    });
+    return shifts;
+  }
+
+  function exampleShifts() {
+    return [
+      { personId: 'g1', person: 'Example Guest A', company: 'Example Co', role: 'Attendance', event: 'Lunch & Learn', eventKey: '2026-11-19|Lunch & Learn', date: '2026-11-19', month: '2026-11', venue: 'Amway', capacity: 40, slot: 'ex1' },
+      { personId: 'g1', person: 'Example Guest A', company: 'Example Co', role: 'Attendance', event: 'Happy Hour', eventKey: '2026-12-09|Happy Hour', date: '2026-12-09', month: '2026-12', venue: 'Ada Hotel', capacity: 50, slot: 'ex2' },
+      { personId: 'g2', person: 'Example Guest B', company: '', role: 'Attendance', event: 'Ribbon Cutting', eventKey: '2026-11-17|Ribbon Cutting', date: '2026-11-17', month: '2026-11', venue: 'Riverside Links', capacity: 30, slot: 'ex3' },
+      { personId: 'g3', person: 'Example Guest C', company: '', role: 'Attendance', event: 'Happy Hour', eventKey: '2026-10-14|Happy Hour', date: '2026-10-14', month: '2026-10', venue: 'Schnitz', capacity: 50, slot: 'ex4' }
+    ];
+  }
+
+  function shiftKey(shift, dim) {
+    if (dim === 'person') return shift.personId;
+    if (dim === 'role') return shift.role;
+    if (dim === 'event') return shift.event;
+    if (dim === 'date') return shift.date;
+    return '';
+  }
+
+  function shiftLabel(shift, dim) {
+    if (dim === 'person') return shift.person;
+    if (dim === 'role') return shift.role;
+    if (dim === 'event') return shift.event;
+    if (dim === 'date') return shortDate(shift.date);
+    return '';
+  }
+
+  function shiftSub(shift, dim) {
+    if (dim === 'person') return shift.company || 'Person';
+    if (dim === 'date') return shift.venue || '';
+    if (dim === 'event') return shift.venue || '';
+    return '';
+  }
+
+  function applyFilters(shifts, filters) {
+    filters = filters || emptyFilters();
+    return (shifts || []).filter(function (shift) {
+      if (filters.person && filters.person.length && filters.person.indexOf(shift.personId) === -1) return false;
+      if (filters.role && filters.role.length && filters.role.indexOf(shift.role) === -1) return false;
+      if (filters.event && filters.event.length && filters.event.indexOf(shift.eventKey) === -1) return false;
+      if (filters.category && filters.category.length && filters.category.indexOf(shift.event) === -1) return false;
+      if (filters.from && shift.date < filters.from) return false;
+      if (filters.to && shift.date > filters.to) return false;
+      return true;
+    });
+  }
+
+  function applyPath(shifts, order, path) {
+    return (shifts || []).filter(function (shift) {
+      for (var i = 0; i < (path || []).length; i++) {
+        if (shiftKey(shift, order[i]) !== path[i].key) return false;
+      }
+      return true;
+    });
+  }
+
+  function opportunityTotal(shifts) {
+    var slots = {};
+    (shifts || []).forEach(function (shift) {
+      if (shift.slot) slots[shift.slot] = shift.capacity || 1;
+    });
+    var total = 0;
+    Object.keys(slots).forEach(function (slot) { total += slots[slot]; });
+    return total;
+  }
+
+  function groupShifts(shifts, dim) {
+    var map = {};
+    var order = [];
+    (shifts || []).forEach(function (shift) {
+      var key = shiftKey(shift, dim);
+      if (!key) return;
+      if (!map[key]) {
+        map[key] = { key: key, label: shiftLabel(shift, dim), sub: shiftSub(shift, dim), count: 0, slots: {}, shifts: [] };
+        order.push(key);
+      }
+      var item = map[key];
+      item.count += 1;
+      item.shifts.push(shift);
+      if (shift.slot) item.slots[shift.slot] = shift.capacity || 1;
+    });
+    var items = order.map(function (key) {
+      var item = map[key];
+      var opp = 0;
+      Object.keys(item.slots).forEach(function (slot) { opp += item.slots[slot]; });
+      item.opportunities = opp || item.count;
+      return item;
+    });
+    items.sort(function (a, b) { return b.count - a.count || (a.label < b.label ? -1 : 1); });
+    return items;
+  }
+
+  function dashboardHash(state) {
+    state = state || defaultDashboardState();
+    var parts = ['order=' + (state.order || DEFAULT_ORDER).join('.')];
+    if (state.path && state.path.length) parts.push('path=' + state.path.map(function (step) { return encodeURIComponent(step.key); }).join('/'));
+    if (state.extPath && state.extPath.length) parts.push('ext=' + state.extPath.map(function (step) { return encodeURIComponent(step.key); }).join('/'));
+    var filters = state.filters || emptyFilters();
+    if (filters.person.length) parts.push('person=' + filters.person.map(encodeURIComponent).join(','));
+    if (filters.role.length) parts.push('role=' + filters.role.map(encodeURIComponent).join(','));
+    if (filters.event.length) parts.push('event=' + filters.event.map(encodeURIComponent).join(','));
+    if (filters.category.length) parts.push('category=' + filters.category.map(encodeURIComponent).join(','));
+    if (filters.from) parts.push('from=' + filters.from);
+    if (filters.to) parts.push('to=' + filters.to);
+    return parts.join('&');
+  }
+
+  function splitList(value) {
+    if (!value) return [];
+    return value.split(',').map(function (part) {
+      try { return decodeURIComponent(part); } catch (err) { return part; }
+    }).filter(Boolean);
+  }
+
+  function labelPath(shifts, order, path) {
+    return (path || []).map(function (step, index) {
+      var dim = order[index];
+      var match = null;
+      (shifts || []).some(function (shift) {
+        if (shiftKey(shift, dim) === step.key) { match = shift; return true; }
+        return false;
+      });
+      return { dim: dim, key: step.key, label: match ? shiftLabel(match, dim) : step.label };
+    });
+  }
+
+  function dashboardStateFromHash(hash) {
+    var state = defaultDashboardState();
+    var query = String(hash || '').replace(/^#/, '');
+    if (!query) return state;
+    var bag = {};
+    query.split('&').forEach(function (pair) {
+      var bits = pair.split('=');
+      bag[decodeURIComponent(bits[0] || '')] = bits.slice(1).join('=');
+    });
+    if (bag.order) {
+      var order = bag.order.split('.').filter(function (id) {
+        return DEFAULT_ORDER.indexOf(id) !== -1;
+      });
+      if (order.length === 4) state.order = order;
+    }
+    function steps(raw, order) {
+      if (!raw) return [];
+      return raw.split('/').map(function (key, index) {
+        return { dim: order[index], key: decodeURIComponent(key), label: decodeURIComponent(key) };
+      }).filter(function (step) { return step.dim && step.key; });
+    }
+    state.path = steps(bag.path, state.order);
+    state.extPath = steps(bag.ext, EXTERNAL_ORDER);
+    state.filters.person = splitList(bag.person);
+    state.filters.role = splitList(bag.role);
+    state.filters.event = splitList(bag.event);
+    state.filters.category = splitList(bag.category);
+    state.filters.from = bag.from || '';
+    state.filters.to = bag.to || '';
+    return state;
+  }
+
+  function reorderDrill(order, index, nextId) {
+    var list = (order || DEFAULT_ORDER).slice();
+    var taken = list.indexOf(nextId);
+    if (taken === -1) return list;
+    var previous = list[index];
+    list[index] = nextId;
+    list[taken] = previous;
+    return list;
   }
 
   function sourceTabs(source) {
@@ -323,6 +538,201 @@
       '<button type="button" role="tab" data-source="internal" class="' + (external ? '' : 'is-on') + '" aria-selected="' + (!external) + '">Internal</button>' +
       '<button type="button" role="tab" data-source="external" class="' + (external ? 'is-on' : '') + '" aria-selected="' + external + '">External</button>' +
       '</div>';
+  }
+
+  function filterChoices(shifts) {
+    var people = [];
+    var roles = [];
+    var events = [];
+    var categories = ['Lunch & Learn', 'Ribbon Cutting', 'Happy Hour'];
+    var seen = { person: {}, role: {}, event: {}, category: {} };
+    categories.forEach(function (name) { seen.category[name] = true; });
+    (shifts || []).forEach(function (shift) {
+      if (shift.personId && !seen.person[shift.personId]) {
+        seen.person[shift.personId] = true;
+        people.push({ value: shift.personId, label: shift.person });
+      }
+      if (shift.role && !seen.role[shift.role]) {
+        seen.role[shift.role] = true;
+        roles.push({ value: shift.role, label: shift.role });
+      }
+      if (shift.eventKey && !seen.event[shift.eventKey]) {
+        seen.event[shift.eventKey] = true;
+        events.push({ value: shift.eventKey, label: shortDate(shift.date) + ' · ' + shift.event });
+      }
+      if (shift.event && !seen.category[shift.event]) {
+        seen.category[shift.event] = true;
+        categories.push(shift.event);
+      }
+    });
+    people.sort(function (a, b) { return a.label < b.label ? -1 : 1; });
+    roles.sort(function (a, b) { return a.label < b.label ? -1 : 1; });
+    events.sort(function (a, b) { return a.label < b.label ? -1 : 1; });
+    return { people: people, roles: roles, events: events, categories: categories.map(function (name) { return { value: name, label: name }; }) };
+  }
+
+  function choiceMenu(name, label, choices, selected) {
+    var boxes = choices.map(function (choice) {
+      var on = selected.indexOf(choice.value) !== -1;
+      return '<label class="filter-choice"><input type="checkbox" data-filter="' + name + '" value="' + escapeHtml(choice.value) + '"' + (on ? ' checked' : '') + '> ' + escapeHtml(choice.label) + '</label>';
+    }).join('');
+    var count = selected.length ? ' (' + selected.length + ')' : '';
+    return '<details class="filter-menu"><summary>' + label + count + '</summary><div class="filter-menu-list">' + (boxes || '<p class="portal-dash-note">None yet</p>') + '</div></details>';
+  }
+
+  function filterBar(shifts, state) {
+    var filters = state.filters || emptyFilters();
+    var choices = filterChoices(shifts);
+    var menus = choiceMenu('person', 'Person', choices.people, filters.person) +
+      choiceMenu('role', 'Role', choices.roles, filters.role) +
+      choiceMenu('event', 'Event', choices.events, filters.event) +
+      choiceMenu('category', 'Event category', choices.categories, filters.category) +
+      '<label class="filter-date">From <input type="date" data-filter-date="from" value="' + escapeHtml(filters.from) + '"></label>' +
+      '<label class="filter-date">To <input type="date" data-filter-date="to" value="' + escapeHtml(filters.to) + '"></label>';
+    var groups = (state.order || DEFAULT_ORDER).map(function (id, index) {
+      var options = DRILL_DIMS.map(function (dim) {
+        return '<option value="' + dim.id + '"' + (dim.id === id ? ' selected' : '') + '>' + dim.label + '</option>';
+      }).join('');
+      return '<label class="group-slot">' + (index + 1) + ' <select data-order-index="' + index + '">' + options + '</select></label>';
+    }).join('');
+    var chips = [];
+    function addChips(list, kind, lookup) {
+      (list || []).forEach(function (value) {
+        var label = value;
+        (lookup || []).forEach(function (choice) { if (choice.value === value) label = choice.label; });
+        var chipNames = { person: 'Person', role: 'Role', event: 'Event', category: 'Event category' };
+        chips.push('<button type="button" class="filter-chip" data-clear-filter="' + kind + '" data-clear-value="' + escapeHtml(value) + '">' + escapeHtml(chipNames[kind] || kind) + ': ' + escapeHtml(label) + ' ×</button>');
+      });
+    }
+    addChips(filters.person, 'person', choices.people);
+    addChips(filters.role, 'role', choices.roles);
+    addChips(filters.event, 'event', choices.events);
+    addChips(filters.category, 'category', choices.categories);
+    if (filters.from) chips.push('<button type="button" class="filter-chip" data-clear-filter="from">From ' + escapeHtml(filters.from) + ' ×</button>');
+    if (filters.to) chips.push('<button type="button" class="filter-chip" data-clear-filter="to">To ' + escapeHtml(filters.to) + ' ×</button>');
+    var chipRow = chips.length ? '<div class="filter-chips">' + chips.join('') + '<button type="button" class="filter-clear" data-clear="all">Clear all</button></div>' : '';
+    return '<div class="filter-bar">' +
+      '<button type="button" class="filter-open" data-filter-toggle>Filters</button>' +
+      '<div class="filter-drawer' + (state.drawer ? ' is-open' : '') + '" id="filter-drawer">' +
+      '<div class="filter-menus">' + menus + '</div>' +
+      '<div class="group-by"><span>Group by</span>' + groups + '</div>' +
+      chipRow +
+      '</div></div>';
+  }
+
+  function crumbs(path, section) {
+    var html = '<nav class="portal-crumbs" aria-label="Drill"><button type="button" data-crumb="0" data-section="' + section + '">Overall</button>';
+    (path || []).forEach(function (step, index) {
+      html += '<span class="crumb-sep">&gt;</span><button type="button" data-crumb="' + (index + 1) + '" data-section="' + section + '">' + escapeHtml(step.label) + '</button>';
+    });
+    return html + '</nav>';
+  }
+
+  function monthBars(shifts, opportunities) {
+    var map = {};
+    var order = [];
+    (shifts || []).forEach(function (shift) {
+      if (!map[shift.month]) {
+        map[shift.month] = 0;
+        order.push(shift.month);
+      }
+      map[shift.month] += 1;
+    });
+    order.sort();
+    var total = 0;
+    order.forEach(function (key) { total += map[key]; });
+    var items = order.map(function (key) {
+      var parts = key.split('-');
+      var label = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' })
+        .format(new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, 1)));
+      return { label: label, value: map[key], attrs: 'data-month-filter="' + key + '"' };
+    });
+    if (items.length) items.push({ label: 'Total', value: total, accent: true, totalBar: true });
+    return items.length ? '<h3 class="action-title">Shifts by Month</h3>' + verticalChart(items) : '';
+  }
+
+  function detailTable(shifts) {
+    var rows = (shifts || []).map(function (shift) {
+      return '<tr><td>' + escapeHtml(shift.person) + '</td><td>' + escapeHtml(shift.role) + '</td><td>' + escapeHtml(shift.event) + '</td><td>' + escapeHtml(shortDate(shift.date)) + '</td><td>' + escapeHtml(shift.venue) + '</td></tr>';
+    }).join('');
+    return '<table class="portal-table"><thead><tr><th>Person</th><th>Role</th><th>Event</th><th>Date</th><th>Venue</th></tr></thead><tbody>' +
+      (rows || '<tr><td colspan="5">No shifts match these filters.</td></tr>') + '</tbody></table>';
+  }
+
+  function drillBody(shifts, order, path, section, opportunities, options) {
+    var narrowed = applyPath(shifts, order, path);
+    var html = crumbs(path, section);
+    if ((path || []).length >= order.length) {
+      var leaf = path.length ? path[path.length - 1].label : 'Shifts';
+      return html + '<h3 class="action-title">' + escapeHtml(leaf) + '</h3>' + detailTable(narrowed);
+    }
+    var dim = order[path.length];
+    var items = groupShifts(narrowed, dim);
+    var total = 0;
+    items.forEach(function (item) { total += item.count; });
+    var year = !(options && options.scoped) && !path.length && dim === 'person' && opportunities ? opportunities : 0;
+    var share = options && options.share;
+    var header = path.length ? path[path.length - 1].label : ((options && options.kicker) || ('Shifts by ' + dimLabel(dim)));
+    var kicker = path.length ? dimLabel(dim) : '';
+    var rows = items.map(function (item, index) {
+      var base = year || (share ? total : (item.opportunities || total || item.count));
+      var shown = year ? year : (share ? 0 : (item.opportunities || 0));
+      var pct = percentOf(item.count, base);
+      return {
+        rank: index + 1,
+        title: item.label,
+        sub: item.sub,
+        count: shown ? countLine(item.count, shown) : String(item.count),
+        pct: parseInt(pct, 10) || 0,
+        pctLabel: pct,
+        accent: section !== 'external' && index === 0,
+        attrs: 'data-step="' + escapeHtml(item.key) + '" data-label="' + escapeHtml(item.label) + '" data-section="' + section + '"'
+      };
+    });
+    var table = '<table class="portal-table"><thead><tr><th>' + escapeHtml(dimLabel(dim)) + '</th><th>Shifts</th><th>Share</th></tr></thead><tbody>' +
+      rows.map(function (row) {
+        return '<tr><td>' + escapeHtml(row.title) + '</td><td><strong>' + escapeHtml(row.count) + '</strong></td><td>' + row.pctLabel + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    if (!rows.length) table = '<p class="portal-dash-note">No shifts match these filters.</p>';
+    return html + (kicker ? '<p class="panel-kicker">' + escapeHtml(kicker) + '</p>' : '') +
+      '<h3 class="action-title">' + escapeHtml(header) + '</h3>' +
+      (rows.length ? rankTable(rows) : '') + table;
+  }
+
+  function internalSection(model, shifts, state) {
+    var chart = model.chart || {};
+    var path = state.path || [];
+    var opportunities = chart.opportunities || 0;
+    var filters = state.filters || emptyFilters();
+    var scoped = !!(path.length || filters.person.length || filters.role.length || filters.event.length || filters.category.length || filters.from || filters.to);
+    var html = '<section class="panel section-internal" data-section-panel="internal">';
+    if (!path.length) {
+      var people = {};
+      shifts.forEach(function (shift) { people[shift.personId] = true; });
+      var volunteerCount = Object.keys(people).length;
+      var shiftCount = shifts.length;
+      var offered = scoped ? Math.max(opportunityTotal(shifts), shiftCount) : Math.max(opportunities, shiftCount, 1);
+      html += '<div class="ring-row">' +
+        '<div class="ring-tile"><p class="kpi-num">' + volunteerCount + '</p><p class="ring-label">Volunteers</p></div>' +
+        '<div class="ring-tile"><p class="kpi-num">' + shiftCount + '</p><p class="ring-label">Shifts</p></div>' +
+        ring(shiftCount, offered, 'Opportunities') +
+        '</div>';
+      html += monthBars(shifts, opportunities);
+    }
+    html += drillBody(shifts, state.order || DEFAULT_ORDER, path, 'internal', opportunities, { scoped: scoped });
+    if (!chart.companyAvailable && !path.length) {
+      html += '<p class="portal-dash-note">Company grouping is ready. The sign-up sheet has no company field yet, so people are listed by name.</p>';
+    }
+    return html + '</section>';
+  }
+
+  function externalSection(state, filters) {
+    var shifts = applyFilters(exampleShifts(), filters);
+    return '<section class="panel section-external" data-section-panel="external">' +
+      '<p class="panel-kicker">External</p>' +
+      '<p class="portal-dash-note">Example data. Coming soon.</p>' +
+      drillBody(shifts, EXTERNAL_ORDER, state.extPath || [], 'external', 0, { kicker: 'Attendance by Person', share: true }) +
+      '</section>';
   }
 
   function personLens(model, source) {
@@ -417,11 +827,23 @@
       progressTable(internal) + '</section>';
   }
 
-  function overview(model, lens, source) {
-    var mode = lens === 'event' ? 'event' : 'person';
-    var side = source === 'external' ? 'external' : 'internal';
-    var body = mode === 'event' ? eventLens(model, side) : personLens(model, side);
-    return '<div class="dash-toggles">' + sourceTabs(side) + lensTabs(mode) + '</div>' + body;
+  function overview(model, state) {
+    if (!state || !state.order) state = defaultDashboardState();
+    var all = collectShifts(model);
+    state = {
+      order: state.order,
+      path: labelPath(all, state.order, state.path),
+      extPath: labelPath(exampleShifts(), EXTERNAL_ORDER, state.extPath),
+      filters: state.filters || emptyFilters(),
+      drawer: !!state.drawer
+    };
+    var shifts = applyFilters(all, state.filters);
+    var html = filterBar(all, state);
+    DASHBOARD_SECTIONS.forEach(function (section) {
+      if (section.id === 'internal') html += internalSection(model, shifts, state);
+      if (section.id === 'external') html += externalSection(state, state.filters);
+    });
+    return html;
   }
 
   function personView(model, id) {
@@ -523,11 +945,7 @@
     if (!model) {
       return '<p class="form-error" role="alert">' + escapeHtml((problem && problem.error) || 'The dashboard could not be loaded.') + '</p>' + externalCard();
     }
-    var level = view && view.level;
-    if (level === 'person') return personView(model, view.id);
-    if (level === 'month') return monthView(model, view.key);
-    if (level === 'event') return eventView(model, view.key);
-    return overview(model, view && view.lens, view && view.source);
+    return overview(model, view && view.order ? view : defaultDashboardState());
   }
 
   root.ABAPortal = {
@@ -541,6 +959,12 @@
     countLine: countLine,
     dashboardStory: dashboardStory,
     renderDashboard: renderDashboard,
-    externalExample: externalExample
+    externalExample: externalExample,
+    dashboardHash: dashboardHash,
+    dashboardStateFromHash: dashboardStateFromHash,
+    defaultDashboardState: defaultDashboardState,
+    reorderDrill: reorderDrill,
+    applyFilters: applyFilters,
+    collectShifts: collectShifts
   };
 })(typeof window !== 'undefined' ? window : globalThis);

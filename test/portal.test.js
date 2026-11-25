@@ -7,7 +7,7 @@ const test = require('node:test');
 const root = path.join(__dirname, '..');
 
 function loadPortal() {
-  const context = { Intl, Date, JSON, Math, Number, String, Object, Array };
+  const context = { Intl, Date, JSON, Math, Number, String, Object, Array, encodeURIComponent, decodeURIComponent };
   context.globalThis = context;
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(root, 'js/portal.js'), 'utf8'), context, { filename: 'portal.js' });
@@ -89,34 +89,79 @@ test('the portal password is a hash and the sign-up page does not link to it', (
     }
   };
   model.chart.opportunities = 4;
-  const html = portal.renderDashboard(model);
+  const base = {
+    order: ['person', 'role', 'event', 'date'],
+    path: [],
+    extPath: [],
+    filters: { person: [], role: [], event: [], category: [], from: '', to: '' }
+  };
+  const html = portal.renderDashboard(model, null, base);
   assert.match(html, /Shifts by Person/);
-  assert.match(html, /Opportunity by Person/);
-  assert.match(html, /3 of 4/);
-  assert.match(html, /data-person="p1"/);
-  assert.match(html, /data-source="external"/);
-  assert.equal(html.includes('Attendance by Person'), false);
-  const externalPerson = portal.renderDashboard(model, null, { level: 'overview', lens: 'person', source: 'external' });
-  assert.match(externalPerson, /Attendance by Person/);
-  assert.match(externalPerson, /Coming soon \/ example layout/);
-  assert.match(externalPerson, /Example data/);
-  assert.equal(externalPerson.includes('Shifts by Person'), false);
-  const byEvent = portal.renderDashboard(model, null, { level: 'overview', lens: 'event', source: 'internal' });
-  assert.match(byEvent, /Opportunity by Event/);
-  assert.match(byEvent, /1 of 2/);
-  assert.equal(byEvent.includes('Attendance by Event'), false);
-  const externalEvent = portal.renderDashboard(model, null, { level: 'overview', lens: 'event', source: 'external' });
-  assert.match(externalEvent, /Attendance by Event/);
-  assert.match(externalEvent, /Example data/);
-  const person = portal.renderDashboard(model, null, { level: 'person', id: 'p1' });
-  assert.match(person, /Overview/);
+  assert.match(html, /Overall/);
+  assert.match(html, /1 of 4/);
+  assert.match(html, /data-step="p1"/);
+  assert.match(html, /Attendance by Person/);
+  assert.match(html, /Example data/);
+  assert.match(html, /Coming soon/);
+  assert.equal(html.includes('data-source='), false);
+  assert.equal(html.includes('data-lens='), false);
+  const person = portal.renderDashboard(model, null, Object.assign({}, base, {
+    path: [{ dim: 'person', key: 'p1', label: 'p1' }]
+  }));
+  assert.match(person, /Example Volunteer A/);
   assert.match(person, /Door Greeter/);
-  const month = portal.renderDashboard(model, null, { level: 'month', key: '2026-11' });
-  assert.match(month, /November/);
-  const event = portal.renderDashboard(model, null, { level: 'event', key: '2026-12-09|Happy Hour' });
-  assert.match(event, /Set-Up/);
-  assert.match(event, /Open/);
-  assert.equal((html + externalPerson + byEvent + externalEvent + person + month + event).includes('@'), false);
+  assert.match(person, /data-crumb="0"/);
+  const role = portal.renderDashboard(model, null, Object.assign({}, base, {
+    path: [
+      { dim: 'person', key: 'p1', label: 'Example Volunteer A' },
+      { dim: 'role', key: 'Door Greeter', label: 'Door Greeter' }
+    ]
+  }));
+  assert.match(role, /Lunch &amp; Learn/);
+  const eventLevel = portal.renderDashboard(model, null, Object.assign({}, base, {
+    path: [
+      { dim: 'person', key: 'p1', label: 'Example Volunteer A' },
+      { dim: 'role', key: 'Door Greeter', label: 'Door Greeter' },
+      { dim: 'event', key: 'Lunch & Learn', label: 'Lunch & Learn' }
+    ]
+  }));
+  assert.match(eventLevel, /Nov 19/);
+  const dateLevel = portal.renderDashboard(model, null, Object.assign({}, base, {
+    path: [
+      { dim: 'person', key: 'p1', label: 'Example Volunteer A' },
+      { dim: 'role', key: 'Door Greeter', label: 'Door Greeter' },
+      { dim: 'event', key: 'Lunch & Learn', label: 'Lunch & Learn' },
+      { dim: 'date', key: '2026-11-19', label: 'Nov 19' }
+    ]
+  }));
+  assert.match(dateLevel, /Amway/);
+  const filtered = portal.renderDashboard(model, null, Object.assign({}, base, {
+    order: ['role', 'person', 'event', 'date'],
+    filters: { person: [], role: [], event: [], category: ['Happy Hour'], from: '2026-10-01', to: '2026-10-31' }
+  }));
+  assert.match(filtered, /Shifts by Role/);
+  assert.match(filtered, /Set-Up/);
+  assert.match(filtered, /data-step="Set-Up"/);
+  assert.equal(filtered.includes('data-step="Door Greeter"'), false);
+  assert.match(filtered, /Event category: Happy Hour/);
+  assert.match(filtered, /Clear all/);
+  const hash = portal.dashboardHash({
+    order: ['role', 'person', 'event', 'date'],
+    path: [{ key: 'Set-Up', label: 'Set-Up' }],
+    extPath: [],
+    filters: { person: ['p2'], role: [], event: [], category: ['Happy Hour'], from: '2026-10-01', to: '2026-10-31' }
+  });
+  const back = portal.dashboardStateFromHash(hash);
+  assert.equal(back.order.join(','), 'role,person,event,date');
+  assert.equal(back.path[0].key, 'Set-Up');
+  assert.equal(back.filters.person[0], 'p2');
+  assert.equal(back.filters.category[0], 'Happy Hour');
+  assert.equal(back.filters.from, '2026-10-01');
+  assert.equal(back.filters.to, '2026-10-31');
+  assert.equal(hash.includes('password'), false);
+  const swapped = portal.reorderDrill(['person', 'role', 'event', 'date'], 0, 'role');
+  assert.equal(swapped.join(','), 'role,person,event,date');
+  assert.equal((html + person + role + eventLevel + dateLevel + filtered).includes('@'), false);
   assert.match(page, /aba-board-portal-view/);
-  assert.equal(/rose in November|half of all shifts/.test(html), false);
+  assert.equal(/\brose in November\b|\bhalf of all shifts\b|\blands?\b|\blanded\b|\blanding\b/.test(html + filtered), false);
 });

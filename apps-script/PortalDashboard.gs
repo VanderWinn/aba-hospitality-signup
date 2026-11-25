@@ -127,12 +127,20 @@ function portalChart_(rows, slots) {
     if (!person.company) person.company = portalCompany_(row);
     person.total += 1;
     person.counts[month] = (person.counts[month] || 0) + 1;
+    var matched = null;
+    (slots || []).forEach(function (item) {
+      if (!matched && portalSameRole_(row, item)) matched = item;
+    });
+    var seats = matched ? Number(matched.capacity) : 1;
+    if (!isFinite(seats) || seats < 1) seats = 1;
     person.events.push({
       date: row.date,
       month: month,
       name: String(row.event || ''),
       task: String(row.task || ''),
-      venue: portalVenue_(row, slots)
+      venue: portalVenue_(row, slots),
+      capacity: seats,
+      slot: String((matched && matched.slotId) || (row.date + '|' + row.event + '|' + row.task))
     });
   });
   var months = Object.keys(monthMap).sort().map(function (key) {

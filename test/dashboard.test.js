@@ -62,6 +62,9 @@ test('the dashboard returns names and counts without emails or phones', () => {
   assert.equal(dash.chart.people[0].counts['2026-10'], 1);
   assert.equal(dash.chart.people[0].counts['2026-12'], 1);
   assert.equal(dash.chart.people[0].events.length, 2);
+  const dec9 = dash.chart.people[0].events.find((event) => event.date === '2026-12-09');
+  assert.equal(dec9.capacity, 2);
+  assert.equal(dec9.slot, '2026-12-09|Happy Hour|Set-Up');
   assert.equal(dash.chart.months.length, 3);
   assert.equal(dash.chart.companyAvailable, false);
   assert.equal(dash.chart.opportunities, 3);

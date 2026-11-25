@@ -65,6 +65,11 @@
     document.getElementById('portal-prev').addEventListener('click', function () { shiftMonth(-1); });
     document.getElementById('portal-next').addEventListener('click', function () { shiftMonth(1); });
     document.getElementById('portal-dashboard-body').addEventListener('click', onDashClick);
+    document.getElementById('portal-dashboard-body').addEventListener('change', onDashChange);
+    window.addEventListener('hashchange', function () {
+      state.view = portal.dashboardStateFromHash(location.hash);
+      if (state.dashboard) paintDash();
+    });
     var saved = readPassword();
     if (saved) {
       sha256(saved).then(function (digest) {
@@ -74,21 +79,28 @@
   }
 
   function readView() {
-    var view = { level: 'overview', lens: 'person', source: 'internal' };
-    try {
-      var saved = JSON.parse(sessionStorage.getItem(VIEW_KEY) || '{}');
-      if (saved.lens === 'event') view.lens = 'event';
-      if (saved.source === 'external') view.source = 'external';
-    } catch (err) {}
-    return view;
+    var hash = '';
+    try { hash = String(location.hash || '').replace(/^#/, ''); } catch (err) {}
+    if (!hash) {
+      try { hash = sessionStorage.getItem(VIEW_KEY) || ''; } catch (err) {}
+    }
+    if (portal && portal.dashboardStateFromHash) return portal.dashboardStateFromHash(hash);
+    return {
+      order: ['person', 'role', 'event', 'date'],
+      path: [],
+      extPath: [],
+      filters: { person: [], role: [], event: [], category: [], from: '', to: '' },
+      drawer: false
+    };
   }
 
   function saveView() {
+    var hash = portal.dashboardHash(state.view);
+    try { sessionStorage.setItem(VIEW_KEY, hash); } catch (err) {}
     try {
-      sessionStorage.setItem(VIEW_KEY, JSON.stringify({
-        lens: state.view.lens === 'event' ? 'event' : 'person',
-        source: state.view.source === 'external' ? 'external' : 'internal'
-      }));
+      if (String(location.hash || '').replace(/^#/, '') !== hash) {
+        history.replaceState(null, '', '#' + hash);
+      }
     } catch (err) {}
   }
 
@@ -159,11 +171,6 @@
         return;
       }
       state.dashboard = data.dashboard;
-      state.view = {
-        level: 'overview',
-        lens: state.view.lens === 'event' ? 'event' : 'person',
-        source: state.view.source === 'external' ? 'external' : 'internal'
-      };
       paintDash();
     } catch (err) {
       root.innerHTML = portal.renderDashboard(null, { error: err.message || 'The dashboard could not be loaded.' });
@@ -176,20 +183,85 @@
     saveView();
   }
 
+  function emptyFilters() {
+    return { person: [], role: [], event: [], category: [], from: '', to: '' };
+  }
+
+  function monthBounds(key) {
+    var parts = String(key || '').split('-');
+    var year = Number(parts[0]);
+    var month = Number(parts[1]);
+    var last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    var day = last < 10 ? '0' + last : String(last);
+    return { from: key + '-01', to: key + '-' + day };
+  }
+
   function onDashClick(event) {
-    var node = event.target.closest('[data-person], [data-month], [data-event], [data-dash], [data-lens], [data-source]');
+    var node = event.target.closest('[data-step], [data-crumb], [data-clear], [data-clear-filter], [data-month-filter], [data-filter-toggle]');
     if (!node || !state.dashboard) return;
-    var lens = (state.view && state.view.lens) || 'person';
-    var source = (state.view && state.view.source) || 'internal';
-    if (node.hasAttribute('data-source')) state.view = { level: 'overview', lens: lens, source: node.getAttribute('data-source') };
-    else if (node.hasAttribute('data-lens')) state.view = { level: 'overview', lens: node.getAttribute('data-lens'), source: source };
-    else if (node.getAttribute('data-dash') === 'overview') state.view = { level: 'overview', lens: lens, source: source };
-    else if (node.hasAttribute('data-event')) state.view = { level: 'event', key: node.getAttribute('data-event'), lens: lens, source: source };
-    else if (node.classList.contains('vbar-col') || (node.hasAttribute('data-month') && !node.hasAttribute('data-person'))) state.view = { level: 'month', key: node.getAttribute('data-month'), lens: lens, source: source };
-    else if (node.hasAttribute('data-person')) state.view = { level: 'person', id: node.getAttribute('data-person'), lens: lens, source: source };
-    else if (node.hasAttribute('data-month')) state.view = { level: 'month', key: node.getAttribute('data-month'), lens: lens, source: source };
-    else return;
+    if (node.hasAttribute('data-filter-toggle')) {
+      state.view.drawer = !state.view.drawer;
+      paintDash();
+      return;
+    }
+    var external = node.getAttribute('data-section') === 'external';
+    if (node.hasAttribute('data-crumb')) {
+      var keep = Number(node.getAttribute('data-crumb')) || 0;
+      if (external) state.view.extPath = (state.view.extPath || []).slice(0, keep);
+      else state.view.path = (state.view.path || []).slice(0, keep);
+    } else if (node.hasAttribute('data-step')) {
+      var order = external ? ['person', 'event', 'date'] : state.view.order;
+      var path = external ? state.view.extPath : state.view.path;
+      if (path.length >= order.length) return;
+      path.push({
+        dim: order[path.length],
+        key: node.getAttribute('data-step'),
+        label: node.getAttribute('data-label') || node.getAttribute('data-step')
+      });
+    } else if (node.getAttribute('data-clear') === 'all') {
+      state.view.filters = emptyFilters();
+    } else if (node.hasAttribute('data-clear-filter')) {
+      var kind = node.getAttribute('data-clear-filter');
+      if (kind === 'from' || kind === 'to') state.view.filters[kind] = '';
+      else {
+        var value = node.getAttribute('data-clear-value');
+        state.view.filters[kind] = (state.view.filters[kind] || []).filter(function (item) { return item !== value; });
+      }
+    } else if (node.hasAttribute('data-month-filter')) {
+      var bounds = monthBounds(node.getAttribute('data-month-filter'));
+      state.view.filters.from = bounds.from;
+      state.view.filters.to = bounds.to;
+    } else return;
     paintDash();
+  }
+
+  function onDashChange(event) {
+    var node = event.target;
+    if (!state.dashboard || !node) return;
+    if (node.hasAttribute('data-order-index')) {
+      var keepDrawer = !!state.view.drawer;
+      state.view.order = portal.reorderDrill(state.view.order, Number(node.getAttribute('data-order-index')), node.value);
+      state.view.path = [];
+      state.view.drawer = keepDrawer;
+      paintDash();
+      return;
+    }
+    if (node.hasAttribute('data-filter')) {
+      var name = node.getAttribute('data-filter');
+      var values = [];
+      document.querySelectorAll('#portal-dashboard-body input[data-filter="' + name + '"]').forEach(function (box) {
+        if (box.checked) values.push(box.value);
+      });
+      state.view.filters[name] = values;
+      state.view.drawer = true;
+      paintDash();
+      return;
+    }
+    if (node.hasAttribute('data-filter-date')) {
+      state.view.filters[node.getAttribute('data-filter-date')] = node.value;
+      state.view.drawer = true;
+      paintDash();
+    }
   }
 
   async function postDashboard(password) {

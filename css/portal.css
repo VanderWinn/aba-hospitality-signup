@@ -414,6 +414,66 @@
   text-align: left;
 }
 
+.kpi-num { margin: 0.85rem 0 0.15rem; font-size: 2rem; font-weight: 700; line-height: 1; }
+.filter-bar { margin: 0 0 0.85rem; }
+.filter-menu { position: relative; }
+.filter-open { display: none; }
+.filter-menus,
+.group-by,
+.filter-chips { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; }
+.group-by,
+.filter-chips { margin-top: 0.55rem; }
+.filter-menu summary,
+.filter-chip,
+.filter-clear,
+.filter-open {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.32rem 0.7rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.filter-menu summary { list-style: none; }
+.filter-menu summary::-webkit-details-marker { display: none; }
+.filter-menu-list {
+  position: absolute;
+  z-index: 4;
+  min-width: 12rem;
+  max-height: 14rem;
+  overflow: auto;
+  margin-top: 0.3rem;
+  padding: 0.45rem 0.65rem;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.filter-choice { display: flex; gap: 0.4rem; align-items: flex-start; padding: 0.22rem 0; font-weight: 500; }
+.filter-date { display: inline-flex; gap: 0.35rem; align-items: center; font-weight: 700; }
+.filter-date input,
+.group-slot select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.28rem 0.4rem;
+  font: inherit;
+  background: #fff;
+}
+.filter-chip { background: #e7eef1; }
+.portal-crumbs { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin: 0 0 0.55rem; }
+.portal-crumbs button {
+  border: 0;
+  background: transparent;
+  color: #407589;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  cursor: pointer;
+}
+.crumb-sep { color: #8a8a8a; }
+.section-external { margin-top: 0.85rem; }
+
 @media (max-width: 800px) {
   .exec-top,
   .vchart,
@@ -425,6 +485,10 @@
   .progress-track { grid-column: 1 / -1; }
   .vbars { height: 120px; }
   .portal-table { font-size: 0.9rem; }
+  .filter-open { display: inline-flex; }
+  .filter-drawer { display: none; }
+  .filter-drawer.is-open { display: block; }
+  .filter-menu-list { position: static; box-shadow: none; max-height: none; }
 }
 
 .portal-gate form { max-width: 28rem; }
