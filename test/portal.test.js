@@ -89,79 +89,52 @@ test('the portal password is a hash and the sign-up page does not link to it', (
     }
   };
   model.chart.opportunities = 4;
-  const base = {
-    order: ['person', 'role', 'event', 'date'],
-    path: [],
-    extPath: [],
-    filters: { person: [], role: [], event: [], category: [], from: '', to: '' }
-  };
-  const html = portal.renderDashboard(model, null, base);
-  assert.match(html, /Shifts by Person/);
-  assert.match(html, /Overall/);
-  assert.match(html, /1 of 4/);
-  assert.match(html, /data-step="p1"/);
-  assert.match(html, /Attendance by Person/);
+  model.participation.previousQuarter = { label: 'Q3 2026', volunteers: 0, shifts: 0 };
+  const html = portal.renderDashboard(model);
+  assert.match(html, /Shifts filled/);
+  assert.match(html, /Events covered/);
+  assert.match(html, /Top volunteer/);
+  assert.match(html, /of 2 seats/);
+  assert.match(html, /Shifts by month/);
+  assert.match(html, /Top volunteers/);
+  assert.match(html, /Events that need people/);
+  assert.match(html, /data-person="p1"/);
+  assert.match(html, /data-event="2026-12-09\|Happy Hour"/);
+  assert.match(html, /1 of 2/);
+  assert.match(html, /Compared with last quarter/);
+  assert.match(html, /Q4 2026: 3 shifts/);
+  assert.match(html, /Q3 2026: 0 shifts/);
   assert.match(html, /Example data/);
   assert.match(html, /Coming soon/);
+  assert.match(html, /This year/);
+  assert.equal(html.includes('Group by'), false);
+  assert.equal(html.includes('data-crumb'), false);
   assert.equal(html.includes('data-source='), false);
-  assert.equal(html.includes('data-lens='), false);
-  const person = portal.renderDashboard(model, null, Object.assign({}, base, {
-    path: [{ dim: 'person', key: 'p1', label: 'p1' }]
-  }));
+  const happy = portal.renderDashboard(model, null, { period: 'year', category: 'Happy Hour' });
+  assert.match(happy, /Example Volunteer B/);
+  assert.equal(happy.includes('Door Greeter'), false);
+  const person = portal.renderDashboard(model, null, { period: 'year', category: '', detail: { kind: 'person', id: 'p1' } });
+  assert.match(person, />Back</);
   assert.match(person, /Example Volunteer A/);
   assert.match(person, /Door Greeter/);
-  assert.match(person, /data-crumb="0"/);
-  const role = portal.renderDashboard(model, null, Object.assign({}, base, {
-    path: [
-      { dim: 'person', key: 'p1', label: 'Example Volunteer A' },
-      { dim: 'role', key: 'Door Greeter', label: 'Door Greeter' }
-    ]
-  }));
-  assert.match(role, /Lunch &amp; Learn/);
-  const eventLevel = portal.renderDashboard(model, null, Object.assign({}, base, {
-    path: [
-      { dim: 'person', key: 'p1', label: 'Example Volunteer A' },
-      { dim: 'role', key: 'Door Greeter', label: 'Door Greeter' },
-      { dim: 'event', key: 'Lunch & Learn', label: 'Lunch & Learn' }
-    ]
-  }));
-  assert.match(eventLevel, /Nov 19/);
-  const dateLevel = portal.renderDashboard(model, null, Object.assign({}, base, {
-    path: [
-      { dim: 'person', key: 'p1', label: 'Example Volunteer A' },
-      { dim: 'role', key: 'Door Greeter', label: 'Door Greeter' },
-      { dim: 'event', key: 'Lunch & Learn', label: 'Lunch & Learn' },
-      { dim: 'date', key: '2026-11-19', label: 'Nov 19' }
-    ]
-  }));
-  assert.match(dateLevel, /Amway/);
-  const filtered = portal.renderDashboard(model, null, Object.assign({}, base, {
-    order: ['role', 'person', 'event', 'date'],
-    filters: { person: [], role: [], event: [], category: ['Happy Hour'], from: '2026-10-01', to: '2026-10-31' }
-  }));
-  assert.match(filtered, /Shifts by Role/);
-  assert.match(filtered, /Set-Up/);
-  assert.match(filtered, /data-step="Set-Up"/);
-  assert.equal(filtered.includes('data-step="Door Greeter"'), false);
-  assert.match(filtered, /Event category: Happy Hour/);
-  assert.match(filtered, /Clear all/);
-  const hash = portal.dashboardHash({
-    order: ['role', 'person', 'event', 'date'],
-    path: [{ key: 'Set-Up', label: 'Set-Up' }],
-    extPath: [],
-    filters: { person: ['p2'], role: [], event: [], category: ['Happy Hour'], from: '2026-10-01', to: '2026-10-31' }
-  });
+  assert.match(person, /Nov 19/);
+  const eventDetail = portal.renderDashboard(model, null, { period: 'year', category: '', detail: { kind: 'event', id: '2026-12-09|Happy Hour' } });
+  assert.match(eventDetail, />Back</);
+  assert.match(eventDetail, /Set-Up/);
+  assert.match(eventDetail, /1 open/);
+  const failed = portal.renderDashboard(null, { error: 'The dashboard could not be loaded.' });
+  assert.match(failed, /Try again/);
+  assert.match(failed, /could not be loaded/);
+  const hash = portal.dashboardHash({ period: 'quarter', category: 'Happy Hour', detail: { kind: 'person', id: 'p1' } });
   const back = portal.dashboardStateFromHash(hash);
-  assert.equal(back.order.join(','), 'role,person,event,date');
-  assert.equal(back.path[0].key, 'Set-Up');
-  assert.equal(back.filters.person[0], 'p2');
-  assert.equal(back.filters.category[0], 'Happy Hour');
-  assert.equal(back.filters.from, '2026-10-01');
-  assert.equal(back.filters.to, '2026-10-31');
+  assert.equal(back.period, 'quarter');
+  assert.equal(back.category, 'Happy Hour');
+  assert.equal(back.detail.kind, 'person');
+  assert.equal(back.detail.id, 'p1');
+  assert.equal(portal.dashboardStateFromHash('').period, 'year');
   assert.equal(hash.includes('password'), false);
-  const swapped = portal.reorderDrill(['person', 'role', 'event', 'date'], 0, 'role');
-  assert.equal(swapped.join(','), 'role,person,event,date');
-  assert.equal((html + person + role + eventLevel + dateLevel + filtered).includes('@'), false);
+  assert.equal((html + happy + person + eventDetail).includes('@'), false);
   assert.match(page, /aba-board-portal-view/);
-  assert.equal(/\brose in November\b|\bhalf of all shifts\b|\blands?\b|\blanded\b|\blanding\b/.test(html + filtered), false);
+  assert.match(page, /data-retry/);
+  assert.equal(/\brose in November\b|\bhalf of all shifts\b|\blands?\b|\blanded\b|\blanding\b/.test(html + person), false);
 });

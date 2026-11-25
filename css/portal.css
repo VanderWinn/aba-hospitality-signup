@@ -618,6 +618,89 @@
 #portal-calendar-note:empty,
 #portal-calendar-note[hidden] { display: none; }
 
+.plain-dash { margin-top: 0.2rem; }
+.pill-row { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0 0 0.85rem; }
+.pill {
+  min-height: 44px;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pill.is-on { border-color: #407589; color: #407589; }
+.pill-count { margin-left: 0.4rem; font-weight: 500; color: #757575; }
+.kpi-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; margin: 0 0 0.9rem; }
+.kpi-tile {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.95rem 1rem 1rem;
+  min-width: 0;
+}
+.kpi-label { margin: 0; font-size: 0.98rem; font-weight: 700; }
+.kpi-num { margin: 0.35rem 0 0.2rem; font-size: 2.5rem; font-weight: 700; line-height: 1; letter-spacing: -0.03em; }
+.kpi-num.is-name { font-size: 1.45rem; letter-spacing: 0; line-height: 1.15; }
+.kpi-context, .kpi-pct { margin: 0; color: var(--ink-soft); font-size: 0.95rem; font-weight: 500; }
+.kpi-pct { margin-left: 0.35rem; }
+.compare-line { margin: 0 0 1.1rem; color: var(--ink-soft); }
+.compare-line .kpi-label { display: block; margin-bottom: 0.15rem; color: var(--ink); }
+.plain-chart { margin: 0 0 1.2rem; }
+.plain-months .vbars { gap: 0.28rem; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: start; }
+.plain-list { margin: 0.2rem 0 0.4rem; }
+.plain-row {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  gap: 0.75rem;
+  border: 0;
+  border-top: 1px solid #eee;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  padding: 0.55rem 0.1rem;
+  cursor: pointer;
+}
+.plain-row.is-static { cursor: default; }
+.plain-rank { width: 1.4rem; color: #8a8a8a; font-weight: 700; flex: none; }
+.plain-name { flex: 1; min-width: 0; font-weight: 700; }
+.plain-sub { display: block; font-weight: 500; color: #757575; }
+.plain-count { font-weight: 700; text-align: right; }
+.plain-count.is-open { color: #407589; }
+.back-link {
+  min-height: 48px;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.example-block { margin-top: 1.6rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.example-kpis { grid-template-columns: 1fr 1fr; max-width: 28rem; }
+
+@media (max-width: 800px) {
+  .kpi-row { grid-template-columns: 1fr 1fr; }
+  .two-col { grid-template-columns: 1fr; }
+  .kpi-num { font-size: 2.1rem; }
+  .plain-months .vbars { height: 150px; gap: 0.15rem; }
+  .plain-months .vbar-label {
+    display: inline-block;
+    transform: rotate(-55deg);
+    transform-origin: center top;
+    white-space: nowrap;
+    font-size: 0.68rem;
+    margin-top: 0.55rem;
+    height: 2rem;
+  }
+}
+
 @media (max-width: 740px) {
   .portal-day { min-height: 2.5rem; padding: 0.2rem; }
   .portal-chip { display: none; }

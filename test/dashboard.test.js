@@ -47,6 +47,9 @@ test('the dashboard returns names and counts without emails or phones', () => {
   assert.equal(dash.participation.quarter.volunteers, 2);
   assert.equal(dash.participation.quarter.shifts, 3);
   assert.equal(dash.participation.year.volunteers, 2);
+  assert.equal(dash.participation.previousQuarter.label, 'Q3 2026');
+  assert.equal(dash.participation.previousQuarter.shifts, 0);
+  assert.equal(dash.participation.previousQuarter.volunteers, 0);
   const bea = dash.participation.quarter.people.find((person) => person.name === 'Bea Example');
   assert.equal(bea.shifts, 2);
   assert.equal(dash.capacity.filled, 1);

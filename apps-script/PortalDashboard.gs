@@ -173,6 +173,18 @@ function portalSameRole_(row, slot) {
   return row.date === slot.date && row.event === slot.event && row.task === slot.task;
 }
 
+function portalPreviousQuarter_(today) {
+  var current = portalQuarter_(today);
+  var parts = current.start.split('-');
+  var dt = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])));
+  dt.setUTCDate(dt.getUTCDate() - 1);
+  var year = dt.getUTCFullYear();
+  var month = dt.getUTCMonth() + 1;
+  var day = dt.getUTCDate();
+  var prev = year + '-' + (month < 10 ? '0' : '') + month + '-' + (day < 10 ? '0' : '') + day;
+  return portalQuarter_(prev);
+}
+
 function portalDashboard_(signups, slots, today) {
   var day = String(today || '');
   var year = day.slice(0, 4);
@@ -187,6 +199,9 @@ function portalDashboard_(signups, slots, today) {
   var yearRows = rows.filter(function (row) { return between(row, year + '-01-01', year + '-12-31'); });
   var quarterStats = portalTally_(quarterRows);
   var yearStats = portalTally_(yearRows);
+  var previous = portalPreviousQuarter_(day);
+  var previousRows = rows.filter(function (row) { return between(row, previous.start, previous.end); });
+  var previousStats = portalTally_(previousRows);
   var upcoming = [];
   var filled = 0;
   var seats = 0;
@@ -250,6 +265,11 @@ function portalDashboard_(signups, slots, today) {
         volunteers: yearStats.volunteers,
         shifts: yearStats.shifts,
         people: yearStats.people
+      },
+      previousQuarter: {
+        label: previous.label,
+        volunteers: previousStats.volunteers,
+        shifts: previousStats.shifts
       }
     },
     capacity: {
