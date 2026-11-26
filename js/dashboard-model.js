@@ -24,15 +24,14 @@
     'Lunch & Learn': 'Shows only Lunch & Learn events in the period you selected.',
     'Ribbon Cutting': 'Shows only Ribbon Cutting events in the period you selected.',
     'Happy Hour': 'Shows only Happy Hour events in the period you selected.',
-    'Year selector': 'Steps through fiscal years. A fiscal year runs from July 1 through June 30 and is named for the year it ends. Period then chooses the whole year, one quarter, or one month inside that year. This control is not used when Last 12 months is selected or when you have picked custom dates.',
-    'Period': 'Year keeps every total on the fiscal year chosen at the left. Quarter sets every total to one fiscal quarter inside that year: Q1 July–September, Q2 October–December, Q3 January–March, Q4 April–June. Month sets every total to one calendar month inside that year. The current quarter or month runs through today. Last 12 months sets Dates to the trailing 12 months and ignores the fiscal year. Member Gains and Losses pairs the selected period with the same period last fiscal year.',
+    'Year selector': 'Steps through fiscal years. A fiscal year runs from July 1 through June 30 and is named for the year it ends. Period then chooses the whole year, the current quarter, or the current month inside that year. A past year uses its last quarter or its last month. This control is not used when Last 12 months is selected or when you have picked custom dates.',
+    'Period': 'Year keeps every total on the fiscal year chosen at the left. Quarter sets every total to the current fiscal quarter inside that year, or the last quarter of a past year. Month sets every total to the current calendar month inside that year, or the last month of a past year. The current quarter or month runs through today. Last 12 months sets Dates to the trailing 12 months and ignores the fiscal year. Each chart period is that period alone. Member Gains and Losses pairs it with the same period last fiscal year.',
     'Year': 'Sets every total to the fiscal year chosen at the left. The current year runs through today. A past year is July 1 through June 30. Member Gains and Losses shows that year beside the same dates last fiscal year.',
-    'Quarter': 'Sets every total to one fiscal quarter inside the fiscal year chosen at the left. Q1 is July–September, Q2 October–December, Q3 January–March, and Q4 April–June. The stepper beside Period moves between the quarters of that year. The current quarter runs through today. A past quarter is the full quarter. Member Gains and Losses pairs it with the same quarter last fiscal year.',
-    'Month': 'Sets every total to one calendar month inside the fiscal year chosen at the left. The stepper beside Period moves between the months of that year. The current month runs through today. A past month is the full month. Member Gains and Losses pairs it with the same month last fiscal year.',
+    'Quarter': 'Sets every total to the current fiscal quarter inside the fiscal year chosen at the left. Q1 is July–September, Q2 October–December, Q3 January–March, and Q4 April–June. The current quarter runs through today. A past year uses its last quarter, April through June. Member Gains and Losses pairs it with the same quarter last fiscal year.',
+    'Month': 'Sets every total to the current calendar month inside the fiscal year chosen at the left. The current month runs through today. A past year uses its last month, June. Member Gains and Losses pairs it with the same month last fiscal year.',
     'Last 12 months (period)': 'Sets Dates to the trailing 12 full months ending today, and groups Member Gains and Losses by month. The Year control is not used. Comparisons use the 12 months before that.',
     'Calendar': 'Pick a start and an end date. That range overrides the year and the Last 12 months preset. Year, Quarter, and Month still group the gains and losses bars inside the dates you pick. Every total follows this range.',
-    'Show as': 'Each period shows that month, quarter, or year by itself. Running total adds each one to the total from the start of the fiscal year through that period. Last 12 months adds from the start of those dates instead. The big numbers stay the total for the dates you selected.',
-    'Reset filters': 'Clears every filter in one click: the year, the period, the dates, Running total, event types, companies, attendees, and a pie or bar selection. An open list refreshes to the unfiltered records.',
+    'Reset filters': 'Clears every filter in one click: the year, the period, the dates, event types, companies, attendees, and a pie or bar selection. An open list refreshes to the unfiltered records.',
     'Members': 'Business member count at the end of the selected period. Month start and Quarter start are the counts at the beginning of that month and fiscal quarter. FY start is the count at the beginning of the fiscal year, July 1. The change from FY start is the net gain since then.',
     'New Members': 'How many business members joined during the period you selected. Last month is the previous calendar month through the same day. Last quarter is the previous fiscal quarter through the same number of days. Last year is the same dates in the prior fiscal year.',
     'Net Gain': 'Business members who joined minus business members who left during the period you selected. Last month, last quarter, and last year use the same fiscal windows as New Members.',
@@ -181,68 +180,14 @@
     return clampWindow(start, end, today);
   }
 
-  function monthInFiscalYear(month, year) {
-    var key = String(month || '');
-    var cal = /^\d{4}-\d{2}$/.test(key) ? parseISO(key + '-01').m : 7;
-    var y = cal >= 7 ? Number(year) - 1 : Number(year);
-    return iso(y, cal, 1).slice(0, 7);
+  function quarterForYear(year, today) {
+    if (Number(year) >= fiscalYearOf(today)) return quarterBounds(quarterIndex(today)).q;
+    return 4;
   }
 
-  function latestQuarter(year, today) {
-    var q;
-    for (q = 4; q >= 1; q--) {
-      if (quarterWindow(year, q, today)) return q;
-    }
-    return quarterBounds(quarterIndex(today)).q;
-  }
-
-  function latestMonth(year, today) {
-    var cursor = fiscalBounds(year).start;
-    var end = fiscalBounds(year).end;
-    var last = cursor.slice(0, 7);
-    while (cursor.slice(0, 7) <= end.slice(0, 7)) {
-      if (!monthWindow(cursor.slice(0, 7), today)) break;
-      last = cursor.slice(0, 7);
-      cursor = addMonths(iso(parseISO(cursor).y, parseISO(cursor).m, 1), 1);
-    }
-    return last;
-  }
-
-  function quarterChoices(years, today) {
-    var out = [];
-    var start = years[0] * 4;
-    var end = quarterIndex(today);
-    var i;
-    for (i = start; i <= end && out.length < 80; i++) {
-      var bounds = quarterBounds(i);
-      out.push({
-        id: bounds.fy + '-Q' + bounds.q,
-        label: 'Q' + bounds.q + ' FY' + bounds.fy,
-        shortLabel: 'Q' + bounds.q + ' FY' + bounds.fy,
-        year: bounds.fy,
-        quarter: bounds.q
-      });
-    }
-    return out;
-  }
-
-  function monthChoices(years, today) {
-    var out = [];
-    var cursor = fiscalBounds(years[0]).start;
-    var end = String(today).slice(0, 7);
-    while (cursor.slice(0, 7) <= end && out.length < 240) {
-      var p = parseISO(cursor);
-      var key = cursor.slice(0, 7);
-      out.push({
-        id: key,
-        label: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][p.m - 1] + ' ' + p.y,
-        shortLabel: MONTHS[p.m - 1] + ' ' + p.y,
-        year: fiscalYearOf(cursor),
-        month: key
-      });
-      cursor = addMonths(iso(p.y, p.m, 1), 1);
-    }
-    return out;
+  function monthForYear(year, today) {
+    if (Number(year) >= fiscalYearOf(today)) return String(today).slice(0, 7);
+    return iso(Number(year), 6, 1).slice(0, 7);
   }
 
   function periodRange(period, year, today) {
@@ -452,7 +397,6 @@
       quarter: currentQuarter.q,
       month: today.slice(0, 7),
       period: 'year',
-      showAs: 'period',
       from: '',
       to: '',
       eventType: '',
@@ -503,46 +447,15 @@
     } else if (period === 'last12') {
       range = periodRange('last12', year, today);
     } else if (period === 'quarter') {
-      if (!quarterWindow(year, quarter, today)) quarter = latestQuarter(year, today);
+      quarter = quarterForYear(year, today);
       range = quarterWindow(year, quarter, today) || periodRange('year', year, today);
     } else if (period === 'month') {
-      if (fiscalYearOf(month + '-01') !== year) month = monthInFiscalYear(month, year);
-      if (!monthWindow(month, today)) month = latestMonth(year, today);
+      month = monthForYear(year, today);
       range = monthWindow(month, today) || periodRange('year', year, today);
     }
     var choices = years.map(function (item) {
       return { id: String(item), label: 'FY' + item, shortLabel: 'FY' + item, year: item };
     });
-    var segment = null;
-    if (!custom && period === 'quarter') {
-      var quarterOptions = [];
-      var qn;
-      for (qn = 1; qn <= 4; qn++) {
-        if (!quarterWindow(year, qn, today)) break;
-        quarterOptions.push({ id: 'Q' + qn, label: 'Q' + qn, shortLabel: 'Q' + qn, quarter: qn, year: year });
-      }
-      segment = { id: 'Q' + quarter, label: 'Quarter', value: 'Q' + quarter, options: quarterOptions };
-    } else if (!custom && period === 'month') {
-      var monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-      var monthOptions = [];
-      var cursor = fiscalBounds(year).start;
-      var fyEnd = fiscalBounds(year).end;
-      while (cursor.slice(0, 7) <= fyEnd.slice(0, 7) && monthOptions.length < 12) {
-        var key = cursor.slice(0, 7);
-        if (!monthWindow(key, today)) break;
-        var mp = parseISO(cursor);
-        monthOptions.push({
-          id: key,
-          label: monthNames[mp.m - 1] + ' ' + mp.y,
-          shortLabel: MONTHS[mp.m - 1],
-          month: key,
-          year: year
-        });
-        cursor = addMonths(iso(mp.y, mp.m, 1), 1);
-      }
-      var monthLabel = MONTHS[parseISO(month + '-01').m - 1];
-      segment = { id: month, label: 'Month', value: monthLabel, options: monthOptions };
-    }
     var eventTypes = [];
     if (state && typeof state.eventTypes !== 'string' && state.eventTypes && state.eventTypes.length) {
       state.eventTypes.forEach(function (type) {
@@ -561,7 +474,6 @@
       quarter: quarter,
       month: month,
       period: period,
-      showAs: state && state.showAs === 'total' ? 'total' : 'period',
       custom: custom,
       range: range,
       grouping: groupingOf(period),
@@ -572,7 +484,6 @@
         value: 'FY' + year,
         options: choices
       },
-      segment: segment,
       eventType: eventTypes.length === 1 ? eventTypes[0] : '',
       eventTypes: eventTypes,
       companies: companies,
@@ -601,7 +512,6 @@
       quarter: state.quarter,
       month: state.month || '',
       period: state.period,
-      showAs: state.showAs === 'total' ? 'total' : 'period',
       from: state.from || '',
       to: state.to || '',
       eventType: state.eventType || '',
@@ -613,17 +523,11 @@
     };
   }
 
-  function clampChosenPeriod(data, state) {
+  function syncPeriodSlice(data, state) {
+    if ((state.from && state.to) || (state.period !== 'quarter' && state.period !== 'month')) return;
     var today = isISO(data && data.asOf) ? data.asOf : '2026-11-24';
-    if (state.period === 'quarter' && !quarterWindow(state.year, state.quarter, today)) {
-      state.quarter = latestQuarter(state.year, today);
-    }
-    if (state.period === 'month') {
-      var key = /^\d{4}-\d{2}$/.test(state.month) ? state.month : today.slice(0, 7);
-      if (fiscalYearOf(key + '-01') !== Number(state.year)) key = monthInFiscalYear(key, state.year);
-      if (!monthWindow(key, today)) key = latestMonth(state.year, today);
-      state.month = key;
-    }
+    if (state.period === 'quarter') state.quarter = quarterForYear(state.year, today);
+    if (state.period === 'month') state.month = monthForYear(state.year, today);
   }
 
   function applyAction(data, state, action) {
@@ -637,43 +541,21 @@
         next.from = '';
         next.to = '';
       }
-      clampChosenPeriod(data, next);
-      return next;
-    }
-    if (action.type === 'showAs') {
-      next.showAs = action.showAs === 'total' ? 'total' : 'period';
+      syncPeriodSlice(data, next);
       return next;
     }
     if (action.type === 'year') {
       if (next.period === 'last12' || (next.from && next.to)) return next;
       next.year = Number(action.year);
       next.bucket = '';
-      if (next.period === 'month') next.month = monthInFiscalYear(next.month, next.year);
-      clampChosenPeriod(data, next);
-      return next;
-    }
-    if (action.type === 'segment') {
-      if (next.period === 'last12' || (next.from && next.to)) return next;
-      next.bucket = '';
-      if (next.period === 'quarter' && action.quarter) next.quarter = Number(action.quarter);
-      if (next.period === 'month' && action.month) next.month = String(action.month);
-      clampChosenPeriod(data, next);
+      syncPeriodSlice(data, next);
       return next;
     }
     if (action.type === 'focus') {
       if (next.period === 'last12' || (next.from && next.to)) return next;
       next.bucket = '';
-      if (next.period === 'quarter' && action.quarter) {
-        next.year = Number(action.year);
-        next.quarter = Number(action.quarter);
-      } else if (next.period === 'month' && action.month) {
-        next.month = String(action.month);
-        if (action.year) next.year = Number(action.year);
-      } else if (action.year) {
-        next.year = Number(action.year);
-        if (next.period === 'month') next.month = monthInFiscalYear(next.month, next.year);
-      }
-      clampChosenPeriod(data, next);
+      if (action.year) next.year = Number(action.year);
+      syncPeriodSlice(data, next);
       return next;
     }
     if (action.type === 'dates') {
@@ -727,7 +609,6 @@
 
   function stateHash(state) {
     var parts = ['year=' + Number(state.year || 0), 'period=' + (state.period || 'year')];
-    if (state.showAs === 'total') parts.push('show=total');
     if (state.quarter) parts.push('quarter=' + Number(state.quarter));
     if (state.month) parts.push('month=' + state.month);
     var hashTypes = listOf(state.eventTypes);
@@ -763,7 +644,6 @@
     if (bag.period === 'year' || bag.period === 'quarter' || bag.period === 'month' || bag.period === 'last12') {
       state.period = bag.period;
     }
-    if (bag.show === 'total') state.showAs = 'total';
     if (bag.type) {
       var parsedTypes = String(bag.type).split(',').map(function (part) {
         try { return decodeURIComponent(part); } catch (err) { return part; }
@@ -855,14 +735,7 @@
     var view = resolveView(data, state || defaultState(data));
     if (directory) view.directory = directory;
     var attendance = attendanceByEvent(data);
-    var cumulative = view.showAs === 'total';
-    var origin = view.range.start;
-    if (cumulative && view.period !== 'last12' && !view.custom) {
-      var fyStart = fiscalBounds(view.year).start;
-      if (fyStart <= view.range.end) origin = fyStart;
-    }
-    var chartRange = cumulative ? { start: origin, end: view.range.end } : view.range;
-    var buckets = bucketsFor(chartRange, view.grouping);
+    var buckets = bucketsFor(view.range, view.grouping);
     var selected = null;
     buckets.forEach(function (bucket) {
       if (bucket.id === view.bucket) selected = bucket;
@@ -900,9 +773,8 @@
       return flowBetween(data, start, end, roster, eventTypes);
     }
     var gainSeries = buckets.map(function (bucket) {
-      var from = cumulative ? origin : bucket.start;
-      var flow = flowSpan(from, bucket.end);
-      var priorSpan = priorYearRange(from, bucket.end);
+      var flow = flowSpan(bucket.start, bucket.end);
+      var priorSpan = priorYearRange(bucket.start, bucket.end);
       var prior = flowSpan(priorSpan.start, priorSpan.end);
       return {
         id: bucket.id,
@@ -919,23 +791,19 @@
       var oneYear = buckets.every(function (bucket) { return fiscalYearOf(bucket.end) === legendYear; });
       if (oneYear) gainLegend = { current: 'FY' + legendYear, prior: 'FY' + (legendYear - 1) };
     }
-    var lineRange = cumulative && !selected ? chartRange : measure;
-    var lineBuckets = bucketsFor(lineRange, 'month');
-    function lineStart(bucket) {
-      return cumulative ? origin : bucket.start;
-    }
+    var lineBuckets = bucketsFor(measure, 'month');
     var eventSeries = lineBuckets.map(function (bucket) {
-      return countEvents(lineStart(bucket), bucket.end);
+      return countEvents(bucket.start, bucket.end);
     });
     var eventLastYear = lineBuckets.map(function (bucket) {
-      var shifted = priorYearRange(lineStart(bucket), bucket.end);
+      var shifted = priorYearRange(bucket.start, bucket.end);
       return countEvents(shifted.start, shifted.end);
     });
     var attendanceSeries = lineBuckets.map(function (bucket) {
-      return sumAttendance(lineStart(bucket), bucket.end);
+      return sumAttendance(bucket.start, bucket.end);
     });
     var attendanceLastYear = lineBuckets.map(function (bucket) {
-      var shifted = priorYearRange(lineStart(bucket), bucket.end);
+      var shifted = priorYearRange(bucket.start, bucket.end);
       return sumAttendance(shifted.start, shifted.end);
     });
 
@@ -970,9 +838,7 @@
       quarter: view.quarter,
       month: view.month,
       stepper: view.stepper,
-      segment: view.segment,
       period: view.period,
-      showAs: view.showAs,
       custom: view.custom,
       yearEnabled: view.yearEnabled,
       range: view.range,

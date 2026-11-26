@@ -266,20 +266,7 @@ function yearControl(view, compact) {
   return stepControl(step, view.yearEnabled, compact, { step: 'data-year-step', select: 'data-year-select' });
 }
 
-function segmentControl(view, compact) {
-  if (!view.segment) return '';
-  return stepControl(view.segment, true, compact, { step: 'data-segment-step', select: 'data-segment-select', extraClass: 'segstep' });
-}
-
-  function showSection(view) {
-  var on = view.showAs === 'total';
-  var text = (model.DEFS && model.DEFS['Show as']) || '';
-  return '<div class="run-view"><div class="h">View<span class="info info-hover" aria-label="About Running total">ⓘ<span class="tip" role="tooltip"><strong>Running total</strong>' +
-    escapeHtml(text) + '</span></span></div><button type="button" class="tog' + (on ? ' on' : '') + '" data-run-toggle aria-pressed="' + (on ? 'true' : 'false') + '">' +
-    '<span class="sw" aria-hidden="true"></span><span class="tog-label">Running total</span></button></div>';
-}
-
-  function periodControl(view) {
+function periodControl(view) {
     var items = [
       ['year', 'Year', 'Year'],
       ['quarter', 'Quarter', 'Quarter'],
@@ -367,7 +354,7 @@ function segmentControl(view, compact) {
     var yearSpan = ' ' + fiscalLabel(view.year) + ' is ' + model.formatDate(bounds.start) + ' through ' + model.formatDate(bounds.end) + '.';
     if (view.custom) yearSpan += ' Custom dates override this control.';
     var year = '<span class="lab">' + hint('Fiscal year', 'Year selector', false, yearSpan) + '</span>' + yearControl(view);
-    var period = '<span class="lab">' + hint('Period', 'Period') + '</span>' + periodControl(view) + segmentControl(view);
+    var period = '<span class="lab">' + hint('Period', 'Period') + '</span>' + periodControl(view);
     var dates = '<span class="lab">' + hint('Dates', 'Calendar') + '</span>' +
       dateField('from', 'From', view.range.start) + dateField('to', 'To', view.range.end);
     var reset = '<button type="button" class="reset" data-reset>↺ Reset filters ' + hint('', 'Reset filters', true) + '</button>';
@@ -381,7 +368,7 @@ function segmentControl(view, compact) {
       '<input type="date" data-date="to" value="' + escapeHtml(view.range.end) + '" aria-label="To date">';
     return '<div class="daterow daterow-full"><div class="dfilters"><div class="dgroup">' + year + '</div><div class="dgroup">' + period +
       '</div><div class="dgroup">' + dates + '</div></div><div class="dgroup reset-group">' + reset + '</div></div>' +
-      '<div class="daterow daterow-mob"><div class="mob-main"><div class="cols"><div class="track">' + yearControl(view, true) + periodControl(view) + segmentControl(view, true) +
+      '<div class="daterow daterow-mob"><div class="mob-main"><div class="cols"><div class="track">' + yearControl(view, true) + periodControl(view) +
       '</div><div class="dprow"><label class="drow drow-span">' + mobileDates + '</label></div></div>' +
       '<div class="sticky"><button type="button" class="reset" data-reset>↺ Reset filters</button></div></div></div>';
   }
@@ -444,14 +431,14 @@ function segmentControl(view, compact) {
       return [type, type, type];
     }));
     if (chips) {
-      return '<div class="chips">' + showSection(view) + '<div class="h">' + hint('Event type', 'Event type') + '</div><div class="chip-row">' +
+      return '<div class="chips"><div class="h">' + hint('Event type', 'Event type') + '</div><div class="chip-row">' +
         types.map(function (type) {
           var on = typeOn(view, type[0]);
           return '<button type="button" class="chip' + (on ? ' on' : '') + '" data-type="' + escapeHtml(type[0]) + '" aria-pressed="' + on + '">' +
             escapeHtml(type[1]) + '</button>';
         }).join('') + '</div>' + railFilters(view) + '</div>';
     }
-    return showSection(view) + '<div class="h">' + hint('Event type', 'Event type') + '</div>' + types.map(function (type) {
+    return '<div class="h">' + hint('Event type', 'Event type') + '</div>' + types.map(function (type) {
       var on = typeOn(view, type[0]);
       var count = type[0] ? (view.eventCounts[type[0]] || 0) : view.eventCounts.all;
       return '<button type="button" class="tog' + (on ? ' on' : '') + '" data-type="' + escapeHtml(type[0]) + '" aria-pressed="' + on + '">' +

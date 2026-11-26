@@ -171,8 +171,6 @@ button.big { display: block; width: 100%; }
 .daterow-full .ystep { height: 30px; padding: 2px 4px; gap: 2px; }
 
 .daterow-full .ystep b { min-width: 70px; font-size: 12px; }
-.daterow-full .segstep b, .daterow-mob .segstep b { min-width: 28px; }
-
 .daterow-full .pseg button { padding: 0 6px; height: 30px; font-size: 12px; }
 
 .daterow-full .drow { height: 30px; padding: 2px 5px; gap: 3px; }
@@ -182,8 +180,6 @@ button.big { display: block; width: 100%; }
 .daterow-full .dval { font-size: 11px; }
 
 .daterow-full .reset { height: 30px; padding: 0 6px; font-size: 12px; gap: 4px; }
-
-.run-view { margin: 0 0 16px; }
 
 .daterow-mob { display: none; }
 
