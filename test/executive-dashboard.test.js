@@ -123,6 +123,45 @@ test('bottom charts use the same periods as member gains', () => {
   assert.deepEqual(Array.from(past.monthBuckets, (bucket) => bucket.label), ['FY2026']);
 });
 
+test('a single period draws events and attendance as paired bars', () => {
+  function paint(state) {
+    return sandbox.ABADashboardView.render(Object.assign(view(state), { mobile: false, documents: { extras: [] } }));
+  }
+  function slice(html, start, end) {
+    return html.split(start)[1].split(end)[0];
+  }
+  const year = view({ period: 'year' });
+  const html = paint({ period: 'year' });
+  const events = slice(html, 'card-events', 'card-attendance');
+  const attendance = slice(html, 'card-attendance', 'card-pie');
+  assert.match(events, /fill="#7D949C"/);
+  assert.match(events, /fill="#3F768B"/);
+  assert.match(events, />5</);
+  assert.match(events, />8</);
+  assert.match(events, /FY2026/);
+  assert.match(events, /FY2027/);
+  assert.equal(events.includes('<polyline'), false);
+  assert.equal(events.includes('class="note"'), false);
+  assert.match(attendance, />190</);
+  assert.match(attendance, />287</);
+  assert.equal(attendance.includes('class="note"'), false);
+  assert.equal(year.eventSeries[0], 8);
+  assert.equal(year.eventLastYear[0], 5);
+  const quarter = paint({ period: 'quarter' });
+  const quarterEvents = slice(quarter, 'card-events', 'card-attendance');
+  assert.match(quarterEvents, /<polyline/);
+  assert.match(quarterEvents, /class="note"/);
+  assert.equal(quarterEvents.includes('fill="#7D949C"'), false);
+  const month = view({ period: 'month' });
+  const july = view({ period: 'month', bucket: month.gains[0].id });
+  assert.equal(july.eventSeries.length, 1);
+  const julyHtml = sandbox.ABADashboardView.render(Object.assign(july, { mobile: false, documents: { extras: [] } }));
+  const julyEvents = slice(julyHtml, 'card-events', 'card-attendance');
+  assert.match(julyEvents, new RegExp('>' + july.eventLastYear[0] + '<'));
+  assert.match(julyEvents, new RegExp('>' + july.eventSeries[0] + '<'));
+  assert.equal(julyEvents.includes('<polyline'), false);
+});
+
 test('quarter and month set the date window for every total', () => {
   const quarter = view({ period: 'quarter' });
   assert.equal(quarter.range.start, '2026-10-01');

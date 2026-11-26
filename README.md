@@ -60,7 +60,7 @@ Dates drive every total. The year is ABA's fiscal year, July 1 through June 30, 
 
 **Member Gains and Losses** pairs each bar with the same dates one fiscal year earlier. A partial period is clipped to the same day last year.
 
-- **Year** is one point for the fiscal year on Member Gains and Losses, Events Held, and Attendee Count.
+- **Year** is one pair of bars for the fiscal year on Member Gains and Losses, Events Held, and Attendee Count. Last year is the muted bar.
 - **Quarter** shows each quarter of the fiscal year that has started. The big numbers stay on the current quarter, or the last quarter of a past year.
 - **Month** shows July through the current month, or all twelve months of a past year. The big numbers stay on the current month, or June of a past year.
 - **Last 12 months** groups the trailing range by month.
