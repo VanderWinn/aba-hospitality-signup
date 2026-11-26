@@ -263,15 +263,12 @@ function yearControl(view, compact) {
 }
 
   function showControl(view) {
-  var mode = view.showAs === 'total' ? 'total' : 'period';
-  var items = [['period', 'Each period'], ['total', 'Running total']];
-  return '<div class="show-as"><span class="lab">Show as<span class="info info-hover" aria-label="About Show as">ⓘ<span class="tip" role="tooltip"><strong>Show as</strong>' +
-    escapeHtml((model.DEFS && model.DEFS['Show as']) || '') + '</span></span></span><div class="pseg" role="group" aria-label="Show as">' +
-    items.map(function (item) {
-      var on = mode === item[0];
-      return '<button type="button" data-show="' + item[0] + '"' + (on ? ' class="on" aria-pressed="true"' : ' aria-pressed="false"') + '>' +
-        escapeHtml(item[1]) + '</button>';
-    }).join('') + '</div></div>';
+  var on = view.showAs === 'total';
+  var text = (model.DEFS && model.DEFS['Show as']) || '';
+  return '<button type="button" class="tog run-tog' + (on ? ' on' : '') + '" data-run-toggle aria-pressed="' + (on ? 'true' : 'false') + '">' +
+    '<span class="sw" aria-hidden="true"></span><span class="tog-label">Running total</span>' +
+    '<span class="info info-hover" aria-label="About Running total">ⓘ<span class="tip" role="tooltip"><strong>Running total</strong>' +
+    escapeHtml(text) + '</span></span></button>';
 }
 
   function periodControl(view) {

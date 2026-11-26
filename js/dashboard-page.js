@@ -324,9 +324,9 @@
       update({ type: 'period', period: period.getAttribute('data-period') });
       return;
     }
-    var show = event.target.closest('[data-show]');
-    if (show) {
-      update({ type: 'showAs', showAs: show.getAttribute('data-show') });
+    var runToggle = event.target.closest('[data-run-toggle]');
+    if (runToggle) {
+      update({ type: 'showAs', showAs: state.showAs === 'total' ? 'period' : 'total' });
       return;
     }
     var step = event.target.closest('[data-year-step]');

@@ -266,9 +266,10 @@ test('running total accumulates chart series and leaves the headlines alone', ()
   assert.equal(hash.includes('show=total'), true);
   assert.equal(dash.stateFromHash(hash, source).showAs, 'total');
   const rendered = sandbox.ABADashboardView.render(Object.assign(running, { documents: { extras: [] }, mobile: false }));
-  assert.match(rendered, /data-show="total"/);
-  assert.match(rendered, /Each period/);
+  assert.match(rendered, /data-run-toggle/);
+  assert.match(rendered, /aria-pressed="true"/);
   assert.match(rendered, /Running total/);
+  assert.equal(rendered.includes('data-show='), false);
   assert.match(rendered, /info-hover/);
   assert.equal(rendered.includes('info-hover" tabindex'), false);
 });
@@ -538,7 +539,8 @@ test('the dashboard page is gated and the public sign-up does not link to it', (
   assert.match(rendered, /FY start/);
   assert.equal(rendered.includes('>Members<'), false);
   assert.equal(rendered.includes('Attendance Distribution'), false);
-  assert.match(rendered, /Each period/);
+  assert.match(rendered, /data-run-toggle/);
+  assert.match(rendered, /aria-pressed="false"/);
   assert.match(rendered, /Running total/);
   assert.match(rendered, /FY2027/);
   assert.match(rendered, /Jul 1, 2026 through Jun 30, 2027/);
