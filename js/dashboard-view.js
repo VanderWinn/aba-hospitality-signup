@@ -3,14 +3,13 @@
   'use strict';
 
   var model = root.ABADashboard;
-  var POP = '#0077FF';
+  var TEAL = '#3F768B';
+  var CORAL = '#B84734';
+  var MUTED = '#7D949C';
+  var PRIOR_LOSS = '#8A9094';
   var CLAY = '#D01F25';
-  var PINE = '#407589';
   var INK = '#39393a';
-  var ORANGE = '#F28C28';
   var exampleFlags = true;
-  var TEAL = '#2F5D6B';
-  var POP_TEXT = '#005FCC';
 
   function escapeHtml(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
@@ -123,21 +122,21 @@
     var priorWidth = legend.prior.length * 6.4;
     var legendRight = w - 8;
     parts.push('<text x="' + legendRight.toFixed(1) + '" y="14" text-anchor="end" ' + legendFont + '>' + escapeHtml(legend.current) + '</text>');
-    parts.push('<rect x="' + (legendRight - currentWidth - 14).toFixed(1) + '" y="6" width="9" height="9" rx="1" fill="' + POP + '"/>');
+    parts.push('<rect x="' + (legendRight - currentWidth - 14).toFixed(1) + '" y="6" width="9" height="9" rx="1" fill="' + TEAL + '"/>');
     var priorRight = legendRight - currentWidth - 26;
     parts.push('<text x="' + priorRight.toFixed(1) + '" y="14" text-anchor="end" ' + legendFont + '>' + escapeHtml(legend.prior) + '</text>');
-    parts.push('<rect x="' + (priorRight - priorWidth - 14).toFixed(1) + '" y="6" width="9" height="9" rx="1" fill="#B0B0B0"/>');
+    parts.push('<rect x="' + (priorRight - priorWidth - 14).toFixed(1) + '" y="6" width="9" height="9" rx="1" fill="' + MUTED + '"/>');
     series.forEach(function (bucket, index) {
       var slot = 10 + index * cw + (cw - (bw * 2 + gap)) / 2;
-      bars(slot, bucket.priorJoins || 0, bucket.priorLosses || 0, '#B0B0B0', '#8A8A8A');
+      bars(slot, bucket.priorJoins || 0, bucket.priorLosses || 0, MUTED, PRIOR_LOSS);
       var currentX = slot + bw + gap;
-      bars(currentX, bucket.joins || 0, bucket.losses || 0, POP, CLAY);
+      bars(currentX, bucket.joins || 0, bucket.losses || 0, TEAL, CLAY);
       var labelSize = n > 16 ? 9 : 12;
       if (n <= 16 || index % 2 === 0) {
         parts.push('<text x="' + (slot + bw + gap / 2).toFixed(1) + '" y="' + (h - 4) + '" font-size="' + labelSize + '" text-anchor="middle" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bucket.label) + '</text>');
       }
       if (bucket.id === selectedId) {
-        parts.push('<rect x="' + (currentX - 3).toFixed(1) + '" y="18" width="' + (bw + 6).toFixed(1) + '" height="' + (h - 36) + '" fill="none" stroke="#2d515f" stroke-width="1.6" stroke-dasharray="4 3" rx="3"/>');
+        parts.push('<rect x="' + (currentX - 3).toFixed(1) + '" y="18" width="' + (bw + 6).toFixed(1) + '" height="' + (h - 36) + '" fill="none" stroke="' + CORAL + '" stroke-width="1.6" stroke-dasharray="4 3" rx="3"/>');
       }
       parts.push('<rect class="hit" data-bucket="' + escapeHtml(bucket.id) + '" x="' + (currentX - 1).toFixed(1) + '" y="18" width="' + (bw + 2).toFixed(1) + '" height="' + (h - 34) + '" fill="transparent"/>');
     });
@@ -161,7 +160,7 @@ function lineSvg(values, lastYear, labels, kind, narrow) {
     var parts = [];
     var ly = lastYear.map(function (value, index) { return xx(index).toFixed(1) + ',' + yy(value).toFixed(1); }).join(' ');
     var cur = values.map(function (value, index) { return xx(index).toFixed(1) + ',' + yy(value).toFixed(1); }).join(' ');
-    parts.push('<polyline points="' + ly + '" fill="none" stroke="' + ORANGE + '" stroke-width="1.6" stroke-dasharray="3 3" stroke-linejoin="round" stroke-linecap="round"/>');
+    parts.push('<polyline points="' + ly + '" fill="none" stroke="' + MUTED + '" stroke-width="1.6" stroke-dasharray="3 3" stroke-linejoin="round" stroke-linecap="round"/>');
     parts.push('<polyline points="' + cur + '" fill="none" stroke="' + TEAL + '" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>');
     values.forEach(function (value, index) {
       var x = xx(index);
@@ -198,8 +197,8 @@ function lineSvg(values, lastYear, labels, kind, narrow) {
     var guests = pie.guests;
     var total = members + guests;
     if (!total) return emptyChart('is-pie');
-    if (!guests) return fullSlice('Attendees', members, PINE, 'Member');
-    if (!members) return fullSlice('Guests', guests, POP, 'Guest');
+    if (!guests) return fullSlice('Attendees', members, TEAL, 'Member');
+    if (!members) return fullSlice('Guests', guests, CORAL, 'Guest');
     var r = size / 2 - 8;
     var cx = size / 2;
     var cy = size / 2;
@@ -225,9 +224,9 @@ function lineSvg(values, lastYear, labels, kind, narrow) {
         '<text x="' + pos[0].toFixed(1) + '" y="' + (pos[1] + 11).toFixed(1) + '" text-anchor="middle" font-size="18" font-weight="800" fill="#fff" font-family="Montserrat, Raleway, sans-serif">' + count + '</text>' +
         '<text x="' + pos[0].toFixed(1) + '" y="' + (pos[1] + 26).toFixed(1) + '" text-anchor="middle" font-size="12" fill="#fff">' + pct + '%</text>';
     }
-    var memberGroup = members ? '<g data-audience="Member">' + slice(a0, a1, PINE, 'Member') + label(a0, a1, 'Attendees', members, pie.memberPct) + '</g>' : '';
+    var memberGroup = members ? '<g data-audience="Member">' + slice(a0, a1, TEAL, 'Member') + label(a0, a1, 'Attendees', members, pie.memberPct) + '</g>' : '';
     var guestStart = members ? a1 : a0;
-    var guestGroup = guests ? '<g data-audience="Guest">' + slice(guestStart, a2, POP, 'Guest') + label(guestStart, a2, 'Guests', guests, pie.guestPct) + '</g>' : '';
+    var guestGroup = guests ? '<g data-audience="Guest">' + slice(guestStart, a2, CORAL, 'Guest') + label(guestStart, a2, 'Guests', guests, pie.guestPct) + '</g>' : '';
     return '<svg class="pie" viewBox="0 0 176 176" role="img" aria-label="Attendee distribution, attendees ' + members + ', guests ' + guests + '">' +
       memberGroup + guestGroup + '</svg>';
   }
@@ -459,7 +458,7 @@ function periodControl(view) {
   }
 
   function legend() {
-    return '<p class="note"><span style="color:' + ORANGE + '">┅</span> last year</p>';
+    return '<p class="note"><span style="color:' + MUTED + '">┅</span> last year</p>';
   }
 
   function render(view) {
