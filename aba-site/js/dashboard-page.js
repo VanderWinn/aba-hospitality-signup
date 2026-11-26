@@ -3,7 +3,7 @@
   'use strict';
 
   var SESSION_KEY = 'aba-board-portal-password';
-  var LOGIN = 'index.html?next=dashboard';
+  var LOGIN = '../index.html?next=dashboard';
   var dash = window.ABADashboard;
   var dataApi = window.ABADashboardData;
   var viewApi = window.ABADashboardView;
@@ -33,7 +33,7 @@
       return;
     }
     sha256(password).then(function (digest) {
-      return fetch('portal.json', { cache: 'no-store' }).then(function (response) {
+      return fetch('../portal.json', { cache: 'no-store' }).then(function (response) {
         if (!response.ok) throw new Error('portal');
         return response.json().then(function (config) {
           return String(config.passwordSha256 || '').toLowerCase() === digest;
@@ -100,7 +100,7 @@
   }
 
   function loadDocs() {
-    return fetch('docs.json', { cache: 'no-store' }).then(function (response) {
+    return fetch('../docs.json', { cache: 'no-store' }).then(function (response) {
       if (!response.ok) return { extras: [] };
       return response.json();
     }).then(function (payload) {

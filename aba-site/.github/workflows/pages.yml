@@ -1,0 +1,67 @@
+name: Publish to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Collect site files
+        run: |
+          mkdir -p _site/css _site/js _site/data _site/assets _site/dashboard
+          cp index.html portal.json docs.json .nojekyll _site/
+          cp dashboard/index.html _site/dashboard/
+          cp css/styles.css css/portal.css css/dashboard.css _site/css/
+          cp js/config.js js/portal.js js/portal-page.js js/dashboard-model.js js/dashboard-data.js js/dashboard-directory.js js/dashboard-view.js js/dashboard-page.js _site/js/
+          cp data/seed.json _site/data/
+          cp assets/aba-logo.png assets/favicon.ico assets/favicon-32.png assets/favicon-180.png _site/assets/
+
+      - name: Stamp asset versions
+        run: |
+          short="${GITHUB_SHA:0:7}"
+          test -n "$short"
+          sed -i "s/__ASSET_VERSION__/${short}/g" _site/index.html _site/dashboard/index.html
+          grep -q "css/portal.css?v=${short}" _site/index.html
+          grep -q "js/portal.js?v=${short}" _site/index.html
+          grep -q "css/dashboard.css?v=${short}" _site/dashboard/index.html
+          grep -q "js/dashboard-page.js?v=${short}" _site/dashboard/index.html
+          if grep -q '__ASSET_VERSION__' _site/index.html _site/dashboard/index.html; then
+            echo "Asset version placeholder was not replaced"
+            exit 1
+          fi
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Wait for the Pages artifact
+        run: sleep 15
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

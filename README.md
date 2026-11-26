@@ -12,8 +12,9 @@ Version 2 adds confirmation and reminder email, calendar files, and a private ch
 
 ## What is in this repo
 
-- `index.html`, `css/`, `js/` — the static site GitHub Pages publishes
-- `home/` — the password-gated board portal. `home/dashboard.html` is the membership and events dashboard
+- `index.html`, `css/styles.css`, `js/app.js`, `js/catalog.js`, `js/config.js` — the sign-up sheet GitHub Pages publishes at the site root
+- `home/` — forwards the old portal addresses to https://vanderwinn.github.io/aba/ and https://vanderwinn.github.io/aba/dashboard/
+- `aba-site/` — the board portal, ready to publish as its own repository at those addresses. `aba-site/index.html` is the login. `aba-site/dashboard/index.html` is the membership and events dashboard
 - `data/seed.json` — the preview data
 - `source/signupgenius-2026-11-17.json` — the SignUpGenius export the seed was built from
 - `apps-script/Code.gs` and `apps-script/Seed.gs` — the web app bound to the existing spreadsheet
@@ -23,17 +24,17 @@ The spreadsheet already exists (`1wVRyW_PRfB-rgPB716lWkqQraBBnw1lXuPH5o2-4u74`).
 
 ## Membership and events dashboard
 
-`home/dashboard.html` is a separate page from the portal home. It is the Concept 2b board view: member total, new members, net gain, gains versus losses, events held, attendance, and attendance by member or guest.
+`aba-site/dashboard/index.html` is a separate page from the portal login. It is the Concept 2b board view: member total, new members, net gain, gains versus losses, events held, attendance, and attendance by member or guest. Published from the `aba` repository, its address is https://vanderwinn.github.io/aba/dashboard/ and the login is https://vanderwinn.github.io/aba/.
 
-The portal home links to it only after a board member enters the portal password. Opening `home/dashboard.html` with no portal session returns to the portal login (`home/index.html?next=dashboard`). After a correct password, that login continues to the dashboard. The public sign-up page does not link here.
+The portal login links to it only after a board member enters the portal password. Opening the dashboard with no portal session returns to the login (`../index.html?next=dashboard`). After a correct password, that login continues to `dashboard/`. The public sign-up page does not link here. The old addresses `home/` and `home/dashboard.html` on this site forward to the new ones.
 
-The page checks the same session the portal stores and the same SHA-256 hash in `home/portal.json` (`PORTAL_PASSWORD_SHA256` on the script). It does not read a plaintext password from the repo.
+The page checks the same session the portal stores and the same SHA-256 hash in `aba-site/portal.json` (`PORTAL_PASSWORD_SHA256` on the script). It does not read a plaintext password from the repo.
 
 While the figures are the example set, an **Example data** badge stays visible.
 
 ### Data adapter
 
-Every number on the page comes from `js/dashboard-data.js`. The page calls `loadExecutiveSource()`. If `js/config.js` has no web app URL, or the script does not answer, that returns the placeholder records in the same file and the Example data badge stays on. A configured script returns the sheet totals and the badge goes away. `fromSheetTabs()` and `normalize()` are the seam for those totals. `js/dashboard-model.js` only reads that model. Sheet rows are not copied into this repo.
+Every number on the page comes from `aba-site/js/dashboard-data.js`. The page calls `loadExecutiveSource()`. If `aba-site/js/config.js` has no web app URL, or the script does not answer, that returns the placeholder records in the same file and the Example data badge stays on. A configured script returns the sheet totals and the badge goes away. `fromSheetTabs()` and `normalize()` are the seam for those totals. `aba-site/js/dashboard-model.js` only reads that model. Sheet rows are not copied into this repo.
 
 Normalized model:
 

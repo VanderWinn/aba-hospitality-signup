@@ -350,7 +350,7 @@ function periodControl(view) {
 
   function docbar(view) {
     var docs = docsOf(view);
-    var signup = '../index.html';
+    var signup = 'https://vanderwinn.github.io/aba-hospitality-signup/';
     var pills = [
       { label: 'Handbook', href: docs.handbook, className: 'pill' },
       { label: 'Sign-up sheet', href: signup, className: 'pill' },
@@ -368,7 +368,7 @@ function periodControl(view) {
     var badge = view.example ? '<span class="example-badge">Example data</span>' : '';
     var mark = '<a class="mark" href="https://adabusinessassociation.com/" target="_blank" rel="noopener noreferrer" aria-label="Ada Business Association website">' +
       '<img src="../assets/aba-logo.png" alt="Ada Business Association website"></a>';
-    return '<header class="docbar"><div class="brand-wrap">' + mark + '<a class="brand" href="index.html">' +
+    return '<header class="docbar"><div class="brand-wrap">' + mark + '<a class="brand" href="../">' +
       '<span class="brand-full">Board &amp; Committee Portal</span>' +
       '<span class="brand-short">Board &amp; Committee Portal</span></a>' + badge + '</div>' +
       '<div class="docs docs-full"><span class="lbl">Documents ' + hint('', 'Documents', true) + '</span>' +
