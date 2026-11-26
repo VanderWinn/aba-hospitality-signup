@@ -23,8 +23,9 @@
     var flag = exampleFlags && model.FLAGS && model.FLAGS[key] ? model.FLAGS[key] : '';
     var body = escapeHtml(def);
     if (flag) body += '<span class="tip-flag">' + escapeHtml(flag) + '</span>';
-    var icon = '<span class="info" tabindex="0" role="button" aria-label="About ' + escapeHtml(key) + '">ⓘ<span class="tip" role="tooltip"><strong>' +
-      escapeHtml(key) + '</strong>' + body + '</span></span>';
+    var heading = (!iconOnly && label) ? label : key;
+    var icon = '<span class="info" tabindex="0" role="button" aria-label="About ' + escapeHtml(heading) + '">ⓘ<span class="tip" role="tooltip"><strong>' +
+      escapeHtml(heading) + '</strong>' + body + '</span></span>';
     if (iconOnly) return icon;
     return escapeHtml(label) + icon;
   }
@@ -43,10 +44,11 @@
   }
 
   function priors(metric) {
+    var labels = metric.labels || ['Last month', 'Last quarter', 'Last year'];
     var cells = [
-      ['Last month', metric.lastMonth],
-      ['Last quarter', metric.lastQuarter],
-      ['Last year', metric.lastYear]
+      [labels[0], metric.lastMonth],
+      [labels[1], metric.lastQuarter],
+      [labels[2], metric.lastYear]
     ];
     return '<div class="pr">' + cells.map(function (cell) {
       return '<div><div class="pl">' + escapeHtml(cell[0]) + '</div><div class="pv">' +
@@ -174,7 +176,7 @@ function lineSvg(values, lastYear, labels, kind, narrow) {
     var guests = pie.guests;
     var total = members + guests;
     if (!total) return emptyChart('is-pie');
-    if (!guests) return fullSlice('Members', members, PINE, 'Member');
+    if (!guests) return fullSlice('Attendees', members, PINE, 'Member');
     if (!members) return fullSlice('Guests', guests, POP, 'Guest');
     var r = size / 2 - 8;
     var cx = size / 2;
@@ -201,10 +203,10 @@ function lineSvg(values, lastYear, labels, kind, narrow) {
         '<text x="' + pos[0].toFixed(1) + '" y="' + (pos[1] + 11).toFixed(1) + '" text-anchor="middle" font-size="18" font-weight="800" fill="#fff" font-family="Montserrat, Raleway, sans-serif">' + count + '</text>' +
         '<text x="' + pos[0].toFixed(1) + '" y="' + (pos[1] + 26).toFixed(1) + '" text-anchor="middle" font-size="12" fill="#fff">' + pct + '%</text>';
     }
-    var memberGroup = members ? '<g data-audience="Member">' + slice(a0, a1, PINE, 'Member') + label(a0, a1, 'Members', members, pie.memberPct) + '</g>' : '';
+    var memberGroup = members ? '<g data-audience="Member">' + slice(a0, a1, PINE, 'Member') + label(a0, a1, 'Attendees', members, pie.memberPct) + '</g>' : '';
     var guestStart = members ? a1 : a0;
     var guestGroup = guests ? '<g data-audience="Guest">' + slice(guestStart, a2, POP, 'Guest') + label(guestStart, a2, 'Guests', guests, pie.guestPct) + '</g>' : '';
-    return '<svg class="pie" viewBox="0 0 176 176" role="img" aria-label="Attendance distribution, members ' + members + ', guests ' + guests + '">' +
+    return '<svg class="pie" viewBox="0 0 176 176" role="img" aria-label="Attendee distribution, attendees ' + members + ', guests ' + guests + '">' +
       memberGroup + guestGroup + '</svg>';
   }
 
@@ -457,7 +459,7 @@ function yearControl(view, compact) {
     exampleFlags = view.example === true;
     var labels = (view.monthBuckets || []).map(function (bucket) { return bucket.label; });
     var showBarLabels = !view.mobile && view.buckets.length <= 16;
-    var members = card('Members', 'Members',
+    var members = card('Business Members', 'Members',
       headline(String(view.members.value), view.members.tone, 'big-members', 'members') + priors(view.members),
       ' card-members', 'members');
     var fresh = card('New Members', 'New Members',
@@ -473,13 +475,13 @@ function yearControl(view, compact) {
       headline(String(view.events.value), view.events.tone, 'big-mid', 'events') + priors(view.events) +
       '<div class="chart-slot">' + lineSvg(view.eventSeries, view.eventLastYear, labels, 'Events held', view.mobile) + '</div>' + legend(),
       ' card-events', 'events');
-    var attendance = card('Attendance', 'Attendance',
+    var attendance = card('Attendee Count', 'Attendance',
       headline(String(view.attendance.value), view.attendance.tone, 'big-mid', 'attendance') + priors(view.attendance) +
-      '<div class="chart-slot">' + lineSvg(view.attendanceSeries, view.attendanceLastYear, labels, 'Attendance', view.mobile) + '</div>' + legend(),
+      '<div class="chart-slot">' + lineSvg(view.attendanceSeries, view.attendanceLastYear, labels, 'Attendee Count', view.mobile) + '</div>' + legend(),
       ' card-attendance', 'attendance');
-    var pie = card('Attendance Distribution', 'Attendance Distribution',
+    var pie = card('Attendee Distribution', 'Attendance Distribution',
       pieSvg(view.pie, view.audience),
-      ' card-pie', 'attendance');
+      ' card-pie', 'distribution');
     return docbar(view) + daterow(view) + '<div class="body" id="content"><aside class="side">' + eventTypes(view, false) +
       '</aside><div class="main">' + eventTypes(view, true) +
       '<div class="row row-top">' + members + '<div class="stack">' + fresh + net + '</div>' + gains + '</div>' +

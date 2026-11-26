@@ -32,18 +32,18 @@
     'Last 12 months (period)': 'Sets Dates to the trailing 12 full months ending today, and groups Membership Gains V Losses by month. The Year control is not used. Comparisons use the 12 months before that.',
     'Calendar': 'Pick a start and an end date. That range overrides the year and the Last 12 months preset. Year, Quarter, and Month still group the gains and losses bars inside the dates you pick. Every total follows this range.',
     'Reset filters': 'Clears every filter in one click: the year, the period, the dates, event types, companies, people, a name search, and a pie or bar selection. An open list refreshes to the unfiltered records.',
-    'Members': 'The member total at the end of the selected period. Last month and last quarter are that total the same length of time earlier. Last year is the total on the same date in the prior fiscal year.',
-    'New Members': 'How many members joined during the period you selected.',
-    'Net Gain': 'The net change in membership for the selected period: members who joined minus members who left.',
+    'Members': 'Business member count at the end of the selected period. Month start and Quarter start are the counts at the beginning of that month and fiscal quarter. FY start is the count at the beginning of the fiscal year, July 1. The change from FY start is the net gain since then.',
+    'New Members': 'How many business members joined during the period you selected. Last month is the previous calendar month through the same day. Last quarter is the previous fiscal quarter through the same number of days. Last year is the same dates in the prior fiscal year.',
+    'Net Gain': 'Business members who joined minus business members who left during the period you selected. Last month, last quarter, and last year use the same fiscal windows as New Members.',
     'Membership Gains V Losses': 'Up = gains (always blue). Down = losses (always red). Year groups this chart into one bar per fiscal year. Quarter groups it into fiscal quarters, Q1 July–September through Q4 April–June. Month groups it from July through June. Click a bar to filter the whole page to it; Reset filters clears it.',
     'Events Held': 'How many events took place in the dates you selected. The figures below compare the same length of time shifted back one month and one quarter, and the same dates in the prior fiscal year. The line stays month by month for those dates, including a month with no events at zero. It does not follow the Year, Quarter, or Month grouping. The faint dashed orange (#F28C28) line is those months in the prior fiscal year.',
-    'Attendance': 'Attendance for the dates you selected. The figures below compare the same length of time shifted back one month and one quarter, and the same dates in the prior fiscal year. The line stays month by month for those dates, including a month with no events at zero. It does not follow the Year, Quarter, or Month grouping. The faint dashed orange (#F28C28) line is those months in the prior fiscal year.',
-    'Attendance Distribution': 'Of the people who attended in the selected period, how many were members and how many were guests. The raw count is the main number; the percentage is context. Click Members or Guests to filter the whole page; click again to clear.',
+    'Attendance': 'Attendee count for the dates you selected. The figures below compare the same length of time shifted back one month and one quarter, and the same dates in the prior fiscal year. The line stays month by month for those dates, including a month with no events at zero. It does not follow the Year, Quarter, or Month grouping. The faint dashed orange (#F28C28) line is those months in the prior fiscal year.',
+    'Attendance Distribution': 'Of the people who attended in the selected period, how many were attendees and how many were guests. Attendees are people marked Member. The raw count is the main number; the percentage is context. Click Attendees or Guests to filter the whole page; click again to clear.',
     'Open': 'Opens the list of records behind this number. The list follows the filters already on the page.',
     'Company': 'Limits every figure to attendance and membership for the member companies you select. Companies combine with OR. Guests from other companies stay out of this list.',
     'Person': 'Limits every figure to the people you select. The list shows people at the selected companies, or everyone when no company is selected. People combine with OR.',
     'Search name': 'Type a name to add a person or a company, or press Enter to keep rows whose person name contains that text.',
-    'Last month / quarter / year': 'Last month and last quarter are the same measure for the same length of time, shifted back one month or one quarter. Last year is the same dates in the prior fiscal year.',
+    'Last month / quarter / year': 'On Events Held and Attendee Count, last month and last quarter are the same length of time shifted back one month or one quarter, and last year is the same dates in the prior fiscal year. On the business-member cards, the windows follow fiscal boundaries instead.',
     'Powered by Donny C. Nguyen': 'A credit line for the portal work. It is not a data measure.'
   };
 
@@ -607,6 +607,63 @@
     return metric(measure(range.start, range.end), measure(lm.start, lm.end), measure(lq.start, lq.end), measure(ly.start, ly.end));
   }
 
+  function dayBefore(value) {
+    return addDays(value, -1);
+  }
+
+  function stockBoundaries(end) {
+    var p = parseISO(end);
+    var quarter = quarterBounds(quarterIndex(end));
+    var year = fiscalBounds(fiscalYearOf(end));
+    return {
+      month: dayBefore(iso(p.y, p.m, 1)),
+      quarter: dayBefore(quarter.start),
+      fy: dayBefore(year.start)
+    };
+  }
+
+  function priorMonthWindow(end) {
+    var p = parseISO(end);
+    var start = addMonths(iso(p.y, p.m, 1), -1);
+    var sp = parseISO(start);
+    return { start: start, end: iso(sp.y, sp.m, Math.min(p.d, daysInMonth(sp.y, sp.m))) };
+  }
+
+  function priorQuarterWindow(end) {
+    var current = quarterBounds(quarterIndex(end));
+    var prev = quarterBounds(quarterIndex(end) - 1);
+    var elapsed = inclusiveDays(current.start, end) - 1;
+    var stop = addDays(prev.start, elapsed);
+    if (stop > prev.end) stop = prev.end;
+    return { start: prev.start, end: stop };
+  }
+
+  function memberStockComparisons(range, stock) {
+    var bounds = stockBoundaries(range.end);
+    var result = metric(
+      stock(range.start, range.end),
+      stock(bounds.month, bounds.month),
+      stock(bounds.quarter, bounds.quarter),
+      stock(bounds.fy, bounds.fy)
+    );
+    result.labels = ['Month start', 'Quarter start', 'FY start'];
+    return result;
+  }
+
+  function memberFlowComparisons(range, flow) {
+    var lm = priorMonthWindow(range.end);
+    var lq = priorQuarterWindow(range.end);
+    var ly = priorYearRange(range.start, range.end);
+    var result = metric(
+      flow(range.start, range.end),
+      flow(lm.start, lm.end),
+      flow(lq.start, lq.end),
+      flow(ly.start, ly.end)
+    );
+    result.labels = ['Last month', 'Last quarter', 'Last year'];
+    return result;
+  }
+
   function compute(data, state, directory) {
     data = data || {};
     var view = resolveView(data, state || defaultState(data));
@@ -710,9 +767,9 @@
       bucket: selected ? selected.id : '',
       buckets: buckets,
       eventCounts: typeCounts,
-      members: comparisons(measure, memberStock),
-      newMembers: comparisons(measure, joins),
-      net: comparisons(measure, net),
+      members: memberStockComparisons(measure, memberStock),
+      newMembers: memberFlowComparisons(measure, joins),
+      net: memberFlowComparisons(measure, net),
       gains: gainSeries,
       events: comparisons(measure, countEvents),
       eventSeries: eventSeries,
