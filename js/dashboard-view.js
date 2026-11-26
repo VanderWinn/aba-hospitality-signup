@@ -237,15 +237,28 @@ function fiscalLabel(year) {
 }
 
 function yearControl(view, compact) {
-  var options = view.years.map(function (year) {
-    return '<option value="' + year + '"' + (year === view.year ? ' selected' : '') + '>' + fiscalLabel(year) + '</option>';
+  var step = view.stepper || {
+    id: String(view.year),
+    value: fiscalLabel(view.year),
+    label: 'Fiscal year',
+    options: (view.years || []).map(function (year) {
+      return { id: String(year), label: fiscalLabel(year), year: year };
+    })
+  };
+  var noun = step.label === 'Quarter' ? 'quarter' : (step.label === 'Month' ? 'month' : 'fiscal year');
+  var index = -1;
+  (step.options || []).forEach(function (item, i) { if (item.id === step.id) index = i; });
+  var atStart = index <= 0;
+  var atEnd = index < 0 || index >= (step.options || []).length - 1;
+  var options = (step.options || []).map(function (item) {
+    return '<option value="' + escapeHtml(item.id) + '"' + (item.id === step.id ? ' selected' : '') + '>' + escapeHtml(item.label) + '</option>';
   }).join('');
   var cls = 'ystep' + (compact ? ' compact' : '') + (view.yearEnabled ? '' : ' is-off');
   return '<div class="' + cls + '"' + (view.yearEnabled ? '' : ' aria-disabled="true"') + '>' +
-    '<button type="button" data-year-step="-1" aria-label="Previous fiscal year"' + (view.yearEnabled ? '' : ' disabled') + '>◂</button>' +
-    '<b>' + fiscalLabel(view.year) + '</b>' +
-    '<button type="button" data-year-step="1" aria-label="Next fiscal year"' + (view.yearEnabled ? '' : ' disabled') + '>▸</button>' +
-    '<label class="ycaret"><span class="sr-only">Choose a fiscal year</span><select data-year-select aria-label="Fiscal year"' +
+    '<button type="button" data-year-step="-1" aria-label="Previous ' + noun + '"' + (view.yearEnabled && !atStart ? '' : ' disabled') + '>◂</button>' +
+    '<b>' + escapeHtml(step.value) + '</b>' +
+    '<button type="button" data-year-step="1" aria-label="Next ' + noun + '"' + (view.yearEnabled && !atEnd ? '' : ' disabled') + '>▸</button>' +
+    '<label class="ycaret"><span class="sr-only">Choose a ' + noun + '</span><select data-year-select aria-label="' + escapeHtml(step.label) + '"' +
     (view.yearEnabled ? '' : ' disabled') + '>' + options + '</select></label></div>';
 }
 
@@ -333,9 +346,15 @@ function yearControl(view, compact) {
   }
 
   function daterow(view) {
+    var step = view.stepper || { label: 'Fiscal year', value: fiscalLabel(view.year) };
     var bounds = model.fiscalBounds(view.year);
-    var yearSpan = ' ' + fiscalLabel(view.year) + ' is ' + model.formatDate(bounds.start) + ' through ' + model.formatDate(bounds.end) + '.';
-    var year = '<span class="lab">' + hint('Fiscal year', 'Year selector', false, yearSpan) + '</span>' + yearControl(view);
+    var yearSpan = view.custom
+      ? ' Custom dates override this control.'
+      : (' ' + step.value + ' is ' + model.formatDate(view.range.start) + ' through ' + model.formatDate(view.range.end) + '.');
+    if (step.label === 'Fiscal year' && !view.custom) {
+      yearSpan = ' ' + fiscalLabel(view.year) + ' is ' + model.formatDate(bounds.start) + ' through ' + model.formatDate(bounds.end) + '.';
+    }
+    var year = '<span class="lab">' + hint(step.label, 'Year selector', false, yearSpan) + '</span>' + yearControl(view);
     var period = '<span class="lab">' + hint('Period', 'Period') + '</span>' + periodControl(view);
     var dates = '<span class="lab">' + hint('Dates', 'Calendar') + '</span>' +
       dateField('from', 'From', view.range.start) + dateField('to', 'To', view.range.end);

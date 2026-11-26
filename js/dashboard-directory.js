@@ -248,7 +248,7 @@
       var live = view.directory && view.directory.live;
       (view.directory.membership || []).forEach(function (person) {
         if (audience && person.audience !== audience) return;
-        if (!live && !typeOk(person.eventType, eventTypes)) return;
+        if (!typeOk(person.eventType, eventTypes)) return;
         if (person.joined > end) return;
         if (person.lost && person.lost <= end) return;
         if (live ? !liveMembershipOk(person, view) : !identityOk(person, view)) return;
@@ -262,7 +262,7 @@
       var live = view.directory && view.directory.live;
       (view.directory.membership || []).forEach(function (person) {
         if (audience && person.audience !== audience) return;
-        if (!live && !typeOk(person.eventType, eventTypes)) return;
+        if (!typeOk(person.eventType, eventTypes)) return;
         if (live ? !liveMembershipOk(person, view) : !identityOk(person, view)) return;
         if (person.joined >= start && person.joined <= end) joins += 1;
         if (person.lost && person.lost >= start && person.lost <= end) losses += 1;
@@ -327,6 +327,7 @@
     var memberRows = [];
     (directory.membership || []).forEach(function (person) {
       if (person.audience !== roster) return;
+      if (!typeOk(person.eventType, eventTypes)) return;
       if (directory.live) {
         if (!liveMembershipOk(person, view)) return;
       } else if (!identityOk(person, view)) return;

@@ -326,9 +326,11 @@
     var step = event.target.closest('[data-year-step]');
     if (step && state.period !== 'last12' && !(state.from && state.to)) {
       var view = dash.compute(source, state);
-      var index = view.years.indexOf(view.year);
-      var nextYear = view.years[index + Number(step.getAttribute('data-year-step'))];
-      if (nextYear) update({ type: 'year', year: nextYear });
+      var options = (view.stepper && view.stepper.options) || [];
+      var index = -1;
+      options.forEach(function (item, i) { if (item.id === view.stepper.id) index = i; });
+      var picked = options[index + Number(step.getAttribute('data-year-step'))];
+      if (picked) update({ type: 'focus', year: picked.year, quarter: picked.quarter, month: picked.month });
       return;
     }
     var type = event.target.closest('[data-type]');
@@ -437,7 +439,12 @@
       return;
     }
     if (target && target.hasAttribute('data-year-select')) {
-      update({ type: 'year', year: Number(target.value) });
+      var pickedView = dash.compute(source, state);
+      var pickedOption = null;
+      ((pickedView.stepper && pickedView.stepper.options) || []).forEach(function (item) {
+        if (item.id === target.value) pickedOption = item;
+      });
+      if (pickedOption) update({ type: 'focus', year: pickedOption.year, quarter: pickedOption.quarter, month: pickedOption.month });
       return;
     }
     if (target && target.hasAttribute('data-date')) {
