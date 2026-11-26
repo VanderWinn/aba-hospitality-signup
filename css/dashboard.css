@@ -9,6 +9,10 @@
   --aba-teal-light: #D7E5EB;
   --aba-coral: #B84734;
   --aba-muted: #7D949C;
+  /* Sea green for up-deltas. 5.35:1 on white, 4.62:1 on the tint chip, 4.78:1 on the page gray. */
+  --aba-positive: #24785F;
+  --aba-positive-tint: #E3F2EA;
+  --aba-loss-tint: #FBEDEC;
   --pine: var(--aba-teal);
   --deep: #2d515f;
   --mint: #83b7b5;
@@ -536,11 +540,19 @@ select:focus-visible {
 
 .delta { font-style: normal; font-size: 16px; margin-left: 4px; font-weight: 700; }
 
-.delta-up { color: var(--pop-text); }
+.delta-up, .delta-down {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 8px;
+  line-height: 1.35;
+  vertical-align: 1px;
+}
 
-.delta-down { color: var(--clay); }
+.delta-up { color: var(--aba-positive); background: var(--aba-positive-tint); }
 
-.delta-flat { color: #888; font-size: 14px; }
+.delta-down { color: var(--clay); background: var(--aba-loss-tint); }
+
+.delta-flat { color: #888; font-size: 14px; background: none; }
 
 .chart-empty {
   margin: 0;
