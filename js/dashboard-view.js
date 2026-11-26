@@ -141,7 +141,7 @@
       }
       parts.push('<rect class="hit" data-bucket="' + escapeHtml(bucket.id) + '" x="' + (currentX - 1).toFixed(1) + '" y="18" width="' + (bw + 2).toFixed(1) + '" height="' + (h - 34) + '" fill="transparent"/>');
     });
-    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Membership gains and losses, this fiscal year beside last fiscal year">' + parts.join('') + '</svg>';
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Member gains and losses, this fiscal year beside last fiscal year">' + parts.join('') + '</svg>';
   }
 
 function lineSvg(values, lastYear, labels, kind, narrow) {
@@ -490,9 +490,9 @@ function yearControl(view, compact) {
     var net = card('Net Gain', 'Net Gain',
       headline(signed(view.net.value), view.net.tone, 'big-mid', 'changes') + priors(view.net),
       ' pop', 'changes');
-    var gains = card('Membership Gains V Losses', 'Membership Gains V Losses',
+    var gains = card('Member Gains and Losses', 'Member Gains and Losses',
       '<div class="chart-slot">' + gainsSvg(view.gains, view.bucket, showBarLabels, view.gainLegend) + '</div>',
-      ' card-gains', 'changes');
+      ' card-gains', 'gains');
     var events = card('Events Held', 'Events Held',
       headline(String(view.events.value), view.events.tone, 'big-mid', 'events') + priors(view.events) +
       '<div class="chart-slot">' + lineSvg(view.eventSeries, view.eventLastYear, labels, 'Events held', view.mobile) + '</div>' + legend(),

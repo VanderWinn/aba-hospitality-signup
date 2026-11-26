@@ -346,7 +346,7 @@
         }
       }
     });
-    var titles = { members: 'Business Members', newMembers: 'New Members', changes: 'Membership records' };
+    var titles = { members: 'Business Members', newMembers: 'New Members', changes: 'Membership records', gains: 'Member Gains and Losses' };
     return {
       title: titles[kind] || 'Membership',
       kind: kind,
