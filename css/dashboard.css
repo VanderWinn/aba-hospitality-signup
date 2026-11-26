@@ -160,7 +160,6 @@ button.big { display: block; width: 100%; }
 .daterow-full .lab { font-size: 11px; letter-spacing: .15px; }
 
 .daterow-full .lab .info,
-.daterow-full .run-tog .info,
 .daterow-full .reset .info {
   width: 14px;
   height: 14px;
@@ -184,16 +183,7 @@ button.big { display: block; width: 100%; }
 
 .daterow-full .reset { height: 30px; padding: 0 6px; font-size: 12px; gap: 4px; }
 
-.daterow-full .run-tog,
-.daterow-mob .run-tog {
-  width: auto;
-  height: 30px;
-  padding: 0;
-  border: 0;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-}
+.run-view { margin: 0 0 16px; }
 
 .daterow-mob { display: none; }
 
@@ -845,8 +835,6 @@ button.big { display: block; width: 100%; }
   }
 
   .daterow-mob .ystep { flex: 0 0 auto; }
-
-  .daterow-mob .run-tog { flex: 0 1 auto; }
 
   .daterow-mob .pseg {
     flex: 1 1 100%;
