@@ -236,6 +236,24 @@ function fiscalLabel(year) {
   return 'FY' + year;
 }
 
+function stepControl(step, enabled, compact, attrs) {
+  var index = -1;
+  (step.options || []).forEach(function (item, i) { if (item.id === step.id) index = i; });
+  var atStart = index <= 0;
+  var atEnd = index < 0 || index >= (step.options || []).length - 1;
+  var options = (step.options || []).map(function (item) {
+    return '<option value="' + escapeHtml(item.id) + '"' + (item.id === step.id ? ' selected' : '') + '>' + escapeHtml(item.label) + '</option>';
+  }).join('');
+  var noun = step.label === 'Quarter' ? 'quarter' : (step.label === 'Month' ? 'month' : 'fiscal year');
+  var cls = 'ystep' + (attrs.extraClass ? ' ' + attrs.extraClass : '') + (compact ? ' compact' : '') + (enabled ? '' : ' is-off');
+  return '<div class="' + cls + '"' + (enabled ? '' : ' aria-disabled="true"') + '>' +
+    '<button type="button" ' + attrs.step + '="-1" aria-label="Previous ' + noun + '"' + (enabled && !atStart ? '' : ' disabled') + '>◂</button>' +
+    '<b>' + escapeHtml(step.value) + '</b>' +
+    '<button type="button" ' + attrs.step + '="1" aria-label="Next ' + noun + '"' + (enabled && !atEnd ? '' : ' disabled') + '>▸</button>' +
+    '<label class="ycaret"><span class="sr-only">Choose a ' + noun + '</span><select ' + attrs.select + ' aria-label="' + escapeHtml(step.label) + '"' +
+    (enabled ? '' : ' disabled') + '>' + options + '</select></label></div>';
+}
+
 function yearControl(view, compact) {
   var step = view.stepper || {
     id: String(view.year),
@@ -245,21 +263,12 @@ function yearControl(view, compact) {
       return { id: String(year), label: fiscalLabel(year), year: year };
     })
   };
-  var noun = step.label === 'Quarter' ? 'quarter' : (step.label === 'Month' ? 'month' : 'fiscal year');
-  var index = -1;
-  (step.options || []).forEach(function (item, i) { if (item.id === step.id) index = i; });
-  var atStart = index <= 0;
-  var atEnd = index < 0 || index >= (step.options || []).length - 1;
-  var options = (step.options || []).map(function (item) {
-    return '<option value="' + escapeHtml(item.id) + '"' + (item.id === step.id ? ' selected' : '') + '>' + escapeHtml(item.label) + '</option>';
-  }).join('');
-  var cls = 'ystep' + (compact ? ' compact' : '') + (view.yearEnabled ? '' : ' is-off');
-  return '<div class="' + cls + '"' + (view.yearEnabled ? '' : ' aria-disabled="true"') + '>' +
-    '<button type="button" data-year-step="-1" aria-label="Previous ' + noun + '"' + (view.yearEnabled && !atStart ? '' : ' disabled') + '>◂</button>' +
-    '<b>' + escapeHtml(step.value) + '</b>' +
-    '<button type="button" data-year-step="1" aria-label="Next ' + noun + '"' + (view.yearEnabled && !atEnd ? '' : ' disabled') + '>▸</button>' +
-    '<label class="ycaret"><span class="sr-only">Choose a ' + noun + '</span><select data-year-select aria-label="' + escapeHtml(step.label) + '"' +
-    (view.yearEnabled ? '' : ' disabled') + '>' + options + '</select></label></div>';
+  return stepControl(step, view.yearEnabled, compact, { step: 'data-year-step', select: 'data-year-select' });
+}
+
+function segmentControl(view, compact) {
+  if (!view.segment) return '';
+  return stepControl(view.segment, true, compact, { step: 'data-segment-step', select: 'data-segment-select', extraClass: 'segstep' });
 }
 
   function showControl(view) {
@@ -355,16 +364,11 @@ function yearControl(view, compact) {
   }
 
   function daterow(view) {
-    var step = view.stepper || { label: 'Fiscal year', value: fiscalLabel(view.year) };
     var bounds = model.fiscalBounds(view.year);
-    var yearSpan = view.custom
-      ? ' Custom dates override this control.'
-      : (' ' + step.value + ' is ' + model.formatDate(view.range.start) + ' through ' + model.formatDate(view.range.end) + '.');
-    if (step.label === 'Fiscal year' && !view.custom) {
-      yearSpan = ' ' + fiscalLabel(view.year) + ' is ' + model.formatDate(bounds.start) + ' through ' + model.formatDate(bounds.end) + '.';
-    }
-    var year = '<span class="lab">' + hint(step.label, 'Year selector', false, yearSpan) + '</span>' + yearControl(view);
-    var period = '<span class="lab">' + hint('Period', 'Period') + '</span>' + periodControl(view);
+    var yearSpan = ' ' + fiscalLabel(view.year) + ' is ' + model.formatDate(bounds.start) + ' through ' + model.formatDate(bounds.end) + '.';
+    if (view.custom) yearSpan += ' Custom dates override this control.';
+    var year = '<span class="lab">' + hint('Fiscal year', 'Year selector', false, yearSpan) + '</span>' + yearControl(view);
+    var period = '<span class="lab">' + hint('Period', 'Period') + '</span>' + periodControl(view) + segmentControl(view);
     var dates = '<span class="lab">' + hint('Dates', 'Calendar') + '</span>' +
       dateField('from', 'From', view.range.start) + dateField('to', 'To', view.range.end);
     var reset = '<button type="button" class="reset" data-reset>↺ Reset filters ' + hint('', 'Reset filters', true) + '</button>';
@@ -378,7 +382,7 @@ function yearControl(view, compact) {
       '<input type="date" data-date="to" value="' + escapeHtml(view.range.end) + '" aria-label="To date">';
     return '<div class="daterow daterow-full"><div class="dfilters"><div class="dgroup">' + year + '</div><div class="dgroup">' + period +
       '</div><div class="dgroup">' + showControl(view) + '</div><div class="dgroup">' + dates + '</div></div><div class="dgroup reset-group">' + reset + '</div></div>' +
-      '<div class="daterow daterow-mob"><div class="mob-main"><div class="cols"><div class="track">' + yearControl(view, true) + periodControl(view) + showControl(view) +
+      '<div class="daterow daterow-mob"><div class="mob-main"><div class="cols"><div class="track">' + yearControl(view, true) + periodControl(view) + segmentControl(view, true) + showControl(view) +
       '</div><div class="dprow"><label class="drow drow-span">' + mobileDates + '</label></div></div>' +
       '<div class="sticky"><button type="button" class="reset" data-reset>↺ Reset filters</button></div></div></div>';
   }

@@ -24,11 +24,11 @@
     'Lunch & Learn': 'Shows only Lunch & Learn events in the period you selected.',
     'Ribbon Cutting': 'Shows only Ribbon Cutting events in the period you selected.',
     'Happy Hour': 'Shows only Happy Hour events in the period you selected.',
-    'Year selector': 'Steps through fiscal years, quarters, or months, matching the Period button that is on. A fiscal year runs from July 1 through June 30 and is named for the year it ends. The current period runs through today. This control is not used when Last 12 months is selected or when you have picked custom dates.',
-    'Period': 'Year keeps every total on the fiscal year. Quarter sets every total to one fiscal quarter: Q1 July–September, Q2 October–December, Q3 January–March, Q4 April–June. Month sets every total to one calendar month. The current quarter or month runs through today. Last 12 months sets Dates to the trailing 12 months. Member Gains and Losses pairs the selected period with the same period last fiscal year.',
-    'Year': 'Sets every total to the selected fiscal year. The current year runs through today. A past year is July 1 through June 30. Member Gains and Losses shows that year beside the same dates last fiscal year.',
-    'Quarter': 'Sets every total to one fiscal quarter. Q1 is July–September, Q2 October–December, Q3 January–March, and Q4 April–June. The current quarter runs through today. Step or pick another quarter. A past quarter is the full quarter. Member Gains and Losses pairs it with the same quarter last fiscal year.',
-    'Month': 'Sets every total to one calendar month. The current month runs through today. Step or pick another month. A past month is the full month. Member Gains and Losses pairs it with the same month last fiscal year.',
+    'Year selector': 'Steps through fiscal years. A fiscal year runs from July 1 through June 30 and is named for the year it ends. Period then chooses the whole year, one quarter, or one month inside that year. This control is not used when Last 12 months is selected or when you have picked custom dates.',
+    'Period': 'Year keeps every total on the fiscal year chosen at the left. Quarter sets every total to one fiscal quarter inside that year: Q1 July–September, Q2 October–December, Q3 January–March, Q4 April–June. Month sets every total to one calendar month inside that year. The current quarter or month runs through today. Last 12 months sets Dates to the trailing 12 months and ignores the fiscal year. Member Gains and Losses pairs the selected period with the same period last fiscal year.',
+    'Year': 'Sets every total to the fiscal year chosen at the left. The current year runs through today. A past year is July 1 through June 30. Member Gains and Losses shows that year beside the same dates last fiscal year.',
+    'Quarter': 'Sets every total to one fiscal quarter inside the fiscal year chosen at the left. Q1 is July–September, Q2 October–December, Q3 January–March, and Q4 April–June. The stepper beside Period moves between the quarters of that year. The current quarter runs through today. A past quarter is the full quarter. Member Gains and Losses pairs it with the same quarter last fiscal year.',
+    'Month': 'Sets every total to one calendar month inside the fiscal year chosen at the left. The stepper beside Period moves between the months of that year. The current month runs through today. A past month is the full month. Member Gains and Losses pairs it with the same month last fiscal year.',
     'Last 12 months (period)': 'Sets Dates to the trailing 12 full months ending today, and groups Member Gains and Losses by month. The Year control is not used. Comparisons use the 12 months before that.',
     'Calendar': 'Pick a start and an end date. That range overrides the year and the Last 12 months preset. Year, Quarter, and Month still group the gains and losses bars inside the dates you pick. Every total follows this range.',
     'Show as': 'Each period shows that month, quarter, or year by itself. Running total adds each one to the total from the start of the fiscal year through that period. Last 12 months adds from the start of those dates instead. The big numbers stay the total for the dates you selected.',
@@ -179,6 +179,33 @@
     var start = iso(p.y, p.m, 1);
     var end = iso(p.y, p.m, daysInMonth(p.y, p.m));
     return clampWindow(start, end, today);
+  }
+
+  function monthInFiscalYear(month, year) {
+    var key = String(month || '');
+    var cal = /^\d{4}-\d{2}$/.test(key) ? parseISO(key + '-01').m : 7;
+    var y = cal >= 7 ? Number(year) - 1 : Number(year);
+    return iso(y, cal, 1).slice(0, 7);
+  }
+
+  function latestQuarter(year, today) {
+    var q;
+    for (q = 4; q >= 1; q--) {
+      if (quarterWindow(year, q, today)) return q;
+    }
+    return quarterBounds(quarterIndex(today)).q;
+  }
+
+  function latestMonth(year, today) {
+    var cursor = fiscalBounds(year).start;
+    var end = fiscalBounds(year).end;
+    var last = cursor.slice(0, 7);
+    while (cursor.slice(0, 7) <= end.slice(0, 7)) {
+      if (!monthWindow(cursor.slice(0, 7), today)) break;
+      last = cursor.slice(0, 7);
+      cursor = addMonths(iso(parseISO(cursor).y, parseISO(cursor).m, 1), 1);
+    }
+    return last;
   }
 
   function quarterChoices(years, today) {
@@ -476,34 +503,45 @@
     } else if (period === 'last12') {
       range = periodRange('last12', year, today);
     } else if (period === 'quarter') {
-      range = quarterWindow(year, quarter, today) || { start: currentQuarter.start, end: today };
-      quarter = quarterBounds(quarterIndex(range.end)).q;
-      year = fiscalYearOf(range.end);
+      if (!quarterWindow(year, quarter, today)) quarter = latestQuarter(year, today);
+      range = quarterWindow(year, quarter, today) || periodRange('year', year, today);
     } else if (period === 'month') {
-      range = monthWindow(month, today) || monthWindow(today.slice(0, 7), today);
-      month = range.start.slice(0, 7);
-      year = fiscalYearOf(range.end);
+      if (fiscalYearOf(month + '-01') !== year) month = monthInFiscalYear(month, year);
+      if (!monthWindow(month, today)) month = latestMonth(year, today);
+      range = monthWindow(month, today) || periodRange('year', year, today);
     }
-    var choices = period === 'quarter' ? quarterChoices(years, today) : (period === 'month' ? monthChoices(years, today) : years.map(function (item) {
+    var choices = years.map(function (item) {
       return { id: String(item), label: 'FY' + item, shortLabel: 'FY' + item, year: item };
-    }));
-    var focusId = period === 'quarter' ? (year + '-Q' + quarter) : (period === 'month' ? month : String(year));
-    var focus = null;
-    choices.forEach(function (item) { if (item.id === focusId) focus = item; });
-    if (!focus) focus = choices[choices.length - 1];
-    if (!custom && focus && focus.id !== focusId) {
-      if (period === 'quarter') {
-        range = quarterWindow(focus.year, focus.quarter, today) || range;
-        quarter = focus.quarter;
-        year = focus.year;
-      } else if (period === 'month') {
-        range = monthWindow(focus.month, today) || range;
-        month = focus.month;
-        year = focus.year;
-      } else {
-        year = focus.year;
-        range = periodRange('year', year, today);
+    });
+    var segment = null;
+    if (!custom && period === 'quarter') {
+      var quarterOptions = [];
+      var qn;
+      for (qn = 1; qn <= 4; qn++) {
+        if (!quarterWindow(year, qn, today)) break;
+        quarterOptions.push({ id: 'Q' + qn, label: 'Q' + qn, shortLabel: 'Q' + qn, quarter: qn, year: year });
       }
+      segment = { id: 'Q' + quarter, label: 'Quarter', value: 'Q' + quarter, options: quarterOptions };
+    } else if (!custom && period === 'month') {
+      var monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      var monthOptions = [];
+      var cursor = fiscalBounds(year).start;
+      var fyEnd = fiscalBounds(year).end;
+      while (cursor.slice(0, 7) <= fyEnd.slice(0, 7) && monthOptions.length < 12) {
+        var key = cursor.slice(0, 7);
+        if (!monthWindow(key, today)) break;
+        var mp = parseISO(cursor);
+        monthOptions.push({
+          id: key,
+          label: monthNames[mp.m - 1] + ' ' + mp.y,
+          shortLabel: MONTHS[mp.m - 1],
+          month: key,
+          year: year
+        });
+        cursor = addMonths(iso(mp.y, mp.m, 1), 1);
+      }
+      var monthLabel = MONTHS[parseISO(month + '-01').m - 1];
+      segment = { id: month, label: 'Month', value: monthLabel, options: monthOptions };
     }
     var eventTypes = [];
     if (state && typeof state.eventTypes !== 'string' && state.eventTypes && state.eventTypes.length) {
@@ -529,11 +567,12 @@
       grouping: groupingOf(period),
       yearEnabled: period !== 'last12' && !custom,
       stepper: {
-        id: focus ? focus.id : focusId,
-        label: period === 'quarter' ? 'Quarter' : (period === 'month' ? 'Month' : 'Fiscal year'),
-        value: focus ? focus.shortLabel : ('FY' + year),
+        id: String(year),
+        label: 'Fiscal year',
+        value: 'FY' + year,
         options: choices
       },
+      segment: segment,
       eventType: eventTypes.length === 1 ? eventTypes[0] : '',
       eventTypes: eventTypes,
       companies: companies,
@@ -574,28 +613,31 @@
     };
   }
 
+  function clampChosenPeriod(data, state) {
+    var today = isISO(data && data.asOf) ? data.asOf : '2026-11-24';
+    if (state.period === 'quarter' && !quarterWindow(state.year, state.quarter, today)) {
+      state.quarter = latestQuarter(state.year, today);
+    }
+    if (state.period === 'month') {
+      var key = /^\d{4}-\d{2}$/.test(state.month) ? state.month : today.slice(0, 7);
+      if (fiscalYearOf(key + '-01') !== Number(state.year)) key = monthInFiscalYear(key, state.year);
+      if (!monthWindow(key, today)) key = latestMonth(state.year, today);
+      state.month = key;
+    }
+  }
+
   function applyAction(data, state, action) {
     var next = copyState(state || defaultState(data));
     action = action || {};
     if (action.type === 'reset') return defaultState(data);
     if (action.type === 'period') {
-      var entering = next.period !== action.period;
-      var today = isISO(data && data.asOf) ? data.asOf : '2026-11-24';
       next.period = action.period;
       next.bucket = '';
       if (action.period === 'quarter' || action.period === 'month' || action.period === 'last12') {
         next.from = '';
         next.to = '';
       }
-      if (entering && action.period === 'quarter') {
-        var pickedQuarter = quarterBounds(quarterIndex(today));
-        next.year = pickedQuarter.fy;
-        next.quarter = pickedQuarter.q;
-      }
-      if (entering && action.period === 'month') {
-        next.month = today.slice(0, 7);
-        next.year = fiscalYearOf(today);
-      }
+      clampChosenPeriod(data, next);
       return next;
     }
     if (action.type === 'showAs') {
@@ -606,20 +648,32 @@
       if (next.period === 'last12' || (next.from && next.to)) return next;
       next.year = Number(action.year);
       next.bucket = '';
+      if (next.period === 'month') next.month = monthInFiscalYear(next.month, next.year);
+      clampChosenPeriod(data, next);
+      return next;
+    }
+    if (action.type === 'segment') {
+      if (next.period === 'last12' || (next.from && next.to)) return next;
+      next.bucket = '';
+      if (next.period === 'quarter' && action.quarter) next.quarter = Number(action.quarter);
+      if (next.period === 'month' && action.month) next.month = String(action.month);
+      clampChosenPeriod(data, next);
       return next;
     }
     if (action.type === 'focus') {
       if (next.period === 'last12' || (next.from && next.to)) return next;
       next.bucket = '';
-      if (next.period === 'quarter') {
+      if (next.period === 'quarter' && action.quarter) {
         next.year = Number(action.year);
         next.quarter = Number(action.quarter);
-      } else if (next.period === 'month') {
-        next.month = String(action.month || next.month);
+      } else if (next.period === 'month' && action.month) {
+        next.month = String(action.month);
         if (action.year) next.year = Number(action.year);
       } else if (action.year) {
         next.year = Number(action.year);
+        if (next.period === 'month') next.month = monthInFiscalYear(next.month, next.year);
       }
+      clampChosenPeriod(data, next);
       return next;
     }
     if (action.type === 'dates') {
@@ -916,6 +970,7 @@
       quarter: view.quarter,
       month: view.month,
       stepper: view.stepper,
+      segment: view.segment,
       period: view.period,
       showAs: view.showAs,
       custom: view.custom,

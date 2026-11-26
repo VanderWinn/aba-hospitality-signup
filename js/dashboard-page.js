@@ -306,7 +306,17 @@
       var index = -1;
       options.forEach(function (item, i) { if (item.id === view.stepper.id) index = i; });
       var picked = options[index + Number(step.getAttribute('data-year-step'))];
-      if (picked) update({ type: 'focus', year: picked.year, quarter: picked.quarter, month: picked.month });
+      if (picked) update({ type: 'year', year: picked.year });
+      return;
+    }
+    var segmentStep = event.target.closest('[data-segment-step]');
+    if (segmentStep && state.period !== 'last12' && !(state.from && state.to)) {
+      var segmentView = dash.compute(source, state);
+      var segmentOptions = (segmentView.segment && segmentView.segment.options) || [];
+      var segmentIndex = -1;
+      segmentOptions.forEach(function (item, i) { if (item.id === segmentView.segment.id) segmentIndex = i; });
+      var segmentPicked = segmentOptions[segmentIndex + Number(segmentStep.getAttribute('data-segment-step'))];
+      if (segmentPicked) update({ type: 'segment', quarter: segmentPicked.quarter, month: segmentPicked.month });
       return;
     }
     var type = event.target.closest('[data-type]');
@@ -399,12 +409,16 @@
       return;
     }
     if (target && target.hasAttribute('data-year-select')) {
-      var pickedView = dash.compute(source, state);
-      var pickedOption = null;
-      ((pickedView.stepper && pickedView.stepper.options) || []).forEach(function (item) {
-        if (item.id === target.value) pickedOption = item;
+      update({ type: 'year', year: Number(target.value) });
+      return;
+    }
+    if (target && target.hasAttribute('data-segment-select')) {
+      var segmentView = dash.compute(source, state);
+      var segmentOption = null;
+      ((segmentView.segment && segmentView.segment.options) || []).forEach(function (item) {
+        if (item.id === target.value) segmentOption = item;
       });
-      if (pickedOption) update({ type: 'focus', year: pickedOption.year, quarter: pickedOption.quarter, month: pickedOption.month });
+      if (segmentOption) update({ type: 'segment', quarter: segmentOption.quarter, month: segmentOption.month });
       return;
     }
     if (target && target.hasAttribute('data-date')) {
