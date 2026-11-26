@@ -44,11 +44,173 @@
     return false;
   }
 
+  function tidyLabel(value) {
+    return String(value || '').trim().replace(/\s+/g, ' ');
+  }
+
+  function foldLabel(value) {
+    return tidyLabel(value).toLowerCase();
+  }
+
+  function labelRank(label) {
+    var letters = String(label || '').replace(/[^A-Za-z]/g, '');
+    if (!letters) return 0;
+    var upper = (letters.match(/[A-Z]/g) || []).length;
+    if (upper && upper < letters.length) return 2;
+    if (upper === 0) return 1;
+    return 0;
+  }
+
+  function chooseLabel(counts) {
+    var best = '';
+    var bestCount = -1;
+    var bestRank = -1;
+    Object.keys(counts).forEach(function (label) {
+      var count = counts[label];
+      var rank = labelRank(label);
+      var better = count > bestCount ||
+        (count === bestCount && rank > bestRank) ||
+        (count === bestCount && rank === bestRank && label.length > best.length) ||
+        (count === bestCount && rank === bestRank && label.length === best.length && (best === '' || label < best));
+      if (better) {
+        best = label;
+        bestCount = count;
+        bestRank = rank;
+      }
+    });
+    return best;
+  }
+
+  function tally(counts, value) {
+    var label = tidyLabel(value);
+    if (!label) return;
+    counts[label] = (counts[label] || 0) + 1;
+  }
+
+  function consolidateLabels(labels) {
+    var groups = {};
+    (labels || []).forEach(function (label) {
+      var tidy = tidyLabel(label);
+      var key = foldLabel(tidy);
+      if (!key) return;
+      if (!groups[key]) groups[key] = {};
+      groups[key][tidy] = (groups[key][tidy] || 0) + 1;
+    });
+    var names = Object.keys(groups).map(function (key) { return chooseLabel(groups[key]); });
+    names.sort(function (a, b) { return a < b ? -1 : a > b ? 1 : 0; });
+    return names;
+  }
+
+  function labelSelected(selected, value) {
+    var key = foldLabel(value);
+    var i;
+    for (i = 0; i < selected.length; i++) {
+      if (selected[i] === value || foldLabel(selected[i]) === key) return true;
+    }
+    return false;
+  }
+
+  function personRecord(rows) {
+    var names = {};
+    var companies = {};
+    var audiences = {};
+    var keys = {};
+    var emails = {};
+    rows.forEach(function (row) {
+      tally(names, row.name);
+      tally(companies, row.company);
+      tally(audiences, row.audience);
+      var nameKey = foldLabel(row.name);
+      if (nameKey) keys[nameKey] = true;
+      var email = foldLabel(row.email);
+      if (email) emails[email] = true;
+    });
+    var companyNames = consolidateLabels(Object.keys(companies).reduce(function (list, label) {
+      var n;
+      for (n = 0; n < companies[label]; n++) list.push(label);
+      return list;
+    }, []));
+    return {
+      name: chooseLabel(names),
+      company: companyNames[0] || '',
+      companies: companyNames,
+      audience: chooseLabel(audiences),
+      keys: Object.keys(keys),
+      emails: Object.keys(emails)
+    };
+  }
+
+  function consolidatePeople(rows) {
+    var parent = [];
+    function find(index) {
+      while (parent[index] !== index) {
+        parent[index] = parent[parent[index]];
+        index = parent[index];
+      }
+      return index;
+    }
+    function unite(left, right) {
+      var a = find(left);
+      var b = find(right);
+      if (a !== b) parent[b] = a;
+    }
+    rows.forEach(function (row, index) { parent[index] = index; });
+    var byName = {};
+    var byEmail = {};
+    rows.forEach(function (row, index) {
+      var name = foldLabel(row.name);
+      if (name) {
+        if (byName[name] != null) unite(index, byName[name]);
+        else byName[name] = index;
+      }
+      var email = foldLabel(row.email);
+      if (email) {
+        if (byEmail[email] != null) unite(index, byEmail[email]);
+        else byEmail[email] = index;
+      }
+    });
+    var groups = {};
+    rows.forEach(function (row, index) {
+      var root = find(index);
+      if (!groups[root]) groups[root] = [];
+      groups[root].push(row);
+    });
+    var people = Object.keys(groups).map(function (key) { return personRecord(groups[key]); });
+    people.sort(function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+    return people;
+  }
+
+  function selectedPerson(selected, entry) {
+    if (selected.indexOf(entry.name) !== -1) return true;
+    var i;
+    for (i = 0; i < selected.length; i++) {
+      if (foldLabel(selected[i]) === foldLabel(entry.name)) return true;
+      if ((entry.keys || []).indexOf(foldLabel(selected[i])) !== -1) return true;
+    }
+    return false;
+  }
+
+  function personSelected(selected, row, view) {
+    var people = (view.directory && view.directory.people) || [];
+    var name = foldLabel(row.name);
+    var email = foldLabel(row.email);
+    var i;
+    for (i = 0; i < people.length; i++) {
+      if (!selectedPerson(selected, people[i])) continue;
+      if (name && (people[i].keys || [foldLabel(people[i].name)]).indexOf(name) !== -1) return true;
+      if (email && (people[i].emails || []).indexOf(email) !== -1) return true;
+    }
+    for (i = 0; i < selected.length; i++) {
+      if (foldLabel(selected[i]) === name) return true;
+    }
+    return false;
+  }
+
   function identityOk(row, view) {
     var companies = view.companies || [];
     var people = view.people || [];
-    if (companies.length && companies.indexOf(row.company) === -1) return false;
-    if (people.length && people.indexOf(row.name) === -1) return false;
+    if (companies.length && !labelSelected(companies, row.company)) return false;
+    if (people.length && !personSelected(people, row, view)) return false;
     return true;
   }
 
@@ -176,7 +338,12 @@
     var selected = companies || [];
     return (directory.people || []).filter(function (person) {
       if (!selected.length) return true;
-      return selected.indexOf(person.company) !== -1;
+      var names = person.companies && person.companies.length ? person.companies : [person.company];
+      var i;
+      for (i = 0; i < names.length; i++) {
+        if (labelSelected(selected, names[i])) return true;
+      }
+      return false;
     });
   }
 
@@ -200,14 +367,16 @@
   }
 
   function liveMembershipOk(person, view) {
-    if ((view.companies || []).length && view.companies.indexOf(person.company) === -1) return false;
+    if ((view.companies || []).length && !labelSelected(view.companies, person.company)) return false;
     var selected = view.people || [];
     if (!selected.length) return true;
     var wanted = {};
     (view.directory.people || []).forEach(function (entry) {
-      if (selected.indexOf(entry.name) !== -1) wanted[entry.company] = true;
+      if (!selectedPerson(selected, entry)) return;
+      var names = entry.companies && entry.companies.length ? entry.companies : [entry.company];
+      names.forEach(function (company) { wanted[foldLabel(company)] = true; });
     });
-    return !!wanted[person.company];
+    return !!wanted[foldLabel(person.company)];
   }
 
   var narrow = {
@@ -432,15 +601,7 @@
       copy.status = String(row.status || '').toLowerCase();
       attendance.push(copy);
     });
-    var seen = {};
-    var people = [];
-    attendance.forEach(function (row) {
-      var key = row.name + '|' + row.company;
-      if (seen[key]) return;
-      seen[key] = true;
-      people.push({ name: row.name, company: row.company, audience: row.audience });
-    });
-    people.sort(function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+    var people = consolidatePeople(attendance);
     var membership = (payload.roster || []).map(function (row) {
       var company = String(row.company || '').trim();
       if (!company) return null;
@@ -454,12 +615,13 @@
         lost: deactivated ? (row.lostDate || row.lost_date || '2026-06-30') : ''
       };
     }).filter(Boolean);
-    var companies = (payload.companies || []).slice();
+    var companies = consolidateLabels(payload.companies || []);
     if (!companies.length) {
+      var rosterNames = [];
       membership.forEach(function (row) {
-        if (!row.lost && companies.indexOf(row.company) === -1) companies.push(row.company);
+        if (!row.lost) rosterNames.push(row.company);
       });
-      companies.sort();
+      companies = consolidateLabels(rosterNames);
     }
     return {
       companies: companies,

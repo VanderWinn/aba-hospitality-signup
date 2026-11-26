@@ -394,7 +394,10 @@ function periodControl(view) {
     var summary = !selected.length ? (kind === 'company' ? 'All companies' : 'All attendees') : (selected.length > 2 ? selected.length + ' selected' : selected.join(', '));
     var boxes = visible.map(function (option) {
       var label = kind === 'company' ? option : option.name;
-      var on = selected.indexOf(label) !== -1;
+      var folded = String(label || '').trim().replace(/\s+/g, ' ').toLowerCase();
+      var on = selected.some(function (item) {
+        return item === label || String(item || '').trim().replace(/\s+/g, ' ').toLowerCase() === folded;
+      });
       return '<label class="check"><input type="checkbox" data-' + kind + '-option="' + escapeHtml(label) + '"' + (on ? ' checked' : '') + '> ' + escapeHtml(label) + '</label>';
     }).join('') || '<p class="empty-opt">' + (kind === 'company' ? 'No matches' : 'No attendees') + '</p>';
     var listName = kind === 'company' ? 'company' : 'attendee';
