@@ -27,8 +27,8 @@
     'Year selector': 'Steps through fiscal years. A fiscal year runs from July 1 through June 30 and is named for the year it ends. Period then chooses the whole year, the current quarter, or the current month inside that year. A past year uses its last quarter or its last month. This control is not used when Last 12 months is selected or when you have picked custom dates.',
     'Period': 'Year keeps every total on the fiscal year chosen at the left. Quarter sets every total to the current fiscal quarter inside that year, or the last quarter of a past year. Month sets every total to the current calendar month inside that year, or the last month of a past year. The current quarter or month runs through today. Last 12 months sets Dates to the trailing 12 months and ignores the fiscal year. Each chart period is that period alone. Member Gains and Losses pairs it with the same period last fiscal year.',
     'Year': 'Sets every total to the fiscal year chosen at the left. The current year runs through today. A past year is July 1 through June 30. Member Gains and Losses shows that year beside the same dates last fiscal year.',
-    'Quarter': 'Sets every total to the current fiscal quarter inside the fiscal year chosen at the left. Q1 is July–September, Q2 October–December, Q3 January–March, and Q4 April–June. The current quarter runs through today. A past year uses its last quarter, April through June. Member Gains and Losses pairs it with the same quarter last fiscal year.',
-    'Month': 'Sets every total to the current calendar month inside the fiscal year chosen at the left. The current month runs through today. A past year uses its last month, June. Member Gains and Losses pairs it with the same month last fiscal year.',
+    'Quarter': 'The dates and the big numbers stay on the current fiscal quarter inside the year at the left, through today. A past year uses its last quarter, April through June. The charts show each quarter of that fiscal year separately, Q1 through the current quarter, each beside the same quarter last fiscal year. Later quarters are left off.',
+    'Month': 'The dates and the big numbers stay on the current month inside the year at the left, through today. A past year uses June. The charts show each month of that fiscal year separately, July through the current month, each beside the same month last fiscal year. Later months are left off.',
     'Last 12 months (period)': 'Sets Dates to the trailing 12 full months ending today, and groups Member Gains and Losses by month. The Year control is not used. Comparisons use the 12 months before that.',
     'Calendar': 'Pick a start and an end date. That range overrides the year and the Last 12 months preset. Year, Quarter, and Month still group the gains and losses bars inside the dates you pick. Every total follows this range.',
     'Reset filters': 'Clears every filter in one click: the year, the period, the dates, event types, companies, attendees, and a pie or bar selection. An open list refreshes to the unfiltered records.',
@@ -735,7 +735,11 @@
     var view = resolveView(data, state || defaultState(data));
     if (directory) view.directory = directory;
     var attendance = attendanceByEvent(data);
-    var buckets = bucketsFor(view.range, view.grouping);
+    var chartRange = view.range;
+    if (!view.custom && (view.period === 'month' || view.period === 'quarter')) {
+      chartRange = periodRange('year', view.year, view.today);
+    }
+    var buckets = bucketsFor(chartRange, view.grouping);
     var selected = null;
     buckets.forEach(function (bucket) {
       if (bucket.id === view.bucket) selected = bucket;
@@ -791,7 +795,13 @@
       var oneYear = buckets.every(function (bucket) { return fiscalYearOf(bucket.end) === legendYear; });
       if (oneYear) gainLegend = { current: 'FY' + legendYear, prior: 'FY' + (legendYear - 1) };
     }
-    var lineBuckets = bucketsFor(measure, 'month');
+    var lineRange = measure;
+    var lineGrouping = 'month';
+    if (!selected && !view.custom && (view.period === 'month' || view.period === 'quarter')) {
+      lineRange = chartRange;
+      lineGrouping = view.grouping;
+    }
+    var lineBuckets = bucketsFor(lineRange, lineGrouping);
     var eventSeries = lineBuckets.map(function (bucket) {
       return countEvents(bucket.start, bucket.end);
     });
