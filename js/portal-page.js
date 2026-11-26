@@ -137,7 +137,19 @@
     if (input) input.focus();
   }
 
+  function dashboardNext() {
+    try {
+      return new URLSearchParams(window.location.search).get('next') === 'dashboard';
+    } catch (err) {
+      return false;
+    }
+  }
+
   function openPortal() {
+    if (dashboardNext()) {
+      window.location.assign('dashboard.html');
+      return;
+    }
     show('portal-gate', false);
     show('portal-app', true);
     var parts = todayInDetroit().split('-');

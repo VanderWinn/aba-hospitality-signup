@@ -405,6 +405,14 @@ function interpretPost_(raw, deps) {
       if (deps && deps.dashboard) return deps.dashboard(body);
       return dashboardAction_(body);
     }
+    if (body.action === 'executiveDashboard') {
+      if (deps && deps.executiveDashboard) return deps.executiveDashboard(body);
+      return executiveDashboardAction_(body);
+    }
+    if (body.action === 'executiveDrilldown') {
+      if (deps && deps.executiveDrilldown) return deps.executiveDrilldown(body);
+      return executiveDrilldownAction_(body);
+    }
     return { ok: false, error: 'Invalid request.' };
   }
   return processPost_(body, deps);
