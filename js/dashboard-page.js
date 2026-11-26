@@ -295,7 +295,7 @@
       return;
     }
     var step = event.target.closest('[data-year-step]');
-    if (step && state.period !== 'last12' && !(state.from && state.to)) {
+    if (step && state.period !== 'last12') {
       var view = dash.compute(source, state);
       var options = (view.stepper && view.stepper.options) || [];
       var index = -1;
@@ -395,15 +395,6 @@
     }
     if (target && target.hasAttribute('data-year-select')) {
       update({ type: 'year', year: Number(target.value) });
-      return;
-    }
-    if (target && target.hasAttribute('data-date')) {
-      var row = target.closest('.daterow');
-      if (!row) return;
-      var from = row.querySelector('[data-date="from"]');
-      var to = row.querySelector('[data-date="to"]');
-      if (!from || !to || !from.value || !to.value) return;
-      update({ type: 'dates', from: from.value, to: to.value });
     }
   }
 })();

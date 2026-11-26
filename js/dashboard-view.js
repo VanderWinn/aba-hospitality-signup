@@ -280,11 +280,6 @@ function periodControl(view) {
     }).join('') + '</div>';
   }
 
-  function dateField(which, label, value) {
-    return '<label class="drow"><span class="dlb">' + label + '</span><span class="dval">' + escapeHtml(model.formatDate(value)) +
-      '</span><input type="date" data-date="' + which + '" value="' + escapeHtml(value) + '" aria-label="' + label + ' date"></label>';
-  }
-
   function docLink(item) {
     if (!item.href) {
       return '<button type="button" class="' + item.className + '" data-more>' + item.label + '</button>';
@@ -338,9 +333,11 @@ function periodControl(view) {
       { label: '⋯', name: 'More', href: '', className: 'icon-btn more-icon' }
     ];
     var badge = view.example ? '<span class="example-badge">Example data</span>' : '';
-    return '<header class="docbar"><div class="brand-wrap"><a class="brand" href="index.html">' +
-      '<span class="brand-full">ABA · Board &amp; Committee Portal</span>' +
-      '<span class="brand-short">ABA Board &amp; Committee</span></a>' + badge + '</div>' +
+    var mark = '<a class="mark" href="https://adabusinessassociation.com/" target="_blank" rel="noopener noreferrer" aria-label="Ada Business Association website">' +
+      '<img src="../assets/aba-logo.png" alt="Ada Business Association website"></a>';
+    return '<header class="docbar"><div class="brand-wrap">' + mark + '<a class="brand" href="index.html">' +
+      '<span class="brand-full">Board &amp; Committee Portal</span>' +
+      '<span class="brand-short">Board &amp; Committee Portal</span></a>' + badge + '</div>' +
       '<div class="docs docs-full"><span class="lbl">Documents ' + hint('', 'Documents', true) + '</span>' +
       pills.map(docLink).join('') + moreMenu(docs) + '</div>' +
       '<div class="docs docs-short">' + icons.map(function (item) {
@@ -352,24 +349,13 @@ function periodControl(view) {
   function daterow(view) {
     var bounds = model.fiscalBounds(view.year);
     var yearSpan = ' ' + fiscalLabel(view.year) + ' is ' + model.formatDate(bounds.start) + ' through ' + model.formatDate(bounds.end) + '.';
-    if (view.custom) yearSpan += ' Custom dates override this control.';
     var year = '<span class="lab">' + hint('Fiscal year', 'Year selector', false, yearSpan) + '</span>' + yearControl(view);
     var period = '<span class="lab">' + hint('Period', 'Period') + '</span>' + periodControl(view);
-    var dates = '<span class="lab">' + hint('Dates', 'Calendar') + '</span>' +
-      dateField('from', 'From', view.range.start) + dateField('to', 'To', view.range.end);
     var reset = '<button type="button" class="reset" data-reset>↺ Reset filters ' + hint('', 'Reset filters', true) + '</button>';
-    var startText = model.formatDate(view.range.start);
-    var endText = model.formatDate(view.range.end);
-    if (view.range.start.slice(0, 4) === view.range.end.slice(0, 4)) {
-      startText = startText.replace(', ' + view.range.start.slice(0, 4), '');
-    }
-    var mobileDates = '<span class="dval">' + escapeHtml(startText) + ' – ' + escapeHtml(endText) + '</span>' +
-      '<input type="date" data-date="from" value="' + escapeHtml(view.range.start) + '" aria-label="From date">' +
-      '<input type="date" data-date="to" value="' + escapeHtml(view.range.end) + '" aria-label="To date">';
     return '<div class="daterow daterow-full"><div class="dfilters"><div class="dgroup">' + year + '</div><div class="dgroup">' + period +
-      '</div><div class="dgroup">' + dates + '</div></div><div class="dgroup reset-group">' + reset + '</div></div>' +
+      '</div></div><div class="dgroup reset-group">' + reset + '</div></div>' +
       '<div class="daterow daterow-mob"><div class="mob-main"><div class="cols"><div class="track">' + yearControl(view, true) + periodControl(view) +
-      '</div><div class="dprow"><label class="drow drow-span">' + mobileDates + '</label></div></div>' +
+      '</div></div>' +
       '<div class="sticky"><button type="button" class="reset" data-reset>↺ Reset filters</button></div></div></div>';
   }
 
@@ -504,7 +490,7 @@ function periodControl(view) {
       '</aside><div class="main">' + eventTypes(view, true) +
       '<div class="row row-top">' + members + '<div class="stack">' + fresh + net + '</div>' + gains + '</div>' +
       '<div class="row row-bottom">' + events + attendance + pie + '</div></div></div>' +
-      '<footer class="sig"><img src="../assets/aba-logo.png" alt="Ada Business Association logo"><span class="credit">Powered by Donny C. Nguyen</span></footer>' +
+      '<footer class="sig"><span class="credit">Powered by Donny C. Nguyen</span></footer>' +
       drillPanel(view);
   }
 
