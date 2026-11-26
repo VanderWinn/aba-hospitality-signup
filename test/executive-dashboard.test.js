@@ -423,6 +423,54 @@ test('only the three event types are counted, and other statuses stay on the rec
   assert.match(missing.error, /not configured/);
 });
 
+test('the same attendee is listed once and still matches every row', () => {
+  const raw = [
+    { name: 'Avery Sample', company: 'North Co', audience: 'Member', eventType: 'Lunch & Learn', event: 'Lunch', eventId: 'a', date: '2026-10-08', status: 'attended', email: 'avery@example.com' },
+    { name: 'avery  sample', company: 'North Co', audience: 'Member', eventType: 'Happy Hour', event: 'Hour', eventId: 'b', date: '2026-11-01', status: 'attended', email: 'avery@example.com' },
+    { name: 'AVERY SAMPLE', company: 'Ada River Cafe', audience: 'Guest', eventType: 'Ribbon Cutting', event: 'Cut', eventId: 'c', date: '2026-09-17', status: 'attended', email: 'Avery@Example.com' },
+    { name: 'Blake Placeholder', company: 'North Co', audience: 'Guest', eventType: 'Lunch & Learn', event: 'Lunch', eventId: 'a', date: '2026-10-08', status: 'attended', email: 'blake@example.com' },
+    { name: 'B. Placeholder', company: 'north  co', audience: 'Guest', eventType: 'Happy Hour', event: 'Hour', eventId: 'b', date: '2026-11-01', status: 'attended', email: 'Blake@Example.com' },
+    { name: 'Casey Demo', company: 'north  co', audience: 'Member', eventType: 'Ribbon Cutting', event: 'Cut', eventId: 'c', date: '2026-09-17', status: 'attended', email: 'casey@example.com' }
+  ];
+  const before = {};
+  raw.forEach((row) => {
+    before[row.name.trim() + '|' + row.company] = true;
+  });
+  const live = sandbox.ABADirectory.fromLive({
+    companies: ['North Co', 'north  co', 'Ada River Cafe'],
+    roster: [
+      { company: 'North Co', status: 'Active', joinDate: '2020-01-01' },
+      { company: 'Ada River Cafe', status: 'Active', joinDate: '2020-01-01' }
+    ],
+    attendanceRecords: raw
+  });
+  assert.equal(Object.keys(before).length, 6);
+  assert.equal(live.people.length, 3);
+  assert.deepEqual(live.people.map((person) => person.name), ['Avery Sample', 'Blake Placeholder', 'Casey Demo']);
+  assert.deepEqual(live.companies, ['Ada River Cafe', 'North Co']);
+  assert.deepEqual(sandbox.ABADirectory.peopleForCompanies(live, ['Ada River Cafe']).map((person) => person.name), ['Avery Sample']);
+  assert.deepEqual(sandbox.ABADirectory.peopleForCompanies(live, ['North Co']).map((person) => person.name), ['Avery Sample', 'Blake Placeholder', 'Casey Demo']);
+  const picked = dash.compute(source, { year: 2027, period: 'year', people: ['Avery Sample'], companies: [], eventTypes: [], audience: '', bucket: '' }, live);
+  assert.equal(picked.attendance.value, 3);
+  assert.equal(picked.events.value, 3);
+  assert.equal(sandbox.ABADirectory.drill(live, 'attendance', picked).rows.length, 3);
+  const spelled = dash.compute(source, { year: 2027, period: 'year', people: ['Blake Placeholder'], companies: [], eventTypes: [], audience: '', bucket: '' }, live);
+  assert.equal(spelled.attendance.value, 2);
+  const company = dash.compute(source, { year: 2027, period: 'year', people: [], companies: ['North Co'], eventTypes: [], audience: '', bucket: '' }, live);
+  assert.equal(company.attendance.value, 5);
+  const shown = sandbox.ABADashboardView.render(Object.assign({}, picked, {
+    personOptions: live.people,
+    directory: { companies: live.companies },
+    ui: { openMenu: 'person' },
+    mobile: false,
+    documents: { extras: [] }
+  }));
+  const options = new Set((shown.match(/data-person-option="([^"]+)"/g) || []).map((item) => item));
+  assert.equal(options.size, 3);
+  assert.match(shown, /data-person-option="Avery Sample"/);
+  assert.equal(shown.includes('data-person-option="avery'), false);
+});
+
 test('the dashboard page is gated and the public sign-up does not link to it', () => {
   const page = fs.readFileSync(path.join(root, 'js/dashboard-page.js'), 'utf8');
   const html = fs.readFileSync(path.join(root, 'home/dashboard.html'), 'utf8');
