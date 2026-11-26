@@ -108,12 +108,11 @@
     function valueText(x, y, value, weight) {
       return '<text x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" font-size="' + font + '" text-anchor="middle" fill="' + INK + '" font-weight="' + weight + '" font-family="Montserrat, Raleway, sans-serif">' + value + '</text>';
     }
-    function bars(x, joins, losses, opacity) {
+    function bars(x, joins, losses, upColor, downColor) {
       var up = joins * sc;
       var down = losses * sc;
-      var fade = opacity < 1 ? ' opacity="' + opacity + '"' : '';
-      parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(up, 0).toFixed(1) + '" fill="' + POP + '"' + fade + '/>');
-      parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw.toFixed(1) + '" height="' + Math.max(down, 0).toFixed(1) + '" fill="' + CLAY + '"' + fade + '/>');
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + (mid - up).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(up, 0).toFixed(1) + '" fill="' + upColor + '"/>');
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + mid + '" width="' + bw.toFixed(1) + '" height="' + Math.max(down, 0).toFixed(1) + '" fill="' + downColor + '"/>');
       if (!labelValues) return;
       var cx = x + bw / 2;
       if (joins || !losses) parts.push(valueText(cx, mid - up - 4, joins, '700'));
@@ -127,12 +126,12 @@
     parts.push('<rect x="' + (legendRight - currentWidth - 14).toFixed(1) + '" y="6" width="9" height="9" rx="1" fill="' + POP + '"/>');
     var priorRight = legendRight - currentWidth - 26;
     parts.push('<text x="' + priorRight.toFixed(1) + '" y="14" text-anchor="end" ' + legendFont + '>' + escapeHtml(legend.prior) + '</text>');
-    parts.push('<rect x="' + (priorRight - priorWidth - 14).toFixed(1) + '" y="6" width="9" height="9" rx="1" fill="' + POP + '" opacity="0.4"/>');
+    parts.push('<rect x="' + (priorRight - priorWidth - 14).toFixed(1) + '" y="6" width="9" height="9" rx="1" fill="#B0B0B0"/>');
     series.forEach(function (bucket, index) {
       var slot = 10 + index * cw + (cw - (bw * 2 + gap)) / 2;
-      bars(slot, bucket.priorJoins || 0, bucket.priorLosses || 0, 0.4);
+      bars(slot, bucket.priorJoins || 0, bucket.priorLosses || 0, '#B0B0B0', '#8A8A8A');
       var currentX = slot + bw + gap;
-      bars(currentX, bucket.joins || 0, bucket.losses || 0, 1);
+      bars(currentX, bucket.joins || 0, bucket.losses || 0, POP, CLAY);
       var labelSize = n > 16 ? 9 : 12;
       if (n <= 16 || index % 2 === 0) {
         parts.push('<text x="' + (slot + bw + gap / 2).toFixed(1) + '" y="' + (h - 4) + '" font-size="' + labelSize + '" text-anchor="middle" fill="#555" font-family="Montserrat, Raleway, sans-serif">' + escapeHtml(bucket.label) + '</text>');
