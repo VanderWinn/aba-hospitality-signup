@@ -35,8 +35,8 @@
     'New Members': 'How many business members joined during the period you selected. Last month is the previous calendar month through the same day. Last quarter is the previous fiscal quarter through the same number of days. Last year is the same dates in the prior fiscal year.',
     'Net Gain': 'Business members who joined minus business members who left during the period you selected. Last month, last quarter, and last year use the same fiscal windows as New Members.',
     'Member Gains and Losses': 'Up = gains (always blue). Down = losses (always red). The gray bars are the same period last fiscal year, clipped to the same day when this period is still open. Year is one pair for the fiscal year. Quarter shows each quarter of that year. Month shows each month from July. Click a current-year bar to filter the page to it; Reset filters clears it.',
-    'Events Held': 'How many events took place in the dates you selected. The figures below compare the same length of time shifted back one month and one quarter, and the same dates in the prior fiscal year. The line stays month by month for those dates, including a month with no events at zero. It does not follow the Year, Quarter, or Month grouping. The faint dashed line is those months in the prior fiscal year.',
-    'Attendance': 'Attendee count for the dates you selected. The figures below compare the same length of time shifted back one month and one quarter, and the same dates in the prior fiscal year. The line stays month by month for those dates, including a month with no events at zero. It does not follow the Year, Quarter, or Month grouping. The faint dashed line is those months in the prior fiscal year.',
+    'Events Held': 'How many events took place in the dates you selected. The figures below compare the same length of time shifted back one month and one quarter, and the same dates in the prior fiscal year. The line uses the same periods as Member Gains and Losses: one point for the fiscal year, each quarter, each month, or each month of the last 12. The faint dashed line is that same period one fiscal year earlier.',
+    'Attendance': 'Attendee count for the dates you selected. The figures below compare the same length of time shifted back one month and one quarter, and the same dates in the prior fiscal year. The line uses the same periods as Member Gains and Losses. The faint dashed line is that same period one fiscal year earlier. Attendee Distribution uses this same window.',
     'Attendance Distribution': 'Of the people who attended in the selected period, how many were attendees and how many were guests. Attendees are people marked Member. The raw count is the main number; the percentage is context. Click Attendees or Guests to filter the whole page; click again to clear.',
     'Open': 'Opens the list of records behind this number. The list follows the filters already on the page.',
     'Company': 'Limits every figure to attendance and membership for the member companies you select. Companies combine with OR. Guests from other companies stay out of this list.',
@@ -765,7 +765,7 @@
     }
     var lineRange = measure;
     var lineGrouping = 'month';
-    if (!selected && (view.period === 'month' || view.period === 'quarter')) {
+    if (!selected) {
       lineRange = chartRange;
       lineGrouping = view.grouping;
     }
