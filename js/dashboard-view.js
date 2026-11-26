@@ -143,7 +143,41 @@
     return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Member gains and losses, this fiscal year beside last fiscal year">' + parts.join('') + '</svg>';
   }
 
-function lineSvg(values, lastYear, labels, kind, narrow) {
+function pairSvg(current, prior, kind, legend) {
+    legend = legend || { current: 'This FY', prior: 'Last FY' };
+    current = Number(current) || 0;
+    prior = Number(prior) || 0;
+    var w = 420;
+    var h = 112;
+    var max = Math.max(1, current, prior);
+    var padTop = 32;
+    var baseline = h - 6;
+    var plotH = baseline - padTop;
+    var bw = 42;
+    var gap = 14;
+    var x0 = (w - (bw * 2 + gap)) / 2;
+    var parts = [];
+    var legendFont = 'font-size="11" fill="#555" font-family="Montserrat, Raleway, sans-serif"';
+    var currentWidth = legend.current.length * 6.4;
+    var priorWidth = legend.prior.length * 6.4;
+    var legendRight = w - 8;
+    parts.push('<text x="' + legendRight.toFixed(1) + '" y="14" text-anchor="end" ' + legendFont + '>' + escapeHtml(legend.current) + '</text>');
+    parts.push('<rect x="' + (legendRight - currentWidth - 14).toFixed(1) + '" y="6" width="9" height="9" rx="1" fill="' + TEAL + '"/>');
+    var priorRight = legendRight - currentWidth - 26;
+    parts.push('<text x="' + priorRight.toFixed(1) + '" y="14" text-anchor="end" ' + legendFont + '>' + escapeHtml(legend.prior) + '</text>');
+    parts.push('<rect x="' + (priorRight - priorWidth - 14).toFixed(1) + '" y="6" width="9" height="9" rx="1" fill="' + MUTED + '"/>');
+    function bar(x, value, color) {
+      var height = (value / max) * plotH;
+      var y = baseline - height;
+      parts.push('<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + Math.max(height, 0).toFixed(1) + '" fill="' + color + '"/>');
+      parts.push('<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 5).toFixed(1) + '" text-anchor="middle" font-size="12" font-weight="700" fill="' + INK + '" font-family="Montserrat, Raleway, sans-serif">' + value + '</text>');
+    }
+    bar(x0, prior, MUTED);
+    bar(x0 + bw + gap, current, TEAL);
+    return '<svg class="chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + escapeHtml(kind) + ', ' + prior + ' last year, ' + current + ' this year">' + parts.join('') + '</svg>';
+  }
+
+  function lineSvg(values, lastYear, labels, kind, narrow) {
   var n = values.length || 1;
   var w = n > 16 ? 640 : 420;
   var h = 112;
@@ -477,13 +511,19 @@ function periodControl(view) {
     var gains = card('Member Gains and Losses', 'Member Gains and Losses',
       '<div class="chart-slot">' + gainsSvg(view.gains, view.bucket, showBarLabels, view.gainLegend) + '</div>',
       ' card-gains', 'gains');
+    var single = (view.eventSeries || []).length === 1;
+    function seriesChart(values, lastYear, kind) {
+      if (single) return pairSvg((values || [])[0], (lastYear || [])[0], kind, view.gainLegend);
+      return lineSvg(values, lastYear, labels, kind, view.mobile);
+    }
+    var note = single ? '' : legend();
     var events = card('Events Held', 'Events Held',
       headline(String(view.events.value), view.events.tone, 'big-mid', 'events') + priors(view.events) +
-      '<div class="chart-slot">' + lineSvg(view.eventSeries, view.eventLastYear, labels, 'Events held', view.mobile) + '</div>' + legend(),
+      '<div class="chart-slot">' + seriesChart(view.eventSeries, view.eventLastYear, 'Events held') + '</div>' + note,
       ' card-events', 'events');
     var attendance = card('Attendee Count', 'Attendance',
       headline(String(view.attendance.value), view.attendance.tone, 'big-mid', 'attendance') + priors(view.attendance) +
-      '<div class="chart-slot">' + lineSvg(view.attendanceSeries, view.attendanceLastYear, labels, 'Attendee Count', view.mobile) + '</div>' + legend(),
+      '<div class="chart-slot">' + seriesChart(view.attendanceSeries, view.attendanceLastYear, 'Attendee Count') + '</div>' + note,
       ' card-attendance', 'attendance');
     var pie = card('Attendee Distribution', 'Attendance Distribution',
       pieSvg(view.pie, view.audience),

@@ -49,7 +49,7 @@ test('the default year is the current fiscal year to date', () => {
   assert.equal(home.gains[0].priorLosses, 14);
   assert.equal(home.gainLegend.current, 'FY2027');
   assert.equal(home.gainLegend.prior, 'FY2026');
-  assert.deepEqual(Array.from(home.monthBuckets, (bucket) => bucket.label), ['J', 'A', 'S', 'O', 'N']);
+  assert.deepEqual(Array.from(home.monthBuckets, (bucket) => bucket.label), ['FY2027']);
   assert.equal(home.members.value, 412);
   assert.equal(home.members.lastMonth, 409);
   assert.equal(home.members.lastQuarter, 404);
@@ -69,14 +69,14 @@ test('the default year is the current fiscal year to date', () => {
   assert.equal(home.events.lastMonth, 7);
   assert.equal(home.events.lastQuarter, 5);
   assert.equal(home.events.lastYear, 5);
-  assert.deepEqual(Array.from(home.eventSeries), [2, 1, 1, 2, 2]);
-  assert.deepEqual(Array.from(home.eventLastYear), [1, 1, 1, 1, 1]);
+  assert.deepEqual(Array.from(home.eventSeries), [8]);
+  assert.deepEqual(Array.from(home.eventLastYear), [5]);
   assert.equal(home.attendance.value, 287);
   assert.equal(home.attendance.lastMonth, 253);
   assert.equal(home.attendance.lastQuarter, 180);
   assert.equal(home.attendance.lastYear, 190);
-  assert.deepEqual(Array.from(home.attendanceSeries), [72, 33, 37, 75, 70]);
-  assert.deepEqual(Array.from(home.attendanceLastYear), [42, 36, 38, 41, 33]);
+  assert.deepEqual(Array.from(home.attendanceSeries), [287]);
+  assert.deepEqual(Array.from(home.attendanceLastYear), [190]);
   assert.equal(home.pie.members, 177);
   assert.equal(home.pie.guests, 110);
   assert.equal(home.pie.memberPct, 62);
@@ -98,6 +98,68 @@ test('the default year is the current fiscal year to date', () => {
   assert.equal(lastYear.start, '2025-07-01');
   assert.equal(lastYear.end, '2025-11-24');
   assert.equal(dash.inclusiveDays(lastYear.start, lastYear.end), span);
+});
+
+test('bottom charts use the same periods as member gains', () => {
+  ['year', 'quarter', 'month', 'last12'].forEach((period) => {
+    const page = view({ period: period });
+    const gainLabels = Array.from(page.gains, (bucket) => bucket.label);
+    const lineLabels = Array.from(page.monthBuckets, (bucket) => bucket.label);
+    assert.deepEqual(lineLabels, gainLabels);
+    assert.equal(page.eventSeries.length, gainLabels.length);
+    assert.equal(page.eventLastYear.length, gainLabels.length);
+    assert.equal(page.attendanceSeries.length, gainLabels.length);
+    assert.equal(page.attendanceLastYear.length, gainLabels.length);
+    assert.equal(page.pie.members + page.pie.guests, page.attendance.value);
+  });
+  const year = view({ period: 'year' });
+  assert.deepEqual(Array.from(year.monthBuckets, (bucket) => bucket.label), ['FY2027']);
+  assert.deepEqual(Array.from(year.eventSeries), [year.events.value]);
+  assert.deepEqual(Array.from(year.eventLastYear), [year.events.lastYear]);
+  assert.deepEqual(Array.from(year.attendanceSeries), [year.attendance.value]);
+  assert.deepEqual(Array.from(year.attendanceLastYear), [year.attendance.lastYear]);
+  const past = view({ year: 2026, period: 'year' });
+  assert.deepEqual(Array.from(past.gains, (bucket) => bucket.label), ['FY2026']);
+  assert.deepEqual(Array.from(past.monthBuckets, (bucket) => bucket.label), ['FY2026']);
+});
+
+test('a single period draws events and attendance as paired bars', () => {
+  function paint(state) {
+    return sandbox.ABADashboardView.render(Object.assign(view(state), { mobile: false, documents: { extras: [] } }));
+  }
+  function slice(html, start, end) {
+    return html.split(start)[1].split(end)[0];
+  }
+  const year = view({ period: 'year' });
+  const html = paint({ period: 'year' });
+  const events = slice(html, 'card-events', 'card-attendance');
+  const attendance = slice(html, 'card-attendance', 'card-pie');
+  assert.match(events, /fill="#7D949C"/);
+  assert.match(events, /fill="#3F768B"/);
+  assert.match(events, />5</);
+  assert.match(events, />8</);
+  assert.match(events, /FY2026/);
+  assert.match(events, /FY2027/);
+  assert.equal(events.includes('<polyline'), false);
+  assert.equal(events.includes('class="note"'), false);
+  assert.match(attendance, />190</);
+  assert.match(attendance, />287</);
+  assert.equal(attendance.includes('class="note"'), false);
+  assert.equal(year.eventSeries[0], 8);
+  assert.equal(year.eventLastYear[0], 5);
+  const quarter = paint({ period: 'quarter' });
+  const quarterEvents = slice(quarter, 'card-events', 'card-attendance');
+  assert.match(quarterEvents, /<polyline/);
+  assert.match(quarterEvents, /class="note"/);
+  assert.equal(quarterEvents.includes('fill="#7D949C"'), false);
+  const month = view({ period: 'month' });
+  const july = view({ period: 'month', bucket: month.gains[0].id });
+  assert.equal(july.eventSeries.length, 1);
+  const julyHtml = sandbox.ABADashboardView.render(Object.assign(july, { mobile: false, documents: { extras: [] } }));
+  const julyEvents = slice(julyHtml, 'card-events', 'card-attendance');
+  assert.match(julyEvents, new RegExp('>' + july.eventLastYear[0] + '<'));
+  assert.match(julyEvents, new RegExp('>' + july.eventSeries[0] + '<'));
+  assert.equal(julyEvents.includes('<polyline'), false);
 });
 
 test('quarter and month set the date window for every total', () => {
@@ -156,7 +218,10 @@ test('quarter and month set the date window for every total', () => {
   assert.equal(past.range.start, '2025-07-01');
   assert.equal(past.range.end, '2026-06-30');
   assert.deepEqual(Array.from(past.gains, (bucket) => bucket.label), ['FY2026']);
-  assert.deepEqual(Array.from(past.monthBuckets, (bucket) => bucket.label), ['J', 'A', 'S', 'O', 'N', 'D', 'J', 'F', 'M', 'A', 'M', 'J']);
+  assert.deepEqual(Array.from(past.monthBuckets, (bucket) => bucket.label), ['FY2026']);
+  assert.equal(past.eventSeries.length, 1);
+  assert.equal(past.eventSeries[0], past.events.value);
+  assert.equal(past.eventLastYear[0], past.events.lastYear);
   assert.equal(past.events.value > 0, true);
   const pastQuarter = view({ year: 2026, quarter: 2, period: 'quarter' });
   assert.equal(pastQuarter.quarter, 4);
