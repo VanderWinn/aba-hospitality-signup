@@ -128,19 +128,58 @@ button.big { display: block; width: 100%; }
 .more-icon { border: 0; font-size: 22px; width: 44px; }
 
 .daterow-full {
-  min-height: 58px;
+  min-height: 48px;
   background: #fff;
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   justify-content: flex-start;
-  gap: 10px 20px;
-  padding: 10px 20px;
+  gap: 6px;
+  padding: 8px 10px;
   font-size: 12px;
 }
 
-.daterow-full > .dgroup { flex: 0 0 auto; min-width: max-content; }
+.dfilters { display: contents; }
+
+@media (min-width: 1280px) {
+  .daterow-full { flex-wrap: nowrap; justify-content: flex-start; }
+  .dfilters {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 32px;
+    min-width: 0;
+  }
+  .daterow-full > .reset-group { margin-left: auto; flex: 0 0 auto; }
+}
+
+.daterow-full > .dgroup { flex: 0 0 auto; min-width: max-content; gap: 5px; }
+
+.daterow-full .lab { font-size: 11px; letter-spacing: .15px; }
+
+.daterow-full .lab .info,
+.daterow-full .reset .info {
+  width: 14px;
+  height: 14px;
+  margin-left: 3px;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.daterow-full .ystep { height: 30px; padding: 2px 4px; gap: 2px; }
+
+.daterow-full .ystep b { min-width: 70px; font-size: 12px; }
+.daterow-full .pseg button { padding: 0 6px; height: 30px; font-size: 12px; }
+
+.daterow-full .drow { height: 30px; padding: 2px 5px; gap: 3px; }
+
+.daterow-full .dlb { width: 26px; font-size: 11px; }
+
+.daterow-full .dval { font-size: 11px; }
+
+.daterow-full .reset { height: 30px; padding: 0 6px; font-size: 12px; gap: 4px; }
 
 .daterow-mob { display: none; }
 
@@ -777,10 +816,6 @@ button.big { display: block; width: 100%; }
     min-height: 88px;
     align-items: stretch;
   }
-
-  .daterow-mob .search-line { padding: 8px 10px 0; }
-
-  .daterow-mob .search-box input { width: 100%; }
 
   .daterow-mob .mob-main { display: flex; align-items: stretch; }
 

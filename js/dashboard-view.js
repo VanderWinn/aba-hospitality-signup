@@ -236,6 +236,24 @@ function fiscalLabel(year) {
   return 'FY' + year;
 }
 
+function stepControl(step, enabled, compact, attrs) {
+  var index = -1;
+  (step.options || []).forEach(function (item, i) { if (item.id === step.id) index = i; });
+  var atStart = index <= 0;
+  var atEnd = index < 0 || index >= (step.options || []).length - 1;
+  var options = (step.options || []).map(function (item) {
+    return '<option value="' + escapeHtml(item.id) + '"' + (item.id === step.id ? ' selected' : '') + '>' + escapeHtml(item.label) + '</option>';
+  }).join('');
+  var noun = step.label === 'Quarter' ? 'quarter' : (step.label === 'Month' ? 'month' : 'fiscal year');
+  var cls = 'ystep' + (attrs.extraClass ? ' ' + attrs.extraClass : '') + (compact ? ' compact' : '') + (enabled ? '' : ' is-off');
+  return '<div class="' + cls + '"' + (enabled ? '' : ' aria-disabled="true"') + '>' +
+    '<button type="button" ' + attrs.step + '="-1" aria-label="Previous ' + noun + '"' + (enabled && !atStart ? '' : ' disabled') + '>◂</button>' +
+    '<b>' + escapeHtml(step.value) + '</b>' +
+    '<button type="button" ' + attrs.step + '="1" aria-label="Next ' + noun + '"' + (enabled && !atEnd ? '' : ' disabled') + '>▸</button>' +
+    '<label class="ycaret"><span class="sr-only">Choose a ' + noun + '</span><select ' + attrs.select + ' aria-label="' + escapeHtml(step.label) + '"' +
+    (enabled ? '' : ' disabled') + '>' + options + '</select></label></div>';
+}
+
 function yearControl(view, compact) {
   var step = view.stepper || {
     id: String(view.year),
@@ -245,24 +263,10 @@ function yearControl(view, compact) {
       return { id: String(year), label: fiscalLabel(year), year: year };
     })
   };
-  var noun = step.label === 'Quarter' ? 'quarter' : (step.label === 'Month' ? 'month' : 'fiscal year');
-  var index = -1;
-  (step.options || []).forEach(function (item, i) { if (item.id === step.id) index = i; });
-  var atStart = index <= 0;
-  var atEnd = index < 0 || index >= (step.options || []).length - 1;
-  var options = (step.options || []).map(function (item) {
-    return '<option value="' + escapeHtml(item.id) + '"' + (item.id === step.id ? ' selected' : '') + '>' + escapeHtml(item.label) + '</option>';
-  }).join('');
-  var cls = 'ystep' + (compact ? ' compact' : '') + (view.yearEnabled ? '' : ' is-off');
-  return '<div class="' + cls + '"' + (view.yearEnabled ? '' : ' aria-disabled="true"') + '>' +
-    '<button type="button" data-year-step="-1" aria-label="Previous ' + noun + '"' + (view.yearEnabled && !atStart ? '' : ' disabled') + '>◂</button>' +
-    '<b>' + escapeHtml(step.value) + '</b>' +
-    '<button type="button" data-year-step="1" aria-label="Next ' + noun + '"' + (view.yearEnabled && !atEnd ? '' : ' disabled') + '>▸</button>' +
-    '<label class="ycaret"><span class="sr-only">Choose a ' + noun + '</span><select data-year-select aria-label="' + escapeHtml(step.label) + '"' +
-    (view.yearEnabled ? '' : ' disabled') + '>' + options + '</select></label></div>';
+  return stepControl(step, view.yearEnabled, compact, { step: 'data-year-step', select: 'data-year-select' });
 }
 
-  function periodControl(view) {
+function periodControl(view) {
     var items = [
       ['year', 'Year', 'Year'],
       ['quarter', 'Quarter', 'Quarter'],
@@ -346,19 +350,13 @@ function yearControl(view, compact) {
   }
 
   function daterow(view) {
-    var step = view.stepper || { label: 'Fiscal year', value: fiscalLabel(view.year) };
     var bounds = model.fiscalBounds(view.year);
-    var yearSpan = view.custom
-      ? ' Custom dates override this control.'
-      : (' ' + step.value + ' is ' + model.formatDate(view.range.start) + ' through ' + model.formatDate(view.range.end) + '.');
-    if (step.label === 'Fiscal year' && !view.custom) {
-      yearSpan = ' ' + fiscalLabel(view.year) + ' is ' + model.formatDate(bounds.start) + ' through ' + model.formatDate(bounds.end) + '.';
-    }
-    var year = '<span class="lab">' + hint(step.label, 'Year selector', false, yearSpan) + '</span>' + yearControl(view);
+    var yearSpan = ' ' + fiscalLabel(view.year) + ' is ' + model.formatDate(bounds.start) + ' through ' + model.formatDate(bounds.end) + '.';
+    if (view.custom) yearSpan += ' Custom dates override this control.';
+    var year = '<span class="lab">' + hint('Fiscal year', 'Year selector', false, yearSpan) + '</span>' + yearControl(view);
     var period = '<span class="lab">' + hint('Period', 'Period') + '</span>' + periodControl(view);
     var dates = '<span class="lab">' + hint('Dates', 'Calendar') + '</span>' +
       dateField('from', 'From', view.range.start) + dateField('to', 'To', view.range.end);
-    var search = '<div class="dgroup search-group">' + searchBox(view, 'full') + '</div>';
     var reset = '<button type="button" class="reset" data-reset>↺ Reset filters ' + hint('', 'Reset filters', true) + '</button>';
     var startText = model.formatDate(view.range.start);
     var endText = model.formatDate(view.range.end);
@@ -368,9 +366,9 @@ function yearControl(view, compact) {
     var mobileDates = '<span class="dval">' + escapeHtml(startText) + ' – ' + escapeHtml(endText) + '</span>' +
       '<input type="date" data-date="from" value="' + escapeHtml(view.range.start) + '" aria-label="From date">' +
       '<input type="date" data-date="to" value="' + escapeHtml(view.range.end) + '" aria-label="To date">';
-    return '<div class="daterow daterow-full"><div class="dgroup">' + year + '</div><div class="dgroup">' + period +
-      '</div><div class="dgroup">' + dates + '</div>' + search + '<div class="dgroup">' + reset + '</div></div>' +
-      '<div class="daterow daterow-mob"><div class="search-line">' + searchBox(view, 'mob') + '</div><div class="mob-main"><div class="cols"><div class="track">' + yearControl(view, true) + periodControl(view) +
+    return '<div class="daterow daterow-full"><div class="dfilters"><div class="dgroup">' + year + '</div><div class="dgroup">' + period +
+      '</div><div class="dgroup">' + dates + '</div></div><div class="dgroup reset-group">' + reset + '</div></div>' +
+      '<div class="daterow daterow-mob"><div class="mob-main"><div class="cols"><div class="track">' + yearControl(view, true) + periodControl(view) +
       '</div><div class="dprow"><label class="drow drow-span">' + mobileDates + '</label></div></div>' +
       '<div class="sticky"><button type="button" class="reset" data-reset>↺ Reset filters</button></div></div></div>';
   }
@@ -407,46 +405,25 @@ function yearControl(view, compact) {
       if (!typed) return true;
       return String(label).toLowerCase().indexOf(typed.toLowerCase()) !== -1;
     });
-    var summary = !selected.length ? (kind === 'company' ? 'All companies' : 'All people') : (selected.length > 2 ? selected.length + ' selected' : selected.join(', '));
+    var summary = !selected.length ? (kind === 'company' ? 'All companies' : 'All attendees') : (selected.length > 2 ? selected.length + ' selected' : selected.join(', '));
     var boxes = visible.map(function (option) {
       var label = kind === 'company' ? option : option.name;
       var on = selected.indexOf(label) !== -1;
       return '<label class="check"><input type="checkbox" data-' + kind + '-option="' + escapeHtml(label) + '"' + (on ? ' checked' : '') + '> ' + escapeHtml(label) + '</label>';
-    }).join('') || '<p class="empty-opt">No matches</p>';
+    }).join('') || '<p class="empty-opt">' + (kind === 'company' ? 'No matches' : 'No attendees') + '</p>';
+    var listName = kind === 'company' ? 'company' : 'attendee';
     return '<div class="multi' + (open ? ' is-open' : '') + '" data-menu="' + kind + '">' +
-      '<button type="button" class="multi-face" data-menu-toggle="' + kind + '" aria-expanded="' + open + '">' + escapeHtml(summary) + '</button>' +
+      '<button type="button" class="multi-face" data-menu-toggle="' + kind + '" aria-expanded="' + open + '" aria-label="' + (kind === 'company' ? 'Company' : 'Attendee') + '">' + escapeHtml(summary) + '</button>' +
       '<div class="multi-pop"' + (open ? '' : ' hidden') + '>' +
       '<div class="multi-actions"><button type="button" data-select-all="' + kind + '">Select all</button><button type="button" data-clear-all="' + kind + '">Clear all</button></div>' +
-      '<input class="multi-find" data-find="' + kind + '" value="' + escapeHtml(typed) + '" placeholder="Type a name" aria-label="Filter ' + kind + ' list">' +
+      '<input class="multi-find" data-find="' + kind + '" value="' + escapeHtml(typed) + '" placeholder="Type a name" aria-label="Filter ' + listName + ' list">' +
       '<div class="multi-list">' + boxes + '</div></div>' +
       chipsFor(selected, kind) + '</div>';
   }
 
-  function nameChip(view) {
-    if (!view.nameQuery) return '';
-    return '<button type="button" class="picked-chip" data-clear-name="1">Name contains “' + escapeHtml(view.nameQuery) + '” ×</button>';
-  }
-
   function railFilters(view) {
     return '<div class="rail-block"><div class="h">' + hint('Company', 'Company') + '</div>' + multiMenu(view, 'company') + '</div>' +
-      '<div class="rail-block"><div class="h">' + hint('Person', 'Person') + '</div>' + multiMenu(view, 'person') + nameChip(view) + '</div>';
-  }
-
-  function searchBox(view, where) {
-    var ui = view.ui || {};
-    var text = ui.searchText || '';
-    var open = ui.suggest && ui.suggestWhere === where && text;
-    var hits = view.suggestions || { people: [], companies: [] };
-    var people = (hits.people || []).map(function (person) {
-      return '<button type="button" data-suggest-person="' + escapeHtml(person.name) + '">' + escapeHtml(person.name) + '</button>';
-    }).join('');
-    var companies = (hits.companies || []).map(function (name) {
-      return '<button type="button" data-suggest-company="' + escapeHtml(name) + '">' + escapeHtml(name) + '</button>';
-    }).join('');
-    var menu = open ? '<div class="suggest"><p>People</p>' + (people || '<p class="empty-opt">No people</p>') + '<p>Companies</p>' + (companies || '<p class="empty-opt">No companies</p>') + '</div>' : '';
-    return '<label class="search-box"><span class="sr-only">' + hint('Search', 'Search name') + '</span>' +
-      '<input data-name-search="' + where + '" value="' + escapeHtml(text) + '" placeholder="Search name…" aria-label="Search name" autocomplete="off">' +
-      menu + '</label>';
+      '<div class="rail-block"><div class="h">' + hint('Attendee', 'Attendee') + '</div>' + multiMenu(view, 'person') + '</div>';
   }
 
   function eventTypes(view, chips) {

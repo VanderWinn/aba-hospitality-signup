@@ -11,17 +11,16 @@
   var source = null;
   var directory = null;
   var documents = { extras: [] };
-  var ui = { openMenu: '', companyFilter: '', personFilter: '', searchText: '', suggest: false, suggestWhere: '', drill: null };
+  var ui = { openMenu: '', companyFilter: '', personFilter: '', drill: null };
   var mobileQuery = window.matchMedia('(max-width: 800px)');
 
   document.addEventListener('DOMContentLoaded', boot);
   document.addEventListener('click', function (event) {
     if (!event.target.closest('.info') && !event.target.closest('.pseg button')) closeTips();
     if (!event.target.closest('[data-more]') && !event.target.closest('.more-pop')) closeMenus();
-    if (ui && source && !event.target.closest('.multi') && !event.target.closest('.search-box') && !event.target.closest('.suggest')) {
-      if (ui.openMenu || ui.suggest) {
+    if (ui && source && !event.target.closest('.multi')) {
+      if (ui.openMenu) {
         ui.openMenu = '';
-        ui.suggest = false;
         paint();
       }
     }
@@ -130,9 +129,6 @@
   function focusRestore() {
     var active = document.activeElement;
     if (!active) return null;
-    if (active.hasAttribute('data-name-search')) {
-      return { kind: 'search', where: active.getAttribute('data-name-search'), caret: active.selectionStart || 0 };
-    }
     if (active.hasAttribute('data-find')) {
       return { kind: 'find', menu: active.getAttribute('data-find'), caret: active.selectionStart || 0 };
     }
@@ -150,7 +146,6 @@
     view.directory = { companies: directory.companies };
     view.personOptions = window.ABADirectory.peopleForCompanies(directory, state.companies || []);
     view.ui = ui;
-    view.suggestions = window.ABADirectory.suggestions(directory, ui.searchText, state.companies || []);
     if (view.bucket) {
       (view.gains || []).forEach(function (bucket) {
         if (bucket.id === view.bucket) view.measure = { start: bucket.start, end: bucket.end };
@@ -165,7 +160,6 @@
     document.getElementById('dash').innerHTML = viewApi.render(view);
     if (restore) {
       var node = null;
-      if (restore.kind === 'search') node = visibleNode('[data-name-search="' + restore.where + '"]');
       if (restore.kind === 'find') node = visibleNode('[data-find="' + restore.menu + '"]');
       if (restore.kind === 'drill') node = visibleNode('[data-drill-search]');
       if (node) {
@@ -213,6 +207,7 @@
 
   function onClick(event) {
     var info = event.target.closest('.info');
+    if (info && info.classList.contains('info-hover')) return;
     if (info) {
       event.preventDefault();
       event.stopPropagation();
@@ -222,8 +217,6 @@
       return;
     }
     if (event.target.closest('[data-reset]')) {
-      ui.searchText = '';
-      ui.suggest = false;
       ui.companyFilter = '';
       ui.personFilter = '';
       ui.openMenu = '';
@@ -246,23 +239,6 @@
       var key = sort.getAttribute('data-sort');
       ui.drill.dir = ui.drill.sort === key && ui.drill.dir === 'asc' ? 'desc' : 'asc';
       ui.drill.sort = key;
-      paint();
-      return;
-    }
-    var suggestPerson = event.target.closest('[data-suggest-person]');
-    if (suggestPerson) {
-      state = dash.applyAction(source, state, { type: 'people', people: toggleValue(state.people, suggestPerson.getAttribute('data-suggest-person')) });
-      ui.searchText = '';
-      ui.suggest = false;
-      paint();
-      return;
-    }
-    var suggestCompany = event.target.closest('[data-suggest-company]');
-    if (suggestCompany) {
-      var companies = toggleValue(state.companies, suggestCompany.getAttribute('data-suggest-company'));
-      state = dash.applyAction(source, state, { type: 'companies', companies: companies, allowedPeople: allowedPeople(companies) });
-      ui.searchText = '';
-      ui.suggest = false;
       paint();
       return;
     }
@@ -313,11 +289,6 @@
       paint();
       return;
     }
-    if (event.target.closest('[data-clear-name]')) {
-      ui.searchText = '';
-      update({ type: 'nameQuery', query: '' });
-      return;
-    }
     var period = event.target.closest('[data-period]');
     if (period) {
       update({ type: 'period', period: period.getAttribute('data-period') });
@@ -330,7 +301,7 @@
       var index = -1;
       options.forEach(function (item, i) { if (item.id === view.stepper.id) index = i; });
       var picked = options[index + Number(step.getAttribute('data-year-step'))];
-      if (picked) update({ type: 'focus', year: picked.year, quarter: picked.quarter, month: picked.month });
+      if (picked) update({ type: 'year', year: picked.year });
       return;
     }
     var type = event.target.closest('[data-type]');
@@ -373,13 +344,6 @@
   function onInput(event) {
     var target = event.target;
     if (!target) return;
-    if (target.hasAttribute('data-name-search')) {
-      ui.searchText = target.value;
-      ui.suggest = true;
-      ui.suggestWhere = target.getAttribute('data-name-search');
-      paint();
-      return;
-    }
     if (target.hasAttribute('data-find')) {
       var menu = target.getAttribute('data-find');
       if (menu === 'company') ui.companyFilter = target.value;
@@ -397,15 +361,6 @@
   function onKey(event) {
     var target = event.target;
     if (!target || event.key !== 'Enter') return;
-    if (target.hasAttribute('data-name-search')) {
-      event.preventDefault();
-      var text = target.value.trim();
-      ui.searchText = '';
-      ui.suggest = false;
-      if (text) update({ type: 'nameQuery', query: text });
-      else paint();
-      return;
-    }
     if (target.hasAttribute('data-find')) {
       event.preventDefault();
       var kind = target.getAttribute('data-find');
@@ -439,12 +394,7 @@
       return;
     }
     if (target && target.hasAttribute('data-year-select')) {
-      var pickedView = dash.compute(source, state);
-      var pickedOption = null;
-      ((pickedView.stepper && pickedView.stepper.options) || []).forEach(function (item) {
-        if (item.id === target.value) pickedOption = item;
-      });
-      if (pickedOption) update({ type: 'focus', year: pickedOption.year, quarter: pickedOption.quarter, month: pickedOption.month });
+      update({ type: 'year', year: Number(target.value) });
       return;
     }
     if (target && target.hasAttribute('data-date')) {
