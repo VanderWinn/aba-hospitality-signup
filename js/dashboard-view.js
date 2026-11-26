@@ -280,11 +280,6 @@ function periodControl(view) {
     }).join('') + '</div>';
   }
 
-  function dateField(which, label, value) {
-    return '<label class="drow"><span class="dlb">' + label + '</span><span class="dval">' + escapeHtml(model.formatDate(value)) +
-      '</span><input type="date" data-date="' + which + '" value="' + escapeHtml(value) + '" aria-label="' + label + ' date"></label>';
-  }
-
   function docLink(item) {
     if (!item.href) {
       return '<button type="button" class="' + item.className + '" data-more>' + item.label + '</button>';
@@ -352,24 +347,13 @@ function periodControl(view) {
   function daterow(view) {
     var bounds = model.fiscalBounds(view.year);
     var yearSpan = ' ' + fiscalLabel(view.year) + ' is ' + model.formatDate(bounds.start) + ' through ' + model.formatDate(bounds.end) + '.';
-    if (view.custom) yearSpan += ' Custom dates override this control.';
     var year = '<span class="lab">' + hint('Fiscal year', 'Year selector', false, yearSpan) + '</span>' + yearControl(view);
     var period = '<span class="lab">' + hint('Period', 'Period') + '</span>' + periodControl(view);
-    var dates = '<span class="lab">' + hint('Dates', 'Calendar') + '</span>' +
-      dateField('from', 'From', view.range.start) + dateField('to', 'To', view.range.end);
     var reset = '<button type="button" class="reset" data-reset>↺ Reset filters ' + hint('', 'Reset filters', true) + '</button>';
-    var startText = model.formatDate(view.range.start);
-    var endText = model.formatDate(view.range.end);
-    if (view.range.start.slice(0, 4) === view.range.end.slice(0, 4)) {
-      startText = startText.replace(', ' + view.range.start.slice(0, 4), '');
-    }
-    var mobileDates = '<span class="dval">' + escapeHtml(startText) + ' – ' + escapeHtml(endText) + '</span>' +
-      '<input type="date" data-date="from" value="' + escapeHtml(view.range.start) + '" aria-label="From date">' +
-      '<input type="date" data-date="to" value="' + escapeHtml(view.range.end) + '" aria-label="To date">';
     return '<div class="daterow daterow-full"><div class="dfilters"><div class="dgroup">' + year + '</div><div class="dgroup">' + period +
-      '</div><div class="dgroup">' + dates + '</div></div><div class="dgroup reset-group">' + reset + '</div></div>' +
+      '</div></div><div class="dgroup reset-group">' + reset + '</div></div>' +
       '<div class="daterow daterow-mob"><div class="mob-main"><div class="cols"><div class="track">' + yearControl(view, true) + periodControl(view) +
-      '</div><div class="dprow"><label class="drow drow-span">' + mobileDates + '</label></div></div>' +
+      '</div></div>' +
       '<div class="sticky"><button type="button" class="reset" data-reset>↺ Reset filters</button></div></div></div>';
   }
 
