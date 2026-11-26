@@ -376,8 +376,8 @@ function yearControl(view, compact) {
     var mobileDates = '<span class="dval">' + escapeHtml(startText) + ' – ' + escapeHtml(endText) + '</span>' +
       '<input type="date" data-date="from" value="' + escapeHtml(view.range.start) + '" aria-label="From date">' +
       '<input type="date" data-date="to" value="' + escapeHtml(view.range.end) + '" aria-label="To date">';
-    return '<div class="daterow daterow-full"><div class="dgroup">' + year + '</div><div class="dgroup">' + period +
-      '</div><div class="dgroup">' + showControl(view) + '</div><div class="dgroup">' + dates + '</div><div class="dgroup">' + reset + '</div></div>' +
+    return '<div class="daterow daterow-full"><div class="dfilters"><div class="dgroup">' + year + '</div><div class="dgroup">' + period +
+      '</div><div class="dgroup">' + showControl(view) + '</div><div class="dgroup">' + dates + '</div></div><div class="dgroup reset-group">' + reset + '</div></div>' +
       '<div class="daterow daterow-mob"><div class="mob-main"><div class="cols"><div class="track">' + yearControl(view, true) + periodControl(view) + showControl(view) +
       '</div><div class="dprow"><label class="drow drow-span">' + mobileDates + '</label></div></div>' +
       '<div class="sticky"><button type="button" class="reset" data-reset>↺ Reset filters</button></div></div></div>';
