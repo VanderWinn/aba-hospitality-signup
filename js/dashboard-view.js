@@ -336,8 +336,8 @@ function periodControl(view) {
     var mark = '<a class="mark" href="https://adabusinessassociation.com/" target="_blank" rel="noopener noreferrer" aria-label="Ada Business Association website">' +
       '<img src="../assets/aba-logo.png" alt="Ada Business Association website"></a>';
     return '<header class="docbar"><div class="brand-wrap">' + mark + '<a class="brand" href="index.html">' +
-      '<span class="brand-full">ABA · Board &amp; Committee Portal</span>' +
-      '<span class="brand-short">ABA Board &amp; Committee</span></a>' + badge + '</div>' +
+      '<span class="brand-full">Board &amp; Committee Portal</span>' +
+      '<span class="brand-short">Board &amp; Committee Portal</span></a>' + badge + '</div>' +
       '<div class="docs docs-full"><span class="lbl">Documents ' + hint('', 'Documents', true) + '</span>' +
       pills.map(docLink).join('') + moreMenu(docs) + '</div>' +
       '<div class="docs docs-short">' + icons.map(function (item) {

@@ -433,6 +433,7 @@ test('the dashboard page is gated and the public sign-up does not link to it', (
   assert.match(page, /index\.html\?next=dashboard/);
   assert.equal(page.includes('localStorage'), false);
   assert.match(html, /noindex, nofollow/);
+  assert.match(html, /<title>Board &amp; Committee Portal<\/title>/);
   assert.match(home, /href="dashboard\.html"/);
   assert.equal(signup.includes('dashboard.html'), false);
   assert.match(workflow, /home\/dashboard\.html/);
@@ -467,6 +468,9 @@ test('the dashboard page is gated and the public sign-up does not link to it', (
   assert.match(rendered, /Jul 1, 2026 through Jun 30, 2027/);
   assert.match(rendered, /\+12/);
   assert.match(rendered, /Powered by Donny C\. Nguyen/);
+  assert.match(rendered, /Board &amp; Committee Portal/);
+  assert.equal(rendered.includes('ABA · Board'), false);
+  assert.equal(rendered.includes('ABA Board'), false);
   assert.match(rendered, /class="mark" href="https:\/\/adabusinessassociation\.com\/" target="_blank" rel="noopener noreferrer" aria-label="Ada Business Association website"/);
   assert.match(rendered, /alt="Ada Business Association website"/);
   assert.equal((rendered.match(/aba-logo\.png/g) || []).length, 1);
