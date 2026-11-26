@@ -45,6 +45,10 @@ test('the default year is the current fiscal year to date', () => {
   assert.deepEqual(Array.from(home.gains, (bucket) => bucket.label), ['FY2027']);
   assert.equal(home.gains[0].joins, 27);
   assert.equal(home.gains[0].losses, 15);
+  assert.equal(home.gains[0].priorJoins, 13);
+  assert.equal(home.gains[0].priorLosses, 14);
+  assert.equal(home.gainLegend.current, 'FY2027');
+  assert.equal(home.gainLegend.prior, 'FY2026');
   assert.deepEqual(Array.from(home.monthBuckets, (bucket) => bucket.label), ['J', 'A', 'S', 'O', 'N']);
   assert.equal(home.members.value, 412);
   assert.equal(home.members.lastMonth, 409);

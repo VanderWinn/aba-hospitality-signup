@@ -60,7 +60,7 @@ Dates drive every total. The year is ABA's fiscal year, July 1 through June 30, 
 
 Year, Quarter, and Month group that bar chart only:
 
-- **Year** is one bar for each fiscal year in the date range, labeled FY2027 and so on.
+- **Year** is one pair of bars for each fiscal year in the date range. The lighter bar is the same dates one fiscal year earlier. Quarter and Month pair each period the same way, and a partial period is clipped to the same day last year.
 - **Quarter** is the fiscal quarters the range covers: Q1 July–September, Q2 October–December, Q3 January–March, Q4 April–June.
 - **Month** is one bar per month. A full fiscal year runs J A S O N D J F M A M J, July through June.
 - **Last 12 months** sets the trailing range and groups that chart by month. That keeps one control for "the last 12 months, by month" instead of a separate grouping switch.
