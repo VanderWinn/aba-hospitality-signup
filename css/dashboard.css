@@ -72,14 +72,17 @@ button.big { display: block; width: 100%; }
   flex: 0 0 auto;
   line-height: 0;
   height: 40px;
-  padding: 3px 7px;
-  border-radius: 4px;
-  background: #fff;
+  background: transparent;
 }
 
 .mark:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
-.mark img { height: 34px; width: auto; display: block; }
+.mark img {
+  height: 34px;
+  width: auto;
+  display: block;
+  filter: brightness(0) invert(1);
+}
 
 .brand {
   font-weight: 700;
@@ -815,7 +818,7 @@ button.big { display: block; width: 100%; }
 
   .brand { font-size: 13px; min-width: 0; white-space: normal; line-height: 1.15; }
 
-  .mark { height: 32px; padding: 2px 5px; }
+  .mark { height: 32px; }
 
   .mark img { height: 28px; }
 
