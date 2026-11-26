@@ -56,7 +56,7 @@ test('the default year is the current fiscal year to date', () => {
   assert.equal(home.members.lastYear, 400);
   assert.deepEqual(Array.from(home.members.labels), ['Month start', 'Quarter start', 'FY start']);
   assert.equal(home.members.tone, 'up');
-  assert.equal(home.members.color, '#0077FF');
+  assert.equal(home.members.color, '#3F768B');
   assert.equal(home.newMembers.value, 27);
   assert.equal(home.newMembers.lastMonth, 8);
   assert.equal(home.newMembers.lastQuarter, 6);

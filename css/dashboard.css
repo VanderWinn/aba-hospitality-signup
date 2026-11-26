@@ -3,14 +3,24 @@
   --soft: #757575;
   --paper: #f2f2f2;
   --line: #e6e6e6;
-  --pine: #407589;
+  /* Logo teal sampled from assets/aba-logo.png. Dark is for text (8.1:1 on white, 7.3:1 on paper). Coral is for text too (5.3:1 on white, 4.7:1 on paper). */
+  --aba-teal: #3F768B;
+  --aba-teal-dark: #2C5563;
+  --aba-teal-light: #D7E5EB;
+  --aba-coral: #B84734;
+  --aba-muted: #7D949C;
+  /* Sea green for up-deltas. 5.35:1 on white, 4.62:1 on the tint chip, 4.78:1 on the page gray. */
+  --aba-positive: #24785F;
+  --aba-positive-tint: #E3F2EA;
+  --aba-loss-tint: #FBEDEC;
+  --pine: var(--aba-teal);
   --deep: #2d515f;
   --mint: #83b7b5;
   --clay: #D01F25;
   --deepest: #1a333c;
-  --pop: #0077FF;
-  --pop-text: #005FCC;
-  --orange: #F28C28;
+  --pop: var(--aba-teal);
+  --pop-text: var(--aba-teal-dark);
+  --orange: var(--aba-muted);
 }
 
 * { box-sizing: border-box; }
@@ -53,7 +63,7 @@ button.big { display: block; width: 100%; }
 
 .docbar {
   background: var(--deepest);
-  border-bottom: 3px solid var(--mint);
+  border-bottom: 3px solid var(--aba-coral);
   color: #fff;
   display: flex;
   align-items: center;
@@ -76,6 +86,16 @@ button.big { display: block; width: 100%; }
 }
 
 .mark:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--aba-teal);
+  outline-offset: 2px;
+}
+
+.docbar :focus-visible { outline-color: #fff; }
 
 .mark img {
   height: 34px;
@@ -296,7 +316,9 @@ button.big { display: block; width: 100%; }
 
 .pseg button:last-child { border-right: 0; }
 
-.pseg button.on { background: var(--pine); color: #fff; font-weight: 700; }
+.pseg button:hover { background: var(--aba-teal-light); }
+
+.pseg button.on, .pseg button.on:hover { background: var(--aba-teal); color: #fff; font-weight: 700; }
 
 .drow { justify-content: flex-start; cursor: pointer; }
 
@@ -313,8 +335,8 @@ button.big { display: block; width: 100%; }
 }
 
 .reset {
-  border: 1px solid var(--clay);
-  color: var(--clay);
+  border: 1px solid var(--aba-coral);
+  color: var(--aba-coral);
   border-radius: 4px;
   padding: 5px 10px;
   height: 32px;
@@ -386,7 +408,7 @@ button.big { display: block; width: 100%; }
 
 .tog.on { color: var(--ink); font-weight: 700; }
 
-.tog.on .sw { background: var(--pine); }
+.tog.on .sw { background: var(--aba-teal); }
 
 .tog.on .sw::after { left: 16px; }
 
@@ -422,7 +444,7 @@ button.big { display: block; width: 100%; }
   min-width: 0;
   background: #fff;
   border: 1px solid var(--line);
-  border-top: 3px solid var(--pine);
+  border-top: 3px solid var(--aba-teal);
   border-radius: 4px;
   padding: 12px 16px 14px;
   position: relative;
@@ -435,7 +457,7 @@ button.big { display: block; width: 100%; }
 
 .stack .card { flex: 1 1 0; min-height: 0; }
 
-.card.pop { border-top-color: var(--pop); }
+.card.pop { border-top-color: var(--aba-coral); }
 
 .hd { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; width: 100%; }
 
@@ -461,7 +483,7 @@ button.big { display: block; width: 100%; }
   flex: none;
 }
 
-.open b { font-size: 16px; color: var(--pine); font-weight: 700; }
+.open b { font-size: 16px; color: var(--aba-teal-dark); font-weight: 700; }
 
 .bodycol {
   flex: 1 1 auto;
@@ -518,11 +540,19 @@ button.big { display: block; width: 100%; }
 
 .delta { font-style: normal; font-size: 16px; margin-left: 4px; font-weight: 700; }
 
-.delta-up { color: var(--pop-text); }
+.delta-up, .delta-down {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 8px;
+  line-height: 1.35;
+  vertical-align: 1px;
+}
 
-.delta-down { color: var(--clay); }
+.delta-up { color: var(--aba-positive); background: var(--aba-positive-tint); }
 
-.delta-flat { color: #888; font-size: 14px; }
+.delta-down { color: var(--clay); background: var(--aba-loss-tint); }
+
+.delta-flat { color: #888; font-size: 14px; background: none; }
 
 .chart-empty {
   margin: 0;
@@ -731,7 +761,7 @@ button.big { display: block; width: 100%; }
 
 .multi-actions { display: flex; gap: 8px; text-transform: none; letter-spacing: 0; }
 
-.multi-actions button { width: auto; color: var(--pine); font-weight: 700; padding: 0; }
+.multi-actions button { width: auto; color: var(--aba-teal-dark); font-weight: 700; padding: 0; }
 
 .multi-find { width: 100%; margin: 4px 0 8px; }
 
@@ -900,7 +930,7 @@ button.big { display: block; width: 100%; }
     color: #5a6a6e;
   }
 
-  .chip.on { background: var(--pine); border-color: var(--pine); color: #fff; font-weight: 700; }
+  .chip.on { background: var(--aba-teal); border-color: var(--aba-teal); color: #fff; font-weight: 700; }
 
   .main { padding: 8px 0 0; }
 
