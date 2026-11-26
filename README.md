@@ -48,7 +48,7 @@ Normalized model:
 
 The normalizer keeps only Lunch & Learn, Ribbon Cutting, and Happy Hour. New Member Orientation, BOSS, Collaboration, and anything else are left out of every card, chart, pie, and drill-down. An event with no date, such as the October 2020 RSVP list, is left out too. Donny confirmed the inferred dates BOSS on 2026-10-01 and the Business Roundtable (stored as Collaboration) on 2025-03-25; those rows are still excluded because their type is not one of the three.
 
-Membership rows are not really event-typed. The sheet puts `Lunch & Learn` on them as a placeholder. The membership cards, the gains chart, and the membership drill-down ignore the Event type toggles, so choosing Ribbon Cutting does not zero the member total. Events and attendance still follow that filter.
+Every filter applies to every card, chart, and list. Membership rows are filtered by the `event_type` stored on them. The sheet currently tags every membership row `Lunch & Learn`, so Ribbon Cutting and Happy Hour show 0 business members, 0 new members, and 0 net gain. All events shows every member. Those tags are not invented. A bar click limits the line charts to that period as well. The gray prior-year bars use the same filters.
 
 Attendance counts rows whose `status` is `attended`. `no_show`, `cancelled`, `no_mark`, and a `registered` or `registration_status` value stay on the drill-down records for a later no-show view. There is no switch for that yet. The headline POST does not include those rows.
 

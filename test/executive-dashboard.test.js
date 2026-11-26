@@ -171,14 +171,20 @@ test('the pie, event type, and bar filters recalculate the page', () => {
   assert.equal(members.events.value, 8);
   const unfiltered = view();
   const lunch = view({ eventType: 'Lunch & Learn' });
+  const ribbon = view({ eventType: 'Ribbon Cutting' });
   assert.equal(lunch.events.value, 3);
-  assert.equal(lunch.members.value, unfiltered.members.value);
-  assert.equal(lunch.newMembers.value, unfiltered.newMembers.value);
-  assert.equal(lunch.net.value, unfiltered.net.value);
+  assert.ok(lunch.members.value > 0);
+  assert.ok(lunch.members.value < unfiltered.members.value);
+  assert.ok(lunch.newMembers.value < unfiltered.newMembers.value);
+  assert.notEqual(lunch.net.value, unfiltered.net.value);
+  assert.ok(ribbon.members.value < unfiltered.members.value);
+  assert.equal(lunch.gains[0].priorJoins <= unfiltered.gains[0].priorJoins, true);
   const months = view({ period: 'month' });
   const july = view({ period: 'month', bucket: months.gains[0].id });
   assert.equal(july.events.value, 2);
   assert.equal(july.newMembers.value, 5);
+  assert.equal(july.eventSeries.length, 1);
+  assert.equal(july.attendanceSeries.length, 1);
   assert.equal(july.bucket, months.gains[0].id);
   const cleared = dash.applyAction(source, { audience: 'Guest', eventType: 'Happy Hour', bucket: 'x', year: 2025, period: 'month' }, { type: 'reset' });
   assert.equal(cleared.period, 'year');
@@ -323,7 +329,11 @@ test('only the three event types are counted, and other statuses stay on the rec
   const narrowed = dash.compute(parsed, {
     year: 2027, period: 'year', from: '', to: '', eventTypes: ['Happy Hour'], companies: ['North Co'], people: [], nameQuery: '', audience: '', bucket: ''
   }, live);
-  assert.equal(narrowed.members.value, 1);
+  assert.equal(narrowed.members.value, 0);
+  const allTypes = dash.compute(parsed, {
+    year: 2027, period: 'year', from: '', to: '', eventTypes: [], companies: ['North Co'], people: [], nameQuery: '', audience: '', bucket: ''
+  }, live);
+  assert.equal(allTypes.members.value, 1);
   assert.equal(narrowed.attendance.value, 0);
   assert.equal(narrowed.events.value, 0);
   const gs = { crypto: require('crypto'), ABA_SHA256: (text) => require('crypto').createHash('sha256').update(String(text)).digest('hex') };

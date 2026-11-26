@@ -19,7 +19,7 @@
     'Board minutes': 'Opens recent board meeting minutes.',
     'Committee roster': 'Opens the committee roster.',
     'More': 'Opens any remaining documents kept in this portal.',
-    'Event type': 'Limits events and attendance to Lunch & Learn, Ribbon Cutting, or Happy Hour. Other kinds of event are not on this dashboard. Membership cards do not use this filter, because the member ledger is not tied to an event type. The counts are how many events of that kind fall in the dates you selected.',
+    'Event type': 'Limits every card, chart, and list to Lunch & Learn, Ribbon Cutting, or Happy Hour. Membership rows use the event type stored on them. All events shows every member. The counts are how many events of that kind fall in the dates you selected.',
     'All': 'Shows Lunch & Learn, Ribbon Cutting, and Happy Hour together.',
     'Lunch & Learn': 'Shows only Lunch & Learn events in the period you selected.',
     'Ribbon Cutting': 'Shows only Ribbon Cutting events in the period you selected.',
@@ -670,7 +670,6 @@
     if (directory) view.directory = directory;
     var attendance = attendanceByEvent(data);
     var buckets = bucketsFor(view.range, view.grouping);
-    var monthBuckets = bucketsFor(view.range, 'month');
     var selected = null;
     buckets.forEach(function (bucket) {
       if (bucket.id === view.bucket) selected = bucket;
@@ -691,26 +690,26 @@
       return attendanceSum(eventsIn(data, start, end, eventTypes, '', attendance), attendance, audience || pieAudience);
     }
     function memberStock(start, end) {
-      if (narrowed) return directory.narrow.stock(end, [], roster, view);
-      return stockAt(data, end, roster, '');
+      if (narrowed) return directory.narrow.stock(end, eventTypes, roster, view);
+      return stockAt(data, end, roster, eventTypes);
     }
     function joins(start, end) {
-      if (narrowed) return directory.narrow.flow(start, end, [], roster, view).joins;
-      return flowBetween(data, start, end, roster, '').joins;
+      if (narrowed) return directory.narrow.flow(start, end, eventTypes, roster, view).joins;
+      return flowBetween(data, start, end, roster, eventTypes).joins;
     }
     function net(start, end) {
-      if (narrowed) return directory.narrow.flow(start, end, [], roster, view).net;
-      return flowBetween(data, start, end, roster, '').net;
+      if (narrowed) return directory.narrow.flow(start, end, eventTypes, roster, view).net;
+      return flowBetween(data, start, end, roster, eventTypes).net;
     }
 
     var gainSeries = buckets.map(function (bucket) {
       var flow = narrowed
-        ? directory.narrow.flow(bucket.start, bucket.end, [], roster, view)
-        : flowBetween(data, bucket.start, bucket.end, roster, '');
+        ? directory.narrow.flow(bucket.start, bucket.end, eventTypes, roster, view)
+        : flowBetween(data, bucket.start, bucket.end, roster, eventTypes);
       var priorSpan = priorYearRange(bucket.start, bucket.end);
       var prior = narrowed
-        ? directory.narrow.flow(priorSpan.start, priorSpan.end, [], roster, view)
-        : flowBetween(data, priorSpan.start, priorSpan.end, roster, '');
+        ? directory.narrow.flow(priorSpan.start, priorSpan.end, eventTypes, roster, view)
+        : flowBetween(data, priorSpan.start, priorSpan.end, roster, eventTypes);
       return {
         id: bucket.id,
         label: bucket.label,
@@ -726,17 +725,18 @@
       var oneYear = buckets.every(function (bucket) { return fiscalYearOf(bucket.end) === legendYear; });
       if (oneYear) gainLegend = { current: 'FY' + legendYear, prior: 'FY' + (legendYear - 1) };
     }
-    var eventSeries = monthBuckets.map(function (bucket) {
+    var lineBuckets = bucketsFor(measure, 'month');
+    var eventSeries = lineBuckets.map(function (bucket) {
       return countEvents(bucket.start, bucket.end);
     });
-    var eventLastYear = monthBuckets.map(function (bucket) {
+    var eventLastYear = lineBuckets.map(function (bucket) {
       var shifted = priorYearRange(bucket.start, bucket.end);
       return countEvents(shifted.start, shifted.end);
     });
-    var attendanceSeries = monthBuckets.map(function (bucket) {
+    var attendanceSeries = lineBuckets.map(function (bucket) {
       return sumAttendance(bucket.start, bucket.end);
     });
-    var attendanceLastYear = monthBuckets.map(function (bucket) {
+    var attendanceLastYear = lineBuckets.map(function (bucket) {
       var shifted = priorYearRange(bucket.start, bucket.end);
       return sumAttendance(shifted.start, shifted.end);
     });
@@ -774,7 +774,7 @@
       yearEnabled: view.yearEnabled,
       range: view.range,
       grouping: view.grouping,
-      monthBuckets: monthBuckets,
+      monthBuckets: lineBuckets,
       eventType: view.eventType,
       eventTypes: eventTypes,
       companies: view.companies,
