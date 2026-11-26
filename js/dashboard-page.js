@@ -213,6 +213,7 @@
 
   function onClick(event) {
     var info = event.target.closest('.info');
+    if (info && info.classList.contains('info-hover')) return;
     if (info) {
       event.preventDefault();
       event.stopPropagation();
@@ -321,6 +322,11 @@
     var period = event.target.closest('[data-period]');
     if (period) {
       update({ type: 'period', period: period.getAttribute('data-period') });
+      return;
+    }
+    var show = event.target.closest('[data-show]');
+    if (show) {
+      update({ type: 'showAs', showAs: show.getAttribute('data-show') });
       return;
     }
     var step = event.target.closest('[data-year-step]');

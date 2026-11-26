@@ -262,6 +262,18 @@ function yearControl(view, compact) {
     (view.yearEnabled ? '' : ' disabled') + '>' + options + '</select></label></div>';
 }
 
+  function showControl(view) {
+  var mode = view.showAs === 'total' ? 'total' : 'period';
+  var items = [['period', 'Each period'], ['total', 'Running total']];
+  return '<div class="show-as"><span class="lab">Show as<span class="info info-hover" aria-label="About Show as">ⓘ<span class="tip" role="tooltip"><strong>Show as</strong>' +
+    escapeHtml((model.DEFS && model.DEFS['Show as']) || '') + '</span></span></span><div class="pseg" role="group" aria-label="Show as">' +
+    items.map(function (item) {
+      var on = mode === item[0];
+      return '<button type="button" data-show="' + item[0] + '"' + (on ? ' class="on" aria-pressed="true"' : ' aria-pressed="false"') + '>' +
+        escapeHtml(item[1]) + '</button>';
+    }).join('') + '</div></div>';
+}
+
   function periodControl(view) {
     var items = [
       ['year', 'Year', 'Year'],
@@ -369,8 +381,8 @@ function yearControl(view, compact) {
       '<input type="date" data-date="from" value="' + escapeHtml(view.range.start) + '" aria-label="From date">' +
       '<input type="date" data-date="to" value="' + escapeHtml(view.range.end) + '" aria-label="To date">';
     return '<div class="daterow daterow-full"><div class="dgroup">' + year + '</div><div class="dgroup">' + period +
-      '</div><div class="dgroup">' + dates + '</div>' + search + '<div class="dgroup">' + reset + '</div></div>' +
-      '<div class="daterow daterow-mob"><div class="search-line">' + searchBox(view, 'mob') + '</div><div class="mob-main"><div class="cols"><div class="track">' + yearControl(view, true) + periodControl(view) +
+      '</div><div class="dgroup">' + showControl(view) + '</div><div class="dgroup">' + dates + '</div>' + search + '<div class="dgroup">' + reset + '</div></div>' +
+      '<div class="daterow daterow-mob"><div class="search-line">' + searchBox(view, 'mob') + '</div><div class="mob-main"><div class="cols"><div class="track">' + yearControl(view, true) + periodControl(view) + showControl(view) +
       '</div><div class="dprow"><label class="drow drow-span">' + mobileDates + '</label></div></div>' +
       '<div class="sticky"><button type="button" class="reset" data-reset>↺ Reset filters</button></div></div></div>';
   }

@@ -31,7 +31,8 @@
     'Month': 'Sets every total to one calendar month. The current month runs through today. Step or pick another month. A past month is the full month. Member Gains and Losses pairs it with the same month last fiscal year.',
     'Last 12 months (period)': 'Sets Dates to the trailing 12 full months ending today, and groups Member Gains and Losses by month. The Year control is not used. Comparisons use the 12 months before that.',
     'Calendar': 'Pick a start and an end date. That range overrides the year and the Last 12 months preset. Year, Quarter, and Month still group the gains and losses bars inside the dates you pick. Every total follows this range.',
-    'Reset filters': 'Clears every filter in one click: the year, the period, the dates, event types, companies, people, a name search, and a pie or bar selection. An open list refreshes to the unfiltered records.',
+    'Show as': 'Each period shows that month, quarter, or year by itself. Running total adds each one to the total from the start of the fiscal year through that period. Last 12 months adds from the start of those dates instead. The big numbers stay the total for the dates you selected.',
+    'Reset filters': 'Clears every filter in one click: the year, the period, the dates, Show as, event types, companies, people, a name search, and a pie or bar selection. An open list refreshes to the unfiltered records.',
     'Members': 'Business member count at the end of the selected period. Month start and Quarter start are the counts at the beginning of that month and fiscal quarter. FY start is the count at the beginning of the fiscal year, July 1. The change from FY start is the net gain since then.',
     'New Members': 'How many business members joined during the period you selected. Last month is the previous calendar month through the same day. Last quarter is the previous fiscal quarter through the same number of days. Last year is the same dates in the prior fiscal year.',
     'Net Gain': 'Business members who joined minus business members who left during the period you selected. Last month, last quarter, and last year use the same fiscal windows as New Members.',
@@ -425,6 +426,7 @@
       quarter: currentQuarter.q,
       month: today.slice(0, 7),
       period: 'year',
+      showAs: 'period',
       from: '',
       to: '',
       eventType: '',
@@ -524,6 +526,7 @@
       quarter: quarter,
       month: month,
       period: period,
+      showAs: state && state.showAs === 'total' ? 'total' : 'period',
       custom: custom,
       range: range,
       grouping: groupingOf(period),
@@ -563,6 +566,7 @@
       quarter: state.quarter,
       month: state.month || '',
       period: state.period,
+      showAs: state.showAs === 'total' ? 'total' : 'period',
       from: state.from || '',
       to: state.to || '',
       eventType: state.eventType || '',
@@ -597,6 +601,10 @@
         next.month = today.slice(0, 7);
         next.year = fiscalYearOf(today);
       }
+      return next;
+    }
+    if (action.type === 'showAs') {
+      next.showAs = action.showAs === 'total' ? 'total' : 'period';
       return next;
     }
     if (action.type === 'year') {
@@ -675,6 +683,7 @@
 
   function stateHash(state) {
     var parts = ['year=' + Number(state.year || 0), 'period=' + (state.period || 'year')];
+    if (state.showAs === 'total') parts.push('show=total');
     if (state.quarter) parts.push('quarter=' + Number(state.quarter));
     if (state.month) parts.push('month=' + state.month);
     var hashTypes = listOf(state.eventTypes);
@@ -711,6 +720,7 @@
     if (bag.period === 'year' || bag.period === 'quarter' || bag.period === 'month' || bag.period === 'last12') {
       state.period = bag.period;
     }
+    if (bag.show === 'total') state.showAs = 'total';
     if (bag.type) {
       var parsedTypes = String(bag.type).split(',').map(function (part) {
         try { return decodeURIComponent(part); } catch (err) { return part; }
@@ -803,7 +813,14 @@
     var view = resolveView(data, state || defaultState(data));
     if (directory) view.directory = directory;
     var attendance = attendanceByEvent(data);
-    var buckets = bucketsFor(view.range, view.grouping);
+    var cumulative = view.showAs === 'total';
+    var origin = view.range.start;
+    if (cumulative && view.period !== 'last12' && !view.custom) {
+      var fyStart = fiscalBounds(view.year).start;
+      if (fyStart <= view.range.end) origin = fyStart;
+    }
+    var chartRange = cumulative ? { start: origin, end: view.range.end } : view.range;
+    var buckets = bucketsFor(chartRange, view.grouping);
     var selected = null;
     buckets.forEach(function (bucket) {
       if (bucket.id === view.bucket) selected = bucket;
@@ -836,14 +853,15 @@
       return flowBetween(data, start, end, roster, eventTypes).net;
     }
 
+    function flowSpan(start, end) {
+      if (narrowed) return directory.narrow.flow(start, end, eventTypes, roster, view);
+      return flowBetween(data, start, end, roster, eventTypes);
+    }
     var gainSeries = buckets.map(function (bucket) {
-      var flow = narrowed
-        ? directory.narrow.flow(bucket.start, bucket.end, eventTypes, roster, view)
-        : flowBetween(data, bucket.start, bucket.end, roster, eventTypes);
-      var priorSpan = priorYearRange(bucket.start, bucket.end);
-      var prior = narrowed
-        ? directory.narrow.flow(priorSpan.start, priorSpan.end, eventTypes, roster, view)
-        : flowBetween(data, priorSpan.start, priorSpan.end, roster, eventTypes);
+      var from = cumulative ? origin : bucket.start;
+      var flow = flowSpan(from, bucket.end);
+      var priorSpan = priorYearRange(from, bucket.end);
+      var prior = flowSpan(priorSpan.start, priorSpan.end);
       return {
         id: bucket.id,
         label: bucket.label,
@@ -859,19 +877,23 @@
       var oneYear = buckets.every(function (bucket) { return fiscalYearOf(bucket.end) === legendYear; });
       if (oneYear) gainLegend = { current: 'FY' + legendYear, prior: 'FY' + (legendYear - 1) };
     }
-    var lineBuckets = bucketsFor(measure, 'month');
+    var lineRange = cumulative && !selected ? chartRange : measure;
+    var lineBuckets = bucketsFor(lineRange, 'month');
+    function lineStart(bucket) {
+      return cumulative ? origin : bucket.start;
+    }
     var eventSeries = lineBuckets.map(function (bucket) {
-      return countEvents(bucket.start, bucket.end);
+      return countEvents(lineStart(bucket), bucket.end);
     });
     var eventLastYear = lineBuckets.map(function (bucket) {
-      var shifted = priorYearRange(bucket.start, bucket.end);
+      var shifted = priorYearRange(lineStart(bucket), bucket.end);
       return countEvents(shifted.start, shifted.end);
     });
     var attendanceSeries = lineBuckets.map(function (bucket) {
-      return sumAttendance(bucket.start, bucket.end);
+      return sumAttendance(lineStart(bucket), bucket.end);
     });
     var attendanceLastYear = lineBuckets.map(function (bucket) {
-      var shifted = priorYearRange(bucket.start, bucket.end);
+      var shifted = priorYearRange(lineStart(bucket), bucket.end);
       return sumAttendance(shifted.start, shifted.end);
     });
 
@@ -907,6 +929,7 @@
       month: view.month,
       stepper: view.stepper,
       period: view.period,
+      showAs: view.showAs,
       custom: view.custom,
       yearEnabled: view.yearEnabled,
       range: view.range,
