@@ -291,11 +291,11 @@
     var eventTypes = view.eventTypes || [];
     var audience = view.audience || '';
     var roster = audience || 'Member';
-    if (kind === 'attendance') {
+    if (kind === 'attendance' || kind === 'distribution') {
       var found = attendanceRows(directory, range.start, range.end, eventTypes, audience, view);
       var rows = directory.live ? found : withContacts(found);
       return {
-        title: 'Attendance',
+        title: kind === 'distribution' ? 'Attendee Distribution' : 'Attendee Count',
         kind: kind,
         columns: columnList(rows, ['name', 'audience', 'event', 'date', 'email', 'phone']),
         rows: rows
@@ -318,7 +318,7 @@
           { key: 'event', label: 'Event' },
           { key: 'type', label: 'Type' },
           { key: 'date', label: 'Date' },
-          { key: 'attendance', label: 'Attendance count' }
+          { key: 'attendance', label: 'Attendee count' }
         ],
         rows: eventRows
       };
@@ -346,7 +346,7 @@
         }
       }
     });
-    var titles = { members: 'Members', newMembers: 'New Members', changes: 'Membership records' };
+    var titles = { members: 'Business Members', newMembers: 'New Members', changes: 'Membership records', gains: 'Member Gains and Losses' };
     return {
       title: titles[kind] || 'Membership',
       kind: kind,
