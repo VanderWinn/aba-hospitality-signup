@@ -345,7 +345,7 @@ button.big { display: block; width: 100%; }
 
 .row + .row { margin-top: 10px; }
 
-.card-members { flex: 1.05 1 0; min-width: 0; }
+.card-members { flex: 0.90 1 0; min-width: 0; }
 
 .stack {
   flex: 0.78 1 0;
@@ -355,7 +355,7 @@ button.big { display: block; width: 100%; }
   gap: 10px;
 }
 
-.card-gains { flex: 1.28 1 0; min-width: 0; }
+.card-gains { flex: 1.43 1 0; min-width: 0; }
 
 .card-events, .card-attendance { flex: 1.25 1 0; min-width: 0; }
 
@@ -426,6 +426,16 @@ button.big { display: block; width: 100%; }
 }
 
 .big-members { font-size: 88px; }
+
+.card-members .ttl { font-size: 13.5px; }
+
+.card-members .big-members { font-size: 99px; }
+
+.card-members .pl { font-size: 13.5px; white-space: nowrap; }
+
+.card-members .pv { font-size: 16px; }
+
+.card-members .delta { font-size: 18px; }
 
 .big-mid { font-size: 64px; }
 
@@ -848,6 +858,13 @@ button.big { display: block; width: 100%; }
   .stack .card { margin: 0; padding: 8px 10px; }
 
   .big-members { font-size: 56px; }
+
+  .card-members .big-members { font-size: 63px; }
+
+  .card-members .pl { font-size: 12.5px; }
+
+  .card-members .pv,
+  .card-members .delta { font-size: 13.5px; }
 
   .big-mid { font-size: 40px; }
 
