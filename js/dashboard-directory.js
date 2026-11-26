@@ -47,10 +47,8 @@
   function identityOk(row, view) {
     var companies = view.companies || [];
     var people = view.people || [];
-    var query = String(view.nameQuery || '').toLowerCase();
     if (companies.length && companies.indexOf(row.company) === -1) return false;
     if (people.length && people.indexOf(row.name) === -1) return false;
-    if (query && String(row.name || '').toLowerCase().indexOf(query) === -1) return false;
     return true;
   }
 
@@ -204,13 +202,10 @@
   function liveMembershipOk(person, view) {
     if ((view.companies || []).length && view.companies.indexOf(person.company) === -1) return false;
     var selected = view.people || [];
-    var query = String(view.nameQuery || '').toLowerCase();
-    if (!selected.length && !query) return true;
+    if (!selected.length) return true;
     var wanted = {};
     (view.directory.people || []).forEach(function (entry) {
-      var named = selected.indexOf(entry.name) !== -1;
-      var queried = query && String(entry.name || '').toLowerCase().indexOf(query) !== -1;
-      if (named || queried) wanted[entry.company] = true;
+      if (selected.indexOf(entry.name) !== -1) wanted[entry.company] = true;
     });
     return !!wanted[person.company];
   }
@@ -416,18 +411,6 @@
     return list;
   }
 
-  function suggestions(directory, text, companies) {
-    var q = String(text || '').toLowerCase().trim();
-    if (!q) return { people: [], companies: [] };
-    var people = peopleForCompanies(directory, companies).filter(function (person) {
-      return person.name.toLowerCase().indexOf(q) !== -1;
-    }).slice(0, 6);
-    var companyHits = (directory.companies || []).filter(function (name) {
-      return name.toLowerCase().indexOf(q) !== -1;
-    }).slice(0, 6);
-    return { people: people, companies: companyHits };
-  }
-
   function fromLive(payload) {
     payload = payload || {};
     var attendance = [];
@@ -498,7 +481,6 @@
     withContacts: withContacts,
     drill: drill,
     queryRows: queryRows,
-    suggestions: suggestions,
     narrow: narrow,
     emailOf: emailOf,
     phoneOf: phoneOf

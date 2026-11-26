@@ -32,7 +32,7 @@
     'Last 12 months (period)': 'Sets Dates to the trailing 12 full months ending today, and groups Member Gains and Losses by month. The Year control is not used. Comparisons use the 12 months before that.',
     'Calendar': 'Pick a start and an end date. That range overrides the year and the Last 12 months preset. Year, Quarter, and Month still group the gains and losses bars inside the dates you pick. Every total follows this range.',
     'Show as': 'Each period shows that month, quarter, or year by itself. Running total adds each one to the total from the start of the fiscal year through that period. Last 12 months adds from the start of those dates instead. The big numbers stay the total for the dates you selected.',
-    'Reset filters': 'Clears every filter in one click: the year, the period, the dates, Running total, event types, companies, people, a name search, and a pie or bar selection. An open list refreshes to the unfiltered records.',
+    'Reset filters': 'Clears every filter in one click: the year, the period, the dates, Running total, event types, companies, attendees, and a pie or bar selection. An open list refreshes to the unfiltered records.',
     'Members': 'Business member count at the end of the selected period. Month start and Quarter start are the counts at the beginning of that month and fiscal quarter. FY start is the count at the beginning of the fiscal year, July 1. The change from FY start is the net gain since then.',
     'New Members': 'How many business members joined during the period you selected. Last month is the previous calendar month through the same day. Last quarter is the previous fiscal quarter through the same number of days. Last year is the same dates in the prior fiscal year.',
     'Net Gain': 'Business members who joined minus business members who left during the period you selected. Last month, last quarter, and last year use the same fiscal windows as New Members.',
@@ -42,8 +42,7 @@
     'Attendance Distribution': 'Of the people who attended in the selected period, how many were attendees and how many were guests. Attendees are people marked Member. The raw count is the main number; the percentage is context. Click Attendees or Guests to filter the whole page; click again to clear.',
     'Open': 'Opens the list of records behind this number. The list follows the filters already on the page.',
     'Company': 'Limits every figure to attendance and membership for the member companies you select. Companies combine with OR. Guests from other companies stay out of this list.',
-    'Person': 'Limits every figure to the people you select. The list shows people at the selected companies, or everyone when no company is selected. People combine with OR.',
-    'Search name': 'Type a name to add a person or a company, or press Enter to keep rows whose person name contains that text.',
+    'Attendee': 'Limits every figure to the attendees you select. The list shows attendees at the selected companies, or everyone when no company is selected. Attendees combine with OR.',
     'Last month / quarter / year': 'On Events Held and Attendee Count, last month and last quarter are the same length of time shifted back one month or one quarter, and last year is the same dates in the prior fiscal year. On the business-member cards, the windows follow fiscal boundaries instead.',
     'Powered by Donny C. Nguyen': 'A credit line for the portal work. It is not a data measure.'
   };
@@ -433,7 +432,6 @@
       eventTypes: [],
       companies: [],
       people: [],
-      nameQuery: '',
       audience: '',
       bucket: ''
     };
@@ -517,7 +515,6 @@
     }
     var companies = listOf(state && state.companies);
     var people = listOf(state && state.people);
-    var nameQuery = state && state.nameQuery ? String(state.nameQuery) : '';
     var audience = state && (state.audience === 'Member' || state.audience === 'Guest') ? state.audience : '';
     return {
       today: today,
@@ -541,7 +538,6 @@
       eventTypes: eventTypes,
       companies: companies,
       people: people,
-      nameQuery: nameQuery,
       audience: audience,
       bucket: state && state.bucket ? String(state.bucket) : ''
     };
@@ -573,7 +569,6 @@
       eventTypes: listOf(state.eventTypes),
       companies: listOf(state.companies),
       people: listOf(state.people),
-      nameQuery: state.nameQuery || '',
       audience: state.audience || '',
       bucket: state.bucket || ''
     };
@@ -665,11 +660,6 @@
       next.bucket = '';
       return next;
     }
-    if (action.type === 'nameQuery') {
-      next.nameQuery = action.query ? String(action.query) : '';
-      next.bucket = '';
-      return next;
-    }
     if (action.type === 'audience') {
       next.audience = next.audience === action.audience ? '' : (action.audience || '');
       return next;
@@ -692,7 +682,6 @@
     if (state.audience) parts.push('audience=' + encodeURIComponent(state.audience));
     if (listOf(state.companies).length) parts.push('companies=' + listOf(state.companies).map(encodeURIComponent).join(','));
     if (listOf(state.people).length) parts.push('people=' + listOf(state.people).map(encodeURIComponent).join(','));
-    if (state.nameQuery) parts.push('q=' + encodeURIComponent(state.nameQuery));
     if (state.from && state.to) {
       parts.push('from=' + state.from);
       parts.push('to=' + state.to);
@@ -734,7 +723,6 @@
     if (bag.people) state.people = String(bag.people).split(',').map(function (part) {
       try { return decodeURIComponent(part); } catch (err) { return part; }
     }).filter(Boolean);
-    if (bag.q) state.nameQuery = bag.q;
     if (bag.audience === 'Member' || bag.audience === 'Guest') state.audience = bag.audience;
     if (isISO(bag.from) && isISO(bag.to)) {
       state.from = bag.from;
@@ -829,7 +817,7 @@
     var eventTypes = view.eventTypes;
     var pieAudience = view.audience;
     var roster = pieAudience || 'Member';
-    var identity = view.companies.length || view.people.length || view.nameQuery;
+    var identity = view.companies.length || view.people.length;
     var narrowed = identity && directory && directory.narrow;
 
     function countEvents(start, end) {
@@ -939,7 +927,6 @@
       eventTypes: eventTypes,
       companies: view.companies,
       people: view.people,
-      nameQuery: view.nameQuery,
       audience: pieAudience,
       bucket: selected ? selected.id : '',
       buckets: buckets,

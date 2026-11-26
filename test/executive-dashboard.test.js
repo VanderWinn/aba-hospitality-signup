@@ -400,7 +400,6 @@ test('the sheet adapter keeps counts and drops contact fields', () => {
   assert.equal(both.eventTypes.length, 0);
   assert.equal(both.companies.length, 0);
   assert.equal(both.people.length, 0);
-  assert.equal(both.nameQuery, '');
   assert.equal(both.audience, '');
   assert.equal(both.bucket, '');
   const combo = dash.compute(source, {
@@ -542,6 +541,10 @@ test('the dashboard page is gated and the public sign-up does not link to it', (
   assert.match(rendered, /data-run-toggle/);
   assert.match(rendered, /aria-pressed="false"/);
   assert.match(rendered, /Running total/);
+  assert.match(rendered, /Attendee/);
+  assert.match(rendered, /All attendees/);
+  assert.equal(rendered.includes('Search name'), false);
+  assert.equal(rendered.includes('>Person<'), false);
   assert.match(rendered, /FY2027/);
   assert.match(rendered, /Jul 1, 2026 through Jun 30, 2027/);
   assert.match(rendered, /\+12/);

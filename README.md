@@ -71,15 +71,15 @@ The events and attendee-count lines stay month by month for the selected dates, 
 
 The business-member cards use fiscal boundaries of the selected dates. **Business Members** compares the count with the count at the start of the month, the start of the fiscal quarter, and the start of the fiscal year that contain the end date (July 1 for the year). The change from FY start is the net gain since July 1. **New Members** and **Net Gain** compare with the previous calendar month through the same day, the previous fiscal quarter through the same number of days, and the same dates in the prior fiscal year.
 
-**Open** on a card, or the big number, lists the records behind that total. The list uses the same Year, Period, Dates, event types, companies, people, name search, and Members or Guests choice. Back returns to the dashboard with those filters still set. Reset clears every filter, and an open list refreshes to the unfiltered records.
+**Open** on a card, or the big number, lists the records behind that total. The list uses the same Year, Period, Dates, event types, companies, attendees, and Members or Guests choice. Back returns to the dashboard with those filters still set. Reset clears every filter, and an open list refreshes to the unfiltered records.
 
-On the left, under Event type, **Company** then **Person** are separate multi-select lists. Each has Select all, Clear all, checkboxes, and a type-to-filter box. Enter in that box checks the first match. Select all, while a filter is typed, adds only the visible matches. Choices inside one list combine with OR. Event type, company, person, and a name search combine with AND. The person list shows only people at the selected companies. Removing a company removes its people from the person selection. Guests can belong to a company that is not a member company; those companies are not in the Company list.
+On the left, under Event type, **Company** then **Attendee** are separate multi-select lists. Each has Select all, Clear all, checkboxes, and a type-to-filter box. Enter in that box checks the first match. Select all, while a filter is typed, adds only the visible matches. Choices inside one list combine with OR. Event type, company, and attendee combine with AND. The attendee list shows only people at the selected companies. Removing a company removes its attendees from the attendee selection. Guests can belong to a company that is not a member company; those companies are not in the Company list. The closed attendee list reads All attendees, and an empty typed list reads No attendees.
 
-The top bar is one row on a desktop: the period stepper (Fiscal year, Quarter, or Month), Period, the Running total switch, Dates, Search, and Reset. Search suggests people and companies. Choosing a suggestion adds that person or company to the left-rail selection. Enter on text that you do not pick applies a case-insensitive “name contains” match. On a phone the search field is full width at the top of the filter area.
+The top bar is one row on a desktop: the period stepper (Fiscal year, Quarter, or Month), Period, the Running total switch, Dates, and Reset.
 
 Placeholder mode uses about ten obviously fake companies and fake people. Attendance emails end in `@example.com` and phone numbers start with `555`. Those contact fields are not on the summary cards. They appear only in the attendance drill-down, which also shows any extra field on the record, such as `notes`.
 
-The attendance drill-down shows contact information to anyone who has the portal password. Real names, emails, phone numbers, and the Company and Person lists come only from the password-checked `executiveDrilldown` POST. They are not in the aggregate response, this repo, static JavaScript, or `localStorage`. While the script is not configured, the page does not call that endpoint and uses the example directory instead.
+The attendance drill-down shows contact information to anyone who has the portal password. Real names, emails, phone numbers, and the Company and Attendee lists come only from the password-checked `executiveDrilldown` POST. They are not in the aggregate response, this repo, static JavaScript, or `localStorage`. While the script is not configured, the page does not call that endpoint and uses the example directory instead.
 
 `fromSheetTabs()` still drops email, phone, and name from the headline tabs. It keeps them on `attendanceRecords` only, and only for Lunch & Learn, Ribbon Cutting, and Happy Hour.
 
@@ -106,7 +106,7 @@ The attendance drill-down shows contact information to anyone who has the portal
 
 Not deployed. Until it is, the page keeps the example data and the badge.
 
-The code is in `apps-script/PortalDashboard.gs` and is routed from `apps-script/Code.gs`. It reads a different spreadsheet from the hospitality sign-up file: **ABA Dashboard Data**, id `1ASUO0a6y8WISgvmSbrxcmogNXGIWLGdJX5Pgn1ufAC0`. `executiveDashboard` returns totals only. `executiveDrilldown` returns names, emails, phones, the active company list, the person list, and attendance records. Both check `PORTAL_PASSWORD_SHA256`. A wrong password returns status 401 and no rows.
+The code is in `apps-script/PortalDashboard.gs` and is routed from `apps-script/Code.gs`. It reads a different spreadsheet from the hospitality sign-up file: **ABA Dashboard Data**, id `1ASUO0a6y8WISgvmSbrxcmogNXGIWLGdJX5Pgn1ufAC0`. `executiveDashboard` returns totals only. `executiveDrilldown` returns names, emails, phones, the active company list, the attendee list, and attendance records. Both check `PORTAL_PASSWORD_SHA256`. A wrong password returns status 401 and no rows.
 
 When Donny wants this live:
 

@@ -170,8 +170,6 @@ button.big { display: block; width: 100%; }
 
 .daterow-full .dval { font-size: 11px; }
 
-.daterow-full .search-box input { width: 118px; }
-
 .daterow-full .reset { height: 30px; padding: 0 6px; font-size: 12px; gap: 4px; }
 
 .daterow-full .run-tog,
@@ -820,10 +818,6 @@ button.big { display: block; width: 100%; }
     min-height: 88px;
     align-items: stretch;
   }
-
-  .daterow-mob .search-line { padding: 8px 10px 0; }
-
-  .daterow-mob .search-box input { width: 100%; }
 
   .daterow-mob .mob-main { display: flex; align-items: stretch; }
 
