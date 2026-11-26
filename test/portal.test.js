@@ -10,7 +10,7 @@ function loadPortal() {
   const context = { Intl, Date, JSON, Math, Number, String, Object, Array, encodeURIComponent, decodeURIComponent };
   context.globalThis = context;
   vm.createContext(context);
-  vm.runInContext(fs.readFileSync(path.join(root, 'js/portal.js'), 'utf8'), context, { filename: 'portal.js' });
+  vm.runInContext(fs.readFileSync(path.join(root, 'aba-site/js/portal.js'), 'utf8'), context, { filename: 'portal.js' });
   return context.ABAPortal;
 }
 
@@ -34,25 +34,31 @@ test('the catalog becomes calendar events with venue, time, and category', () =>
 });
 
 test('the portal password is a hash and the sign-up page does not link to it', () => {
-  const config = JSON.parse(fs.readFileSync(path.join(root, 'home/portal.json'), 'utf8'));
+  const config = JSON.parse(fs.readFileSync(path.join(root, 'aba-site/portal.json'), 'utf8'));
   assert.equal(config.passwordSha256, '7b85d87fd6d1af2728dee2eafc499539311143474fe851018ebe0e2fca999df6');
   const signup = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   assert.equal(signup.includes('Board & Committee'), false);
   assert.equal(signup.includes('home/'), false);
   assert.equal(signup.includes('noindex'), false);
-  const home = fs.readFileSync(path.join(root, 'home/index.html'), 'utf8');
+  const home = fs.readFileSync(path.join(root, 'aba-site/index.html'), 'utf8');
   assert.match(home, /noindex, nofollow/);
   assert.match(home, /ABA Board &amp; Committee Portal/);
-  assert.match(home, /href="\.\.\/"/);
-  const docs = JSON.parse(fs.readFileSync(path.join(root, 'home/docs.json'), 'utf8'));
+  assert.match(home, /href="dashboard\/"/);
+  assert.match(home, /https:\/\/vanderwinn\.github\.io\/aba-hospitality-signup\//);
+  const docs = JSON.parse(fs.readFileSync(path.join(root, 'aba-site/docs.json'), 'utf8'));
   assert.equal(docs.documents[0].url, 'https://drive.google.com/drive/folders/1exeZ76nncawAQ15Jk9NjEa7jyDqro7mG');
   assert.match(docs.documents[1].url, /docs\.google\.com\/document\/d\/1QFfdzr5dWCLLq0zIy-Kj3Yc7ifw8T_-xWA6tH0ho5ec/);
   const workflow = fs.readFileSync(path.join(root, '.github/workflows/pages.yml'), 'utf8');
   assert.match(workflow, /home\/index\.html/);
-  assert.match(workflow, /home\/docs\.json/);
-  const page = fs.readFileSync(path.join(root, 'js/portal-page.js'), 'utf8');
-  const css = fs.readFileSync(path.join(root, 'css/portal.css'), 'utf8');
-  const logic = fs.readFileSync(path.join(root, 'js/portal.js'), 'utf8');
+  assert.match(workflow, /home\/dashboard\.html/);
+  assert.equal(workflow.includes('aba-site'), false);
+  const forward = fs.readFileSync(path.join(root, 'home/index.html'), 'utf8');
+  const forwardDash = fs.readFileSync(path.join(root, 'home/dashboard.html'), 'utf8');
+  assert.match(forward, /https:\/\/vanderwinn\.github\.io\/aba\//);
+  assert.match(forwardDash, /https:\/\/vanderwinn\.github\.io\/aba\/dashboard\//);
+  const page = fs.readFileSync(path.join(root, 'aba-site/js/portal-page.js'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'aba-site/css/portal.css'), 'utf8');
+  const logic = fs.readFileSync(path.join(root, 'aba-site/js/portal.js'), 'utf8');
   const bundle = home + page + css + logic;
   assert.equal(/\blands?\b|\blanded\b|\blanding\b/i.test(bundle), false);
   assert.match(home, /id="portal-dashboard-body"/);

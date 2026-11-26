@@ -147,7 +147,7 @@
 
   function openPortal() {
     if (dashboardNext()) {
-      window.location.assign('dashboard.html');
+      window.location.assign('dashboard/');
       return;
     }
     show('portal-gate', false);
@@ -278,7 +278,7 @@
       state.events = portal.eventsFromCatalog(live);
     } catch (err) {
       try {
-        var saved = await fetch('../data/seed.json', { cache: 'no-store' }).then(function (response) {
+        var saved = await fetch('data/seed.json', { cache: 'no-store' }).then(function (response) {
           if (!response.ok) throw err;
           return response.json();
         });

@@ -13,7 +13,7 @@ function load() {
   };
   context.globalThis = context;
   vm.createContext(context);
-  ['js/dashboard-model.js', 'js/dashboard-data.js', 'js/dashboard-directory.js', 'js/dashboard-view.js'].forEach(function (file) {
+  ['aba-site/js/dashboard-model.js', 'aba-site/js/dashboard-data.js', 'aba-site/js/dashboard-directory.js', 'aba-site/js/dashboard-view.js'].forEach(function (file) {
     vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename: file });
   });
   return context;
@@ -537,19 +537,19 @@ test('the same attendee is listed once and still matches every row', () => {
 });
 
 test('the dashboard page is gated and the public sign-up does not link to it', () => {
-  const page = fs.readFileSync(path.join(root, 'js/dashboard-page.js'), 'utf8');
-  const html = fs.readFileSync(path.join(root, 'home/dashboard.html'), 'utf8');
-  const home = fs.readFileSync(path.join(root, 'home/index.html'), 'utf8');
+  const page = fs.readFileSync(path.join(root, 'aba-site/js/dashboard-page.js'), 'utf8');
+  const html = fs.readFileSync(path.join(root, 'aba-site/dashboard/index.html'), 'utf8');
+  const home = fs.readFileSync(path.join(root, 'aba-site/index.html'), 'utf8');
   const signup = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-  const workflow = fs.readFileSync(path.join(root, '.github/workflows/pages.yml'), 'utf8');
+  const workflow = fs.readFileSync(path.join(root, 'aba-site/.github/workflows/pages.yml'), 'utf8');
   assert.match(page, /aba-board-portal-password/);
   assert.match(page, /index\.html\?next=dashboard/);
   assert.equal(page.includes('localStorage'), false);
   assert.match(html, /noindex, nofollow/);
   assert.match(html, /<title>Board &amp; Committee Portal<\/title>/);
-  assert.match(home, /href="dashboard\.html"/);
+  assert.match(home, /href="dashboard\/"/);
   assert.equal(signup.includes('dashboard.html'), false);
-  assert.match(workflow, /home\/dashboard\.html/);
+  assert.match(workflow, /dashboard\/index\.html/);
   assert.match(workflow, /dashboard-page\.js/);
   const hash = dash.stateHash({ year: 2025, period: 'quarter', eventType: 'Happy Hour', audience: 'Guest', from: '', to: '', bucket: '' });
   assert.equal(hash.includes('password'), false);
