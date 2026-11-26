@@ -66,6 +66,21 @@ button.big { display: block; width: 100%; }
 
 .brand-wrap { display: flex; align-items: center; gap: 10px; min-width: 0; }
 
+.mark {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  line-height: 0;
+  height: 40px;
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.mark:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+.mark img { height: 34px; width: auto; display: block; }
+
 .brand {
   font-weight: 700;
   letter-spacing: .3px;
@@ -636,15 +651,13 @@ button.big { display: block; width: 100%; }
   min-height: 44px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 6px 22px;
   font-size: 12px;
   color: var(--soft);
   background: var(--paper);
   border-top: 1px solid var(--line);
 }
-
-.sig img { height: 32px; width: auto; display: block; }
 
 .skip {
   position: absolute;
@@ -798,15 +811,19 @@ button.big { display: block; width: 100%; }
     gap: 4px 8px;
   }
 
-  .brand-wrap { display: contents; }
+  .brand-wrap { grid-column: 1; grid-row: 1; gap: 8px; min-width: 0; }
 
-  .brand { font-size: 14px; grid-column: 1; grid-row: 1; }
+  .brand { font-size: 13px; min-width: 0; white-space: normal; line-height: 1.15; }
+
+  .mark { height: 32px; padding: 2px 5px; }
+
+  .mark img { height: 28px; }
 
   .docs-short { grid-column: 2; grid-row: 1; gap: 4px; }
 
   .icon-btn, .more-icon { width: 36px; height: 36px; }
 
-  .example-badge { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
+  .example-badge { flex-basis: 100%; }
 
   .daterow-mob {
     display: flex;
@@ -908,8 +925,6 @@ button.big { display: block; width: 100%; }
   .pv, .delta { font-size: 12px; }
 
   .sig { min-height: 40px; padding: 0 12px; }
-
-  .sig img { height: 26px; }
 
   .example-badge { height: 18px; font-size: 10px; padding: 0 6px; }
 }

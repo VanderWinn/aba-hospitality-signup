@@ -467,7 +467,10 @@ test('the dashboard page is gated and the public sign-up does not link to it', (
   assert.match(rendered, /Jul 1, 2026 through Jun 30, 2027/);
   assert.match(rendered, /\+12/);
   assert.match(rendered, /Powered by Donny C\. Nguyen/);
-  assert.match(rendered, /aba-logo\.png/);
+  assert.match(rendered, /class="mark" href="https:\/\/adabusinessassociation\.com\/" target="_blank" rel="noopener noreferrer" aria-label="Ada Business Association website"/);
+  assert.match(rendered, /alt="Ada Business Association website"/);
+  assert.equal((rendered.match(/aba-logo\.png/g) || []).length, 1);
+  assert.equal(/<footer class="sig">[\s\S]*aba-logo/.test(rendered), false);
   assert.equal(rendered.includes('WIREFRAME'), false);
   assert.equal(rendered.includes('@'), false);
   const guests = sandbox.ABADashboardView.render(Object.assign(view({ audience: 'Guest' }), { mobile: true }));

@@ -333,7 +333,9 @@ function periodControl(view) {
       { label: '⋯', name: 'More', href: '', className: 'icon-btn more-icon' }
     ];
     var badge = view.example ? '<span class="example-badge">Example data</span>' : '';
-    return '<header class="docbar"><div class="brand-wrap"><a class="brand" href="index.html">' +
+    var mark = '<a class="mark" href="https://adabusinessassociation.com/" target="_blank" rel="noopener noreferrer" aria-label="Ada Business Association website">' +
+      '<img src="../assets/aba-logo.png" alt="Ada Business Association website"></a>';
+    return '<header class="docbar"><div class="brand-wrap">' + mark + '<a class="brand" href="index.html">' +
       '<span class="brand-full">ABA · Board &amp; Committee Portal</span>' +
       '<span class="brand-short">ABA Board &amp; Committee</span></a>' + badge + '</div>' +
       '<div class="docs docs-full"><span class="lbl">Documents ' + hint('', 'Documents', true) + '</span>' +
@@ -488,7 +490,7 @@ function periodControl(view) {
       '</aside><div class="main">' + eventTypes(view, true) +
       '<div class="row row-top">' + members + '<div class="stack">' + fresh + net + '</div>' + gains + '</div>' +
       '<div class="row row-bottom">' + events + attendance + pie + '</div></div></div>' +
-      '<footer class="sig"><img src="../assets/aba-logo.png" alt="Ada Business Association logo"><span class="credit">Powered by Donny C. Nguyen</span></footer>' +
+      '<footer class="sig"><span class="credit">Powered by Donny C. Nguyen</span></footer>' +
       drillPanel(view);
   }
 
