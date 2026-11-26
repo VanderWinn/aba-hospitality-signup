@@ -73,7 +73,7 @@ The business-member cards use fiscal boundaries of the selected dates. **Busines
 
 On the left, under Event type, **Company** then **Attendee** are separate multi-select lists. Each has Select all, Clear all, checkboxes, and a type-to-filter box. Enter in that box checks the first match. Select all, while a filter is typed, adds only the visible matches. Choices inside one list combine with OR. Event type, company, and attendee combine with AND. The attendee list shows only people at the selected companies. Removing a company removes its attendees from the attendee selection. Guests can belong to a company that is not a member company; those companies are not in the Company list. The closed attendee list reads All attendees, and an empty typed list reads No attendees.
 
-The top bar is one row on a desktop: Fiscal year, Period, Dates, and Reset. Reset stays at the right edge.
+The top bar is one row on a desktop: Fiscal year, Period, and Dates sit together on the left with a 32px gap, and Reset stays at the right edge.
 
 Placeholder mode uses about ten obviously fake companies and fake people. Attendance emails end in `@example.com` and phone numbers start with `555`. Those contact fields are not on the summary cards. They appear only in the attendance drill-down, which also shows any extra field on the record, such as `notes`.
 

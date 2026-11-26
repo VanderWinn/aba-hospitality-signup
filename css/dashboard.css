@@ -148,8 +148,8 @@ button.big { display: block; width: 100%; }
     display: flex;
     flex: 1 1 auto;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    justify-content: flex-start;
+    gap: 32px;
     min-width: 0;
   }
   .daterow-full > .reset-group { margin-left: auto; flex: 0 0 auto; }
