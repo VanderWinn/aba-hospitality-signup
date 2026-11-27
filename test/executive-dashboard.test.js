@@ -513,15 +513,17 @@ test('only the three event types are counted, and other statuses stay on the rec
   ]);
   assert.equal(JSON.stringify(types).includes('Cafe'), false);
   const attached = gs.dashboardAttachCategories_([
-    { company: 'Cafe Example', status: 'Active', joinDate: '2024-01-01', lostDate: '' },
+    { company: 'Cafe Example', status: 'Active', joinDate: '2024-01-01', lostDate: '', email: 'cafe@example.com' },
     { company: 'Blank Co', status: 'Active', joinDate: '2024-01-01', lostDate: '' }
   ], [
     { company_name: 'Cafe Example', category: 'Restaurants; Marketing' },
     { company_name: 'Blank Co', category: '' }
   ]);
+  assert.equal(attached[0].email, 'cafe@example.com');
+  assert.equal(attached[1].email, '');
   assert.deepEqual(JSON.parse(JSON.stringify(attached[0].categories)), ['Restaurants', 'Marketing']);
   assert.deepEqual(JSON.parse(JSON.stringify(attached[1].categories)), []);
-  assert.equal(JSON.stringify(attached).includes('@'), false);
+  assert.equal(JSON.stringify(attached[0].categories).includes('@'), false);
   assert.equal(JSON.stringify(types).includes('Blank'), false);
   const risk = gs.renewalRisk_({
     attendanceRecords: [
