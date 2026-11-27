@@ -432,7 +432,115 @@ function executiveRowsToDashboard_(tabs, asOf) {
     attendance: attendance,
     signups: signups,
     openings: openings,
-    changes: changes
+    changes: changes,
+    renewalRisk: renewalRisk_(tabs, asOf || dashboardToday_())
+  };
+}
+
+function dashboardFold_(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function dashboardFiscalYear_(iso) {
+  var year = Number(String(iso || '').slice(0, 4));
+  var month = Number(String(iso || '').slice(5, 7));
+  if (!year || !month) return 0;
+  return month >= 7 ? year + 1 : year;
+}
+
+function dashboardShiftYear_(iso, delta) {
+  var year = Number(String(iso).slice(0, 4)) + delta;
+  var month = Number(String(iso).slice(5, 7));
+  var day = Number(String(iso).slice(8, 10));
+  var dim = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  if (day > dim) day = dim;
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  return year + '-' + pad(month) + '-' + pad(day);
+}
+
+function renewalRisk_(tabs, asOf) {
+  tabs = tabs || {};
+  var roster = tabs.roster || tabs.membershipRoster || [];
+  if (!roster.length || !/^\d{4}-\d{2}-\d{2}$/.test(String(asOf || ''))) return null;
+  var cohortYear = dashboardFiscalYear_(asOf);
+  if (!cohortYear) return null;
+  var fyStart = (cohortYear - 1) + '-07-01';
+  var last12Start = dashboardShiftYear_(asOf, -1);
+  var renewalDate = (cohortYear - 1) + '-06-30';
+  var cycleStart = (cohortYear - 2) + '-07-01';
+  var newerStart = cohortYear - 4;
+  var attended = { recent: {}, cycle: {} };
+  function addHit(bucket, key) {
+    if (!key) return;
+    bucket[key] = (bucket[key] || 0) + 1;
+  }
+  (tabs.attendanceRecords || []).forEach(function (row) {
+    var type = dashboardEventType_(row.event_type || row.eventType);
+    var date = dashboardIso_(row.date || row.event_date);
+    var outcome = String(row.status || '').toLowerCase().replace(/[\s-]+/g, '_');
+    if (!type || !date || outcome !== 'attended') return;
+    var email = dashboardFold_(row.email);
+    var company = dashboardFold_(row.company);
+    if (date > last12Start && date <= asOf) {
+      if (email) addHit(attended.recent, 'e:' + email);
+      if (company) addHit(attended.recent, 'c:' + company);
+    }
+    if (date >= cycleStart && date <= renewalDate) {
+      if (email) addHit(attended.cycle, 'e:' + email);
+      if (company) addHit(attended.cycle, 'c:' + company);
+    }
+  });
+  function visitsFor(member, bucket) {
+    var email = dashboardFold_(member.email);
+    if (email) return bucket['e:' + email] || 0;
+    var company = dashboardFold_(member.company);
+    return company ? (bucket['c:' + company] || 0) : 0;
+  }
+  function bandFor(count) {
+    if (count <= 0) return '0';
+    if (count <= 2) return '1–2';
+    if (count <= 5) return '3–5';
+    return '6+';
+  }
+  var bands = { '0': { band: '0', members: 0, lapsed: 0 }, '1–2': { band: '1–2', members: 0, lapsed: 0 }, '3–5': { band: '3–5', members: 0, lapsed: 0 }, '6+': { band: '6+', members: 0, lapsed: 0 } };
+  var cohort = 0;
+  var zeroAttendance = 0;
+  var newer = 0;
+  var longer = 0;
+  var unknown = 0;
+  roster.forEach(function (row) {
+    var company = String(row.company || '').trim();
+    if (!company) return;
+    var joinDate = dashboardIso_(row.join_date || row.joinDate || row.joined || row.date_joined);
+    var lostDate = dashboardIso_(row.lost_date || row.lostDate || row.deactivation_date || row.deactivated_date || row.date_deactivated);
+    var status = String(row.status || '').toLowerCase();
+    var member = { company: company, email: row.email || '' };
+    var current = (!lostDate || lostDate > asOf) && status !== 'deactivated';
+    var joinedThisYear = joinDate && joinDate >= fyStart;
+    if (current && !joinedThisYear) {
+      cohort += 1;
+      if (!visitsFor(member, attended.recent)) {
+        zeroAttendance += 1;
+        var joinedFy = dashboardFiscalYear_(joinDate);
+        if (!joinDate || !joinedFy) unknown += 1;
+        else if (joinedFy >= newerStart && joinedFy < cohortYear) newer += 1;
+        else longer += 1;
+      }
+    }
+    var inCycle = (!joinDate || joinDate < cycleStart) && (!lostDate || lostDate >= cycleStart);
+    if (inCycle) {
+      var band = bands[bandFor(visitsFor(member, attended.cycle))];
+      band.members += 1;
+      if (lostDate === renewalDate) band.lapsed += 1;
+    }
+  });
+  return {
+    zeroAttendance: zeroAttendance,
+    cohort: cohort,
+    byTenure: { newer: newer, longer: longer, unknown: unknown },
+    newerLabel: 'Joined ' + (newerStart - 1) + '\u2013' + (cohortYear - 2),
+    longerLabel: 'Joined ' + (newerStart - 2) + ' or earlier',
+    lapseByBand: [bands['0'], bands['1–2'], bands['3–5'], bands['6+']]
   };
 }
 
@@ -504,7 +612,8 @@ function executiveDashboardAction_(body, deps) {
       events: dashboardSheetObjects_(ss.getSheetByName('Events')),
       attendanceRecords: dashboardSheetObjects_(ss.getSheetByName('AttendanceRecords')),
       openings: dashboardSheetObjects_(ss.getSheetByName('MembershipOpening')),
-      changes: dashboardSheetObjects_(ss.getSheetByName('Membership'))
+      changes: dashboardSheetObjects_(ss.getSheetByName('Membership')),
+      roster: dashboardSheetObjects_(ss.getSheetByName('Membership Roster'))
     };
   }
   return { ok: true, dashboard: executiveRowsToDashboard_(tabs, deps && deps.asOf) };
