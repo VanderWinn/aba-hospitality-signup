@@ -733,14 +733,14 @@ function dashboardDrilldownFromSheets_(ss) {
     }
   });
   people.sort(function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
-  var roster = dashboardSheetObjects_(ss.getSheetByName('Membership Roster')).map(function (row) {
+  var roster = dashboardAttachCategories_(dashboardSheetObjects_(ss.getSheetByName('Membership Roster')).map(function (row) {
     return {
       company: String(row.company || '').trim(),
       status: String(row.status || ''),
       joinDate: dashboardIso_(row.join_date),
       lostDate: dashboardIso_(row.lost_date)
     };
-  }).filter(function (row) { return row.company; });
+  }).filter(function (row) { return row.company; }), dashboardSheetObjects_(ss.getSheetByName('Members')));
   var companies = [];
   var seen = {};
   roster.forEach(function (row) {
@@ -750,6 +750,28 @@ function dashboardDrilldownFromSheets_(ss) {
   });
   companies.sort();
   return { companies: companies, people: people, attendanceRecords: records, roster: roster };
+}
+
+function dashboardAttachCategories_(rosterRows, memberRows) {
+  var members = {};
+  (memberRows || []).forEach(function (row) {
+    var key = dashboardCompanyKey_(row.company_name || row.company);
+    if (!key) return;
+    var parts = String(row.category || '').split(';').map(function (part) { return part.trim(); }).filter(Boolean);
+    if (!members[key] || (!members[key].length && parts.length)) members[key] = parts;
+  });
+  return (rosterRows || []).map(function (row) {
+    var company = String(row.company || '').trim();
+    if (!company) return null;
+    var categories = members[dashboardCompanyKey_(company)] || [];
+    return {
+      company: company,
+      status: row.status || '',
+      joinDate: row.joinDate || '',
+      lostDate: row.lostDate || '',
+      categories: categories
+    };
+  }).filter(Boolean);
 }
 
 function portalSheetRows_(sheet) {
