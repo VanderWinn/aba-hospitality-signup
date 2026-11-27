@@ -499,16 +499,20 @@ test('only the three event types are counted, and other statuses stay on the rec
       { company: 'Old Co', email: 'old@example.com', status: 'Active', join_date: '2018-01-01' },
       { company: 'Mystery Co', status: 'Active' },
       { company: 'This Year Co', email: 'year@example.com', status: 'Active', join_date: '2026-08-01' },
+      { company: 'Later Co', email: 'later@example.com', status: 'Active', join_date: '2026-11-26' },
       { company: 'Gone Co', email: 'gone@example.com', status: 'Deactivated', join_date: '2019-01-01', lost_date: '2026-06-30' }
     ]
   }, '2026-11-24');
-  assert.equal(risk.cohort, 3);
-  assert.equal(risk.zeroAttendance, 2);
+  assert.equal(risk.cohort, 4);
+  assert.equal(risk.zeroAttendance, 3);
   assert.equal(risk.byTenure.newer, 0);
   assert.equal(risk.byTenure.longer, 1);
   assert.equal(risk.byTenure.unknown, 1);
+  assert.equal(risk.byTenure.thisYear, 1);
+  assert.equal(risk.byTenure.newer + risk.byTenure.longer + risk.byTenure.unknown + risk.byTenure.thisYear, risk.zeroAttendance);
   assert.equal(risk.newerLabel, 'Joined 2022–2025');
   assert.equal(risk.longerLabel, 'Joined 2021 or earlier');
+  assert.equal(risk.thisYearLabel, 'Joined this fiscal year');
   assert.equal(risk.lapseByBand[0].band, '0');
   assert.equal(risk.lapseByBand[0].lapsed, 1);
   assert.equal(JSON.stringify(risk).toLowerCase().includes('example.com'), false);

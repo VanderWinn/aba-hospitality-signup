@@ -464,7 +464,6 @@ function renewalRisk_(tabs, asOf) {
   if (!roster.length || !/^\d{4}-\d{2}-\d{2}$/.test(String(asOf || ''))) return null;
   var cohortYear = dashboardFiscalYear_(asOf);
   if (!cohortYear) return null;
-  var fyStart = (cohortYear - 1) + '-07-01';
   var last12Start = dashboardShiftYear_(asOf, -1);
   var renewalDate = (cohortYear - 1) + '-06-30';
   var cycleStart = (cohortYear - 2) + '-07-01';
@@ -508,6 +507,7 @@ function renewalRisk_(tabs, asOf) {
   var newer = 0;
   var longer = 0;
   var unknown = 0;
+  var thisYear = 0;
   roster.forEach(function (row) {
     var company = String(row.company || '').trim();
     if (!company) return;
@@ -515,14 +515,15 @@ function renewalRisk_(tabs, asOf) {
     var lostDate = dashboardIso_(row.lost_date || row.lostDate || row.deactivation_date || row.deactivated_date || row.date_deactivated);
     var status = String(row.status || '').toLowerCase();
     var member = { company: company, email: row.email || '' };
-    var current = (!lostDate || lostDate > asOf) && status !== 'deactivated';
-    var joinedThisYear = joinDate && joinDate >= fyStart;
-    if (current && !joinedThisYear) {
+    // Same stock as Active member businesses: still a member on asOf, and already joined by asOf.
+    var current = (!lostDate || lostDate > asOf) && status !== 'deactivated' && (!joinDate || joinDate <= asOf);
+    if (current) {
       cohort += 1;
       if (!visitsFor(member, attended.recent)) {
         zeroAttendance += 1;
         var joinedFy = dashboardFiscalYear_(joinDate);
         if (!joinDate || !joinedFy) unknown += 1;
+        else if (joinedFy >= cohortYear) thisYear += 1;
         else if (joinedFy >= newerStart && joinedFy < cohortYear) newer += 1;
         else longer += 1;
       }
@@ -537,9 +538,10 @@ function renewalRisk_(tabs, asOf) {
   return {
     zeroAttendance: zeroAttendance,
     cohort: cohort,
-    byTenure: { newer: newer, longer: longer, unknown: unknown },
+    byTenure: { newer: newer, longer: longer, unknown: unknown, thisYear: thisYear },
     newerLabel: 'Joined ' + (newerStart - 1) + '\u2013' + (cohortYear - 2),
     longerLabel: 'Joined ' + (newerStart - 2) + ' or earlier',
+    thisYearLabel: 'Joined this fiscal year',
     lapseByBand: [bands['0'], bands['1–2'], bands['3–5'], bands['6+']]
   };
 }
