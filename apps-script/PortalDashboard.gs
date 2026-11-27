@@ -738,7 +738,8 @@ function dashboardDrilldownFromSheets_(ss) {
       company: String(row.company || '').trim(),
       status: String(row.status || ''),
       joinDate: dashboardIso_(row.join_date),
-      lostDate: dashboardIso_(row.lost_date)
+      lostDate: dashboardIso_(row.lost_date),
+      email: String(row.email || '')
     };
   }).filter(function (row) { return row.company; }), dashboardSheetObjects_(ss.getSheetByName('Members')));
   var companies = [];
@@ -769,6 +770,7 @@ function dashboardAttachCategories_(rosterRows, memberRows) {
       status: row.status || '',
       joinDate: row.joinDate || '',
       lostDate: row.lostDate || '',
+      email: String(row.email || ''),
       categories: categories
     };
   }).filter(Boolean);
