@@ -481,8 +481,41 @@ test('only the three event types are counted, and other statuses stay on the rec
   assert.deepEqual(Array.from(built.events, (event) => event.type), ['Lunch & Learn']);
   assert.equal(built.attendance.length, 1);
   assert.equal(built.attendance[0].count, 1);
+  assert.equal(built.signups.length, 1);
+  assert.equal(built.signups[0].eventId, 'l');
+  assert.equal(built.signups[0].signups, 2);
+  assert.equal(built.signups[0].noShows, 1);
+  assert.equal(JSON.stringify(built.signups).includes('name'), false);
   assert.equal(built.example, false);
   assert.equal(JSON.stringify(built).toLowerCase().includes('email'), false);
+  assert.equal(built.renewalRisk, null);
+  const risk = gs.renewalRisk_({
+    attendanceRecords: [
+      { event_type: 'Lunch & Learn', status: 'attended', email: 'new@example.com', date: '2026-10-08' },
+      { event_type: 'Lunch & Learn', status: 'attended', email: 'old@example.com', date: '2025-11-01' }
+    ],
+    roster: [
+      { company: 'New Co', email: 'new@example.com', status: 'Active', join_date: '2024-08-01' },
+      { company: 'Old Co', email: 'old@example.com', status: 'Active', join_date: '2018-01-01' },
+      { company: 'Mystery Co', status: 'Active' },
+      { company: 'This Year Co', email: 'year@example.com', status: 'Active', join_date: '2026-08-01' },
+      { company: 'Later Co', email: 'later@example.com', status: 'Active', join_date: '2026-11-26' },
+      { company: 'Gone Co', email: 'gone@example.com', status: 'Deactivated', join_date: '2019-01-01', lost_date: '2026-06-30' }
+    ]
+  }, '2026-11-24');
+  assert.equal(risk.cohort, 4);
+  assert.equal(risk.zeroAttendance, 3);
+  assert.equal(risk.byTenure.newer, 0);
+  assert.equal(risk.byTenure.longer, 1);
+  assert.equal(risk.byTenure.unknown, 1);
+  assert.equal(risk.byTenure.thisYear, 1);
+  assert.equal(risk.byTenure.newer + risk.byTenure.longer + risk.byTenure.unknown + risk.byTenure.thisYear, risk.zeroAttendance);
+  assert.equal(risk.newerLabel, 'Joined 2022–2025');
+  assert.equal(risk.longerLabel, 'Joined 2021 or earlier');
+  assert.equal(risk.thisYearLabel, 'Joined this fiscal year');
+  assert.equal(risk.lapseByBand[0].band, '0');
+  assert.equal(risk.lapseByBand[0].lapsed, 1);
+  assert.equal(JSON.stringify(risk).toLowerCase().includes('example.com'), false);
   const missing = gs.executiveDashboardAction_({ password: 'secret' }, { passwordHash: gs.ABA_SHA256('secret') });
   assert.equal(missing.ok, false);
   assert.match(missing.error, /not configured/);
