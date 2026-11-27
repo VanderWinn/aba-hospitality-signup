@@ -433,8 +433,52 @@ function executiveRowsToDashboard_(tabs, asOf) {
     signups: signups,
     openings: openings,
     changes: changes,
-    renewalRisk: renewalRisk_(tabs, asOf || dashboardToday_())
+    renewalRisk: renewalRisk_(tabs, asOf || dashboardToday_()),
+    businessTypes: businessTypes_(tabs)
   };
+}
+
+function dashboardCompanyKey_(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function businessTypes_(tabs) {
+  tabs = tabs || {};
+  var members = {};
+  (tabs.members || []).forEach(function (row) {
+    var key = dashboardCompanyKey_(row.company_name || row.company);
+    if (!key) return;
+    var category = row.category == null ? '' : String(row.category);
+    if (!members[key] || (!String(members[key]).trim() && String(category).trim())) members[key] = category;
+  });
+  var seen = {};
+  var counts = {};
+  var other = 'Other / not listed';
+  (tabs.roster || []).forEach(function (row) {
+    var company = String(row.company || '').trim();
+    if (!company || String(row.status || '').toLowerCase() !== 'active') return;
+    var key = dashboardCompanyKey_(company);
+    if (seen[key]) return;
+    seen[key] = true;
+    var raw = Object.prototype.hasOwnProperty.call(members, key) ? members[key] : '';
+    var unique = {};
+    String(raw).split(';').forEach(function (part) {
+      var name = part.trim();
+      if (!name || unique[name]) return;
+      unique[name] = true;
+      counts[name] = (counts[name] || 0) + 1;
+    });
+    if (!Object.keys(unique).length) counts[other] = (counts[other] || 0) + 1;
+  });
+  return Object.keys(counts).map(function (category) {
+    return { category: category, count: counts[category] };
+  }).sort(function (a, b) {
+    var aOther = a.category === other ? 1 : 0;
+    var bOther = b.category === other ? 1 : 0;
+    if (aOther !== bOther) return aOther - bOther;
+    if (b.count !== a.count) return b.count - a.count;
+    return a.category < b.category ? -1 : a.category > b.category ? 1 : 0;
+  });
 }
 
 function dashboardFold_(value) {
@@ -615,7 +659,8 @@ function executiveDashboardAction_(body, deps) {
       attendanceRecords: dashboardSheetObjects_(ss.getSheetByName('AttendanceRecords')),
       openings: dashboardSheetObjects_(ss.getSheetByName('MembershipOpening')),
       changes: dashboardSheetObjects_(ss.getSheetByName('Membership')),
-      roster: dashboardSheetObjects_(ss.getSheetByName('Membership Roster'))
+      roster: dashboardSheetObjects_(ss.getSheetByName('Membership Roster')),
+      members: dashboardSheetObjects_(ss.getSheetByName('Members'))
     };
   }
   return { ok: true, dashboard: executiveRowsToDashboard_(tabs, deps && deps.asOf) };

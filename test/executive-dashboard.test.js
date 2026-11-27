@@ -489,6 +489,30 @@ test('only the three event types are counted, and other statuses stay on the rec
   assert.equal(built.example, false);
   assert.equal(JSON.stringify(built).toLowerCase().includes('email'), false);
   assert.equal(built.renewalRisk, null);
+  assert.deepEqual(JSON.parse(JSON.stringify(built.businessTypes)), []);
+  const types = gs.businessTypes_({
+    roster: [
+      { company: 'Cafe Example', status: 'Active' },
+      { company: 'Two Hats', status: 'Active' },
+      { company: 'Blank Co', status: 'Active' },
+      { company: 'Missing Co', status: 'Active' },
+      { company: 'Old Co', status: 'Deactivated' },
+      { company: 'Cafe Example', status: 'Active' }
+    ],
+    members: [
+      { company_name: 'Cafe Example', category: 'Restaurants' },
+      { company_name: 'Two Hats', category: 'Marketing; Restaurants' },
+      { company_name: 'Blank Co', category: '  ' },
+      { company_name: 'Old Co', category: 'Insurance' }
+    ]
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(types)), [
+    { category: 'Restaurants', count: 2 },
+    { category: 'Marketing', count: 1 },
+    { category: 'Other / not listed', count: 2 }
+  ]);
+  assert.equal(JSON.stringify(types).includes('Cafe'), false);
+  assert.equal(JSON.stringify(types).includes('Blank'), false);
   const risk = gs.renewalRisk_({
     attendanceRecords: [
       { event_type: 'Lunch & Learn', status: 'attended', email: 'new@example.com', date: '2026-10-08' },
