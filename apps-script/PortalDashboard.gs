@@ -381,19 +381,33 @@ function executiveRowsToDashboard_(tabs, asOf) {
     events.push({ id: id, date: date, type: type });
   });
   var counts = {};
+  var signupCounts = {};
   (tabs.attendanceRecords || []).forEach(function (row) {
-    if (String(row.status || '').toLowerCase() !== 'attended') return;
     var id = String(row.event_id || row.eventId || '').trim();
     var type = dashboardEventType_(row.event_type || row.eventType);
-    var audience = dashboardAudience_(row.member_or_guest || row.audience);
-    if (!id || !seen[id] || !type || !audience) return;
-    var key = id + '|' + audience;
-    counts[key] = (counts[key] || 0) + 1;
+    if (!id || !seen[id] || !type) return;
+    var outcome = String(row.status || '').toLowerCase().replace(/[\s-]+/g, '_');
+    var noShow = outcome === 'no_show' || outcome === 'noshow';
+    var attended = outcome === 'attended';
+    var registered = outcome === 'registered';
+    if (attended) {
+      var audience = dashboardAudience_(row.member_or_guest || row.audience);
+      if (audience) {
+        var key = id + '|' + audience;
+        counts[key] = (counts[key] || 0) + 1;
+      }
+    }
+    if (attended || noShow || registered) {
+      if (!signupCounts[id]) signupCounts[id] = { eventId: id, signups: 0, noShows: 0 };
+      signupCounts[id].signups += 1;
+      if (noShow) signupCounts[id].noShows += 1;
+    }
   });
   var attendance = Object.keys(counts).map(function (key) {
     var bits = key.split('|');
     return { eventId: bits[0], audience: bits[1], count: counts[key] };
   });
+  var signups = Object.keys(signupCounts).map(function (id) { return signupCounts[id]; });
   var openings = (tabs.openings || []).map(function (row) {
     return {
       date: dashboardIso_(row.as_of || row.date),
@@ -416,6 +430,7 @@ function executiveRowsToDashboard_(tabs, asOf) {
     asOf: asOf || dashboardToday_(),
     events: events,
     attendance: attendance,
+    signups: signups,
     openings: openings,
     changes: changes
   };

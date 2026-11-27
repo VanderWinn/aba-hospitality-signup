@@ -481,6 +481,11 @@ test('only the three event types are counted, and other statuses stay on the rec
   assert.deepEqual(Array.from(built.events, (event) => event.type), ['Lunch & Learn']);
   assert.equal(built.attendance.length, 1);
   assert.equal(built.attendance[0].count, 1);
+  assert.equal(built.signups.length, 1);
+  assert.equal(built.signups[0].eventId, 'l');
+  assert.equal(built.signups[0].signups, 2);
+  assert.equal(built.signups[0].noShows, 1);
+  assert.equal(JSON.stringify(built.signups).includes('name'), false);
   assert.equal(built.example, false);
   assert.equal(JSON.stringify(built).toLowerCase().includes('email'), false);
   const missing = gs.executiveDashboardAction_({ password: 'secret' }, { passwordHash: gs.ABA_SHA256('secret') });
